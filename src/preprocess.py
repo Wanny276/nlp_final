@@ -13,6 +13,53 @@ except ImportError:  # pragma: no cover - used only before dependencies are inst
 
 DEFAULT_STOPWORDS_PATH = Path("data/stopwords.txt")
 NEGATION_WORDS = {"不", "没有", "不是", "没", "不要", "不能"}
+ENGLISH_NEGATION_WORDS = {"no", "not", "never", "none", "without"}
+ENGLISH_STOPWORDS = {
+    "a",
+    "an",
+    "and",
+    "are",
+    "as",
+    "at",
+    "be",
+    "been",
+    "but",
+    "by",
+    "for",
+    "from",
+    "had",
+    "has",
+    "have",
+    "he",
+    "her",
+    "his",
+    "i",
+    "in",
+    "is",
+    "it",
+    "its",
+    "my",
+    "of",
+    "on",
+    "or",
+    "our",
+    "she",
+    "that",
+    "the",
+    "their",
+    "this",
+    "to",
+    "was",
+    "we",
+    "were",
+    "with",
+    "you",
+    "your",
+    "course",
+    "teacher",
+    "student",
+    "students",
+}
 
 
 def load_stopwords(path: str | Path = DEFAULT_STOPWORDS_PATH) -> set[str]:
@@ -44,27 +91,52 @@ def clean_text(text: object) -> str:
     return value.strip()
 
 
+def detect_language(text: object) -> str:
+    """Detect whether a review is Chinese, English, or mixed."""
+
+    cleaned = clean_text(text)
+    chinese_chars = len(re.findall(r"[\u4e00-\u9fa5]", cleaned))
+    english_chars = len(re.findall(r"[A-Za-z]", cleaned))
+    if chinese_chars and english_chars:
+        return "mixed"
+    if chinese_chars:
+        return "zh"
+    if english_chars:
+        return "en"
+    return "unknown"
+
+
+def _english_tokens(text: str) -> list[str]:
+    return [token.lower() for token in re.findall(r"[A-Za-z]+(?:'[A-Za-z]+)?|\d+", text)]
+
+
 def tokenize(text: object, stopwords: set[str] | None = None) -> list[str]:
-    """Clean, segment, and filter a Chinese review."""
+    """Clean, segment, and filter a Chinese, English, or mixed review."""
 
     stopwords = stopwords or set()
     cleaned = clean_text(text)
     if not cleaned:
         return []
 
-    if jieba is not None:
+    language = detect_language(cleaned)
+    if language == "en":
+        raw_tokens = _english_tokens(cleaned)
+    elif jieba is not None:
         raw_tokens = jieba.lcut(cleaned)
     else:
         raw_tokens = re.findall(r"[\u4e00-\u9fa5A-Za-z0-9]+", cleaned)
 
+    merged_stopwords = stopwords | ENGLISH_STOPWORDS
     tokens: list[str] = []
     for token in raw_tokens:
         token = token.strip()
         if not token:
             continue
+        if re.fullmatch(r"[A-Za-z]+(?:'[A-Za-z]+)?", token):
+            token = token.lower()
         if re.fullmatch(r"[，。！？；、,.!?;:：]+", token):
             continue
-        if token in stopwords and token not in NEGATION_WORDS:
+        if token in merged_stopwords and token not in NEGATION_WORDS | ENGLISH_NEGATION_WORDS:
             continue
         tokens.append(token)
 

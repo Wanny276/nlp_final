@@ -36,6 +36,7 @@ def build_single_review_prompt(analysis: dict[str, Any]) -> str:
     return f"""你是一个高校教学评价分析助手。请根据下面的学生课程评价，结合系统已经识别出的情感倾向、主题类别和关键词，生成简洁的分析结果。
 
 学生评价：{analysis.get("text", "")}
+语言类型：{analysis.get("language", "unknown")}
 情感倾向：{analysis.get("sentiment", "")}
 主题类别：{", ".join(analysis.get("topics", []))}
 关键词：{", ".join(analysis.get("keywords", []))}
@@ -48,6 +49,7 @@ def local_summary(analysis: dict[str, Any]) -> dict[str, Any]:
     """Generate a stable local summary when API is unavailable."""
 
     sentiment = analysis.get("sentiment", "neutral")
+    language = analysis.get("language", "unknown")
     topics = analysis.get("topics", [])
     keywords = analysis.get("keywords", [])
     topic_text = "、".join(topics) if topics else "课程体验"
@@ -68,6 +70,7 @@ def local_summary(analysis: dict[str, Any]) -> dict[str, Any]:
         "problems": [f"需要关注与“{keyword_text}”相关的反馈"],
         "suggestions": [f"结合学生原文，优先优化{topic_text}相关环节"],
         "risk_level": risk_level,
+        "language": language,
         "source": "local_fallback",
     }
 
@@ -108,4 +111,3 @@ def generate_review_advice(analysis: dict[str, Any]) -> dict[str, Any]:
         return result
     except Exception:
         return local_summary(analysis)
-
