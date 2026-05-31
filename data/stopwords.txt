@@ -14,3 +14,14 @@
 课程
 老师
 同学
+the
+and
+is
+are
+this
+that
+course
+teacher
+student
+students
+instructor

@@ -7,3 +7,7 @@ id,text,expected_sentiment,expected_topics,note
 6,这门课难度比较大，但学完之后收获很多,neutral,教学内容;学习收获,既有难度也有收获
 7,希望老师能多给一些代码示例,neutral,实验实践;教学内容,建议型评价
 8,PPT 内容比较多，复习的时候抓不到重点,negative,教学内容;考试安排,负面评价内容组织
+9,The instructor explains concepts clearly and the examples are helpful,positive,授课方式;学习收获,英文正面评价讲解和示例
+10,The assignments are too many and the deadlines are stressful,negative,作业任务,英文负面评价作业任务
+11,The course is difficult but I learned practical skills,neutral,教学内容;学习收获,英文混合评价难度和收获
+12,The environment setup is confusing and the code examples fail,negative,实验实践,英文负面评价实验环境

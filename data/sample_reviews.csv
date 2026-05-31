@@ -11,3 +11,15 @@ id,text,course,teacher,label
 10,实验报告要求比较细，提交时间有点紧。,自然语言处理,张老师,negative
 11,课程内容系统，知识点之间联系讲得比较清楚。,自然语言处理,张老师,positive
 12,如果能提前公布复习重点就更好了。,自然语言处理,张老师,neutral
+13,The instructor explains concepts clearly and the examples are very helpful.,Machine Learning,Online Instructor,positive
+14,The assignments are too many and the deadlines feel stressful.,Machine Learning,Online Instructor,negative
+15,The course is difficult but I learned many practical skills.,Machine Learning,Online Instructor,neutral
+16,The videos are well organized and the pace is comfortable.,Deep Learning,Online Instructor,positive
+17,Some quiz questions are unclear and the grading feedback is limited.,Deep Learning,Online Instructor,negative
+18,I wish the course provided more coding projects and setup guidance.,Python Programming,Online Instructor,neutral
+19,The lectures are engaging and the instructor gives clear explanations.,Python Programming,Online Instructor,positive
+20,The environment setup is confusing and the code examples sometimes fail.,Python Programming,Online Instructor,negative
+21,The certificate is useful but the peer review process takes too long.,Online Course,Online Instructor,neutral
+22,This course helped me understand the core concepts quickly.,Online Course,Online Instructor,positive
+23,The material feels outdated and several links no longer work.,Online Course,Online Instructor,negative
+24,The content is good but I hope there are more real world projects.,Online Course,Online Instructor,neutral
