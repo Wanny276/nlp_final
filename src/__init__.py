@@ -1,0 +1,2 @@
+"""CourseInsight core package."""
+
