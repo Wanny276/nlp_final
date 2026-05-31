@@ -20,6 +20,9 @@ outputs/reports/*
 !outputs/charts/.gitkeep
 !outputs/reports/.gitkeep
 
+# Raw external datasets
+data/raw/
+
 # Model artifacts
 models/*
 !models/.gitkeep
