@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import tempfile
 from pathlib import Path
 
@@ -17,6 +18,7 @@ from src.nlp_analyzer import analyze_batch, analyze_review, sentiment_distributi
 SAMPLE_DATA = Path("data/sample_reviews.csv")
 TEST_CASES = Path("data/test_cases.csv")
 COURSERA_SAMPLE = Path("data/coursera_sample_reviews.csv")
+MODEL_METRICS = Path("models/model_metrics.json")
 
 SENTIMENT_LABELS = {
     "positive": "正面 positive",
@@ -28,6 +30,11 @@ LANGUAGE_LABELS = {
     "en": "English",
     "mixed": "中英混合",
     "unknown": "未知",
+}
+SENTIMENT_SOURCE_LABELS = {
+    "model": "模型预测",
+    "rule": "规则兜底",
+    "hybrid": "规则校正",
 }
 
 
@@ -56,6 +63,7 @@ def result_rows(results: list[dict]) -> list[dict[str, object]]:
             "语言": LANGUAGE_LABELS.get(item["language"], item["language"]),
             "情感": SENTIMENT_LABELS.get(item["sentiment"], item["sentiment"]),
             "置信度": item["confidence"],
+            "情感来源": SENTIMENT_SOURCE_LABELS.get(item.get("sentiment_source", ""), item.get("sentiment_source", "")),
             "主题": "、".join(item["topics"]),
             "关键词": "、".join(item["keywords"]),
         }
@@ -138,11 +146,12 @@ def render_single_review_page() -> None:
 
     result = analyze_review(text, reference_reviews=load_reference_reviews(), use_llm=use_llm)
 
-    metric_a, metric_b, metric_c, metric_d = st.columns(4)
+    metric_a, metric_b, metric_c, metric_d, metric_e = st.columns(5)
     metric_a.metric("语言", LANGUAGE_LABELS.get(result["language"], result["language"]))
     metric_b.metric("情感倾向", SENTIMENT_LABELS.get(result["sentiment"], result["sentiment"]))
     metric_c.metric("置信度", result["confidence"])
-    metric_d.metric("主题数量", len(result["topics"]))
+    metric_d.metric("情感来源", SENTIMENT_SOURCE_LABELS.get(result["sentiment_source"], result["sentiment_source"]))
+    metric_e.metric("主题数量", len(result["topics"]))
 
     tab_structured, tab_advice, tab_similar = st.tabs(["结构化结果", "总结建议", "相似评论"])
 
@@ -277,6 +286,7 @@ def render_test_cases_page() -> None:
                 "评价文本": row["text"],
                 "预期情感": row.get("expected_sentiment", ""),
                 "实际情感": result["sentiment"],
+                "情感来源": SENTIMENT_SOURCE_LABELS.get(result.get("sentiment_source", ""), result.get("sentiment_source", "")),
                 "预期主题": "、".join(expected_topics),
                 "实际主题": "、".join(result["topics"]),
                 "是否通过": "通过" if sentiment_passed and topic_passed else "需检查",
@@ -329,6 +339,28 @@ def render_tech_page() -> None:
         ),
         use_container_width=True,
     )
+
+    st.markdown("#### 模型对比结果")
+    if MODEL_METRICS.exists():
+        metrics = json.loads(MODEL_METRICS.read_text(encoding="utf-8"))
+        metric_a, metric_b, metric_c, metric_d = st.columns(4)
+        metric_a.metric("最佳模型", metrics.get("best_model", "未知"))
+        metric_b.metric("Accuracy", f"{metrics.get('accuracy', 0):.4f}")
+        metric_c.metric("Macro-F1", f"{metrics.get('macro_f1', 0):.4f}")
+        metric_d.metric("测试集", metrics.get("test_size", 0))
+
+        rows = [
+            {
+                "模型": name,
+                "Accuracy": f"{values['accuracy']:.4f}",
+                "Macro-F1": f"{values['macro_f1']:.4f}",
+            }
+            for name, values in metrics.get("results", {}).items()
+        ]
+        st.dataframe(pd.DataFrame(rows), use_container_width=True)
+        st.caption(f"训练数据：{metrics.get('data_path', '')}；训练集 {metrics.get('train_size', 0)} 条。")
+    else:
+        st.info("尚未生成模型指标。运行训练命令后会显示模型对比结果。")
 
 
 def main() -> None:

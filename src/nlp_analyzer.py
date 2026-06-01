@@ -45,6 +45,9 @@ ENGLISH_NEGATIVE_HINTS = {
     "lack",
 }
 ENGLISH_MIXED_HINTS = {"but", "however", "although", "wish", "could", "while"}
+SENTIMENT_MODEL: Any | None = None
+TFIDF_VECTORIZER: Any | None = None
+MODEL_LOAD_ATTEMPTED = False
 
 
 def rule_based_sentiment(text: str) -> tuple[str, float]:
@@ -68,13 +71,62 @@ def rule_based_sentiment(text: str) -> tuple[str, float]:
     return "neutral", 0.6
 
 
+def model_based_sentiment(processed_text: str, model_dir: str | Path = "models") -> tuple[str, float] | None:
+    """Predict sentiment with a saved TF-IDF + Logistic Regression model."""
+
+    global MODEL_LOAD_ATTEMPTED, SENTIMENT_MODEL, TFIDF_VECTORIZER
+
+    if not MODEL_LOAD_ATTEMPTED:
+        SENTIMENT_MODEL, TFIDF_VECTORIZER = load_model_if_available(model_dir)
+        MODEL_LOAD_ATTEMPTED = True
+
+    if SENTIMENT_MODEL is None or TFIDF_VECTORIZER is None or not processed_text:
+        return None
+
+    try:
+        features = TFIDF_VECTORIZER.transform([processed_text])
+        prediction = SENTIMENT_MODEL.predict(features)[0]
+    except Exception:
+        SENTIMENT_MODEL = None
+        TFIDF_VECTORIZER = None
+        return None
+
+    confidence = 0.6
+    if hasattr(SENTIMENT_MODEL, "predict_proba"):
+        try:
+            probabilities = SENTIMENT_MODEL.predict_proba(features)[0]
+            confidence = float(max(probabilities))
+        except Exception:
+            confidence = 0.6
+
+    return str(prediction), confidence
+
+
+def predict_sentiment(text: str, processed_text: str) -> tuple[str, float, str]:
+    """Use the trained model when available, otherwise fall back to rules."""
+
+    rule_sentiment, rule_confidence = rule_based_sentiment(text)
+    model_result = model_based_sentiment(processed_text)
+    if model_result is not None:
+        model_sentiment, model_confidence = model_result
+        if (
+            model_sentiment != rule_sentiment
+            and rule_confidence >= 0.75
+            and model_confidence < 0.68
+        ):
+            return rule_sentiment, rule_confidence, "hybrid"
+        return model_sentiment, model_confidence, "model"
+
+    return rule_sentiment, rule_confidence, "rule"
+
+
 def analyze_review(text: str, reference_reviews: list[str] | None = None, use_llm: bool = True) -> dict[str, Any]:
     """Analyze one course review."""
 
     stopwords = load_stopwords()
     processed = preprocess_text(text, stopwords=stopwords)
     language = detect_language(text)
-    sentiment, confidence = rule_based_sentiment(text)
+    sentiment, confidence, sentiment_source = predict_sentiment(text, processed)
     topics = detect_topics(text)
     keywords = keywords_only(text, top_k=6, stopwords=stopwords)
     similar_reviews = find_similar_reviews(text, reference_reviews or [], top_k=3)
@@ -85,6 +137,7 @@ def analyze_review(text: str, reference_reviews: list[str] | None = None, use_ll
         "processed_text": processed,
         "sentiment": sentiment,
         "confidence": round(confidence, 3),
+        "sentiment_source": sentiment_source,
         "topics": topics,
         "keywords": keywords,
         "similar_reviews": [
