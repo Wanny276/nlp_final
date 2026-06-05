@@ -9,6 +9,7 @@ TOPIC_KEYWORDS: dict[str, set[str]] = {
         "难度",
         "重点",
         "案例",
+        "示例",
         "ppt",
         "复习",
         "概念",
@@ -20,6 +21,8 @@ TOPIC_KEYWORDS: dict[str, set[str]] = {
         "lecture",
         "lectures",
         "syllabus",
+        "difficult",
+        "difficulty",
     },
     "授课方式": {
         "讲课",

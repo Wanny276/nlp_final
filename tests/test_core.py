@@ -1,6 +1,9 @@
 import unittest
 from unittest.mock import patch
 
+import pandas as pd
+
+from app import build_test_case_results, parse_expected_topics
 from src.keyword_extractor import keywords_only
 from src.llm_client import local_summary
 from src.nlp_analyzer import analyze_review, sentiment_distribution
@@ -33,6 +36,14 @@ class CorePipelineTest(unittest.TestCase):
     def test_english_topic_detection(self):
         topics = detect_topics("The assignments are too many and the deadline is stressful")
         self.assertIn("作业任务", topics)
+
+    def test_example_suggestion_hits_content_topic(self):
+        topics = detect_topics("希望老师能多给一些代码示例")
+        self.assertIn("教学内容", topics)
+
+    def test_english_difficult_review_hits_content_topic(self):
+        topics = detect_topics("The course is difficult but I learned practical skills")
+        self.assertIn("教学内容", topics)
 
     def test_keyword_extraction(self):
         keywords = keywords_only("作业太多了，作业提交时间也紧", top_k=5)
@@ -102,6 +113,37 @@ class CorePipelineTest(unittest.TestCase):
         rows = load_reviews_csv("data/coursera_sample_reviews.csv")
         self.assertEqual(rows[0]["text"], "The instructor explains every concept clearly and the examples are useful")
         self.assertEqual(rows[0]["label"], "positive")
+
+    def test_parse_expected_topics(self):
+        self.assertEqual(parse_expected_topics("教学内容;考试安排；学习收获"), ["教学内容", "考试安排", "学习收获"])
+
+    @patch("app.analyze_review")
+    def test_build_test_case_results(self, mock_analyze):
+        mock_analyze.return_value = {
+            "language": "zh",
+            "sentiment": "positive",
+            "confidence": 0.91,
+            "sentiment_source": "rule",
+            "topics": ["授课方式", "教学内容"],
+            "keywords": ["清楚", "内容"],
+        }
+        cases = pd.DataFrame(
+            [
+                {
+                    "id": 1,
+                    "text": "老师讲课很清楚，内容也很有用",
+                    "expected_sentiment": "positive",
+                    "expected_topics": "授课方式;教学内容",
+                    "note": "正面评价",
+                }
+            ]
+        )
+
+        results = build_test_case_results(cases)
+
+        self.assertEqual(results.loc[0, "是否通过"], "通过")
+        self.assertEqual(results.loc[0, "情感来源"], "规则兜底")
+        self.assertEqual(results.loc[0, "关键词"], "清楚、内容")
 
 
 if __name__ == "__main__":

@@ -71,6 +71,63 @@ def result_rows(results: list[dict]) -> list[dict[str, object]]:
     ]
 
 
+def parse_expected_topics(value: object) -> list[str]:
+    """Parse semicolon-separated expected topics from the test case sheet."""
+
+    if value is None or pd.isna(value):
+        return []
+
+    return [
+        topic.strip()
+        for topic in str(value).replace("；", ";").split(";")
+        if topic.strip()
+    ]
+
+
+def build_test_case_results(
+    cases: pd.DataFrame,
+    reference_reviews: list[str] | None = None,
+) -> pd.DataFrame:
+    """Run formal test cases and return a report-friendly result table."""
+
+    outputs: list[dict[str, object]] = []
+    for _, row in cases.iterrows():
+        result = analyze_review(
+            str(row.get("text", "")),
+            reference_reviews=reference_reviews,
+            use_llm=False,
+        )
+        expected_topics = parse_expected_topics(row.get("expected_topics", ""))
+        actual_topics = result["topics"]
+        expected_sentiment = str(row.get("expected_sentiment", "")).strip()
+        sentiment_passed = not expected_sentiment or result["sentiment"] == expected_sentiment
+        topic_passed = set(expected_topics).issubset(set(actual_topics)) if expected_topics else True
+
+        outputs.append(
+            {
+                "编号": row.get("id", ""),
+                "评价文本": row.get("text", ""),
+                "语言": LANGUAGE_LABELS.get(result["language"], result["language"]),
+                "预期情感": expected_sentiment,
+                "实际情感": result["sentiment"],
+                "情感是否通过": "通过" if sentiment_passed else "需检查",
+                "预期主题": "、".join(expected_topics),
+                "实际主题": "、".join(actual_topics),
+                "主题是否通过": "通过" if topic_passed else "需检查",
+                "关键词": "、".join(result["keywords"]),
+                "置信度": result["confidence"],
+                "情感来源": SENTIMENT_SOURCE_LABELS.get(
+                    result.get("sentiment_source", ""),
+                    result.get("sentiment_source", ""),
+                ),
+                "备注": row.get("note", ""),
+                "是否通过": "通过" if sentiment_passed and topic_passed else "需检查",
+            }
+        )
+
+    return pd.DataFrame(outputs)
+
+
 def render_shell() -> str:
     st.set_page_config(page_title="CourseInsight", layout="wide")
     st.title("CourseInsight 中英双语课程评价智能分析系统")
@@ -269,36 +326,22 @@ def render_test_cases_page() -> None:
     if not st.button("运行测试用例", type="primary"):
         return
 
-    outputs: list[dict[str, object]] = []
-    for _, row in cases.iterrows():
-        result = analyze_review(str(row["text"]), use_llm=False)
-        expected_topics = {
-            topic.strip()
-            for topic in str(row.get("expected_topics", "")).replace("；", ";").split(";")
-            if topic.strip()
-        }
-        actual_topics = set(result["topics"])
-        sentiment_passed = result["sentiment"] == row.get("expected_sentiment")
-        topic_passed = expected_topics.issubset(actual_topics) if expected_topics else True
-        outputs.append(
-            {
-                "编号": row.get("id", ""),
-                "评价文本": row["text"],
-                "预期情感": row.get("expected_sentiment", ""),
-                "实际情感": result["sentiment"],
-                "情感来源": SENTIMENT_SOURCE_LABELS.get(result.get("sentiment_source", ""), result.get("sentiment_source", "")),
-                "预期主题": "、".join(expected_topics),
-                "实际主题": "、".join(result["topics"]),
-                "是否通过": "通过" if sentiment_passed and topic_passed else "需检查",
-            }
-        )
+    with st.spinner("正在运行测试用例..."):
+        output_df = build_test_case_results(cases, reference_reviews=load_reference_reviews())
 
-    output_df = pd.DataFrame(outputs)
     passed_count = int((output_df["是否通过"] == "通过").sum())
-    col_a, col_b = st.columns(2)
+    pass_rate = passed_count / len(output_df) if len(output_df) else 0
+    col_a, col_b, col_c = st.columns(3)
     col_a.metric("通过数量", passed_count)
     col_b.metric("用例总数", len(output_df))
+    col_c.metric("通过率", f"{pass_rate:.1%}")
     st.dataframe(output_df, width="stretch")
+    st.download_button(
+        "下载测试结果 CSV",
+        data=output_df.to_csv(index=False).encode("utf-8-sig"),
+        file_name="courseinsight_test_case_results.csv",
+        mime="text/csv",
+    )
 
 
 def render_tech_page() -> None:
