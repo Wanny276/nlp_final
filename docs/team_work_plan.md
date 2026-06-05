@@ -1,6 +1,13 @@
-# 两人小组分工与开发计划
+# CourseInsight 两人小组分工与开发计划
 
 本项目为 **CourseInsight 中英双语课程评价智能分析系统**。系统支持中文高校课程评价和英文在线课程评论，完成情感分析、主题识别、关键词提取、相似评论检索、可视化展示和大模型总结建议。
+
+常用入口：
+
+- 项目运行和训练命令见 [../README.md](../README.md)；
+- 情感标签判定以 [sentiment_labeling_guidelines.md](sentiment_labeling_guidelines.md) 为准；
+- 数据集来源和构建流程见 [dataset_preparation.md](dataset_preparation.md)；
+- 期末提交检查见 [submission_checklist.md](submission_checklist.md)。
 
 ## 一、总体分工
 
@@ -110,12 +117,12 @@ app.py
 
 ### 5. 模型训练与接入
 
-等成员 B 扩充数据后，成员 A 负责训练和接入情感分类模型。
+当前项目已有双语训练集，成员 A 负责训练和接入情感分类模型。
 
 训练命令：
 
 ```bash
-python -m src.train_model --data data/sample_reviews.csv --model-dir models
+python -m src.train_model --data data/processed/bilingual_reviews_train.csv --model-dir models
 ```
 
 目标生成：
@@ -123,13 +130,15 @@ python -m src.train_model --data data/sample_reviews.csv --model-dir models
 ```text
 models/sentiment_model.pkl
 models/tfidf_vectorizer.pkl
+models/model_metrics.json
 ```
 
 接入要求：
 
 - 系统优先使用训练好的模型预测情感；
 - 如果模型不存在，则使用规则版情感分析兜底；
-- 记录模型准确率、Macro-F1 等指标，用于报告和 PPT。
+- 记录模型准确率、Macro-F1 等指标，用于报告和 PPT；
+- 如果修改 `src/preprocess.py`，需要重新训练模型。
 
 涉及文件：
 
@@ -159,13 +168,13 @@ data/coursera_sample_reviews.csv
 id,text,course,teacher,label
 ```
 
-标签规则：
+标签规则以 [sentiment_labeling_guidelines.md](sentiment_labeling_guidelines.md) 为准。简要原则：
 
-| 标签 | 含义 |
-|---|---|
-| `positive` | 明显表扬、认可、满意 |
-| `neutral` | 有好有坏、建议型、描述型 |
-| `negative` | 明显抱怨、不满、问题较多 |
+```text
+positive：主要表达认可、满意或表扬
+neutral：有好有坏、转折评价、建议型评价，或正负面信号相对均衡
+negative：主要表达抱怨、不满或明显问题
+```
 
 建议数据规模：
 
@@ -304,9 +313,7 @@ API Key 不能写进代码
 
 ## 四、开发顺序
 
-### 阶段 0：同步双语版本
-
-先将 `feature/bilingual-support` 合并到 `main`。
+### 阶段 0：同步最新版本
 
 本地更新：
 
@@ -322,7 +329,7 @@ streamlit run app.py
 ```text
 两个人电脑上都能打开 Streamlit 页面
 页面标题显示“中英双语课程评价智能分析系统”
-中文和英文单条评价都能分析
+中文、英文和中英混合单条评价都能分析
 ```
 
 ### 阶段 1：并行启动
@@ -479,10 +486,9 @@ git push -u origin feature/dataset-llm
 
 按照优先级执行：
 
-1. 合并 `feature/bilingual-support` 到 `main`；
-2. 两个人都拉取最新 `main` 并运行项目；
-3. 成员 B 开始扩充数据；
-4. 成员 A 开始优化 Streamlit 页面和 NLP 展示；
-5. 数据达到 100 条以上后训练模型；
-6. 接入大模型 API；
-7. 整理测试截图、报告、PPT 和演示视频。
+1. 两个人都拉取最新代码并运行项目；
+2. 成员 A 重新训练双语情感模型，并确认模型效果页面可截图；
+3. 成员 A 检查中文、英文、中英混合单条分析和批量 CSV 分析；
+4. 成员 B 完成大模型 API / Prompt / 本地兜底测试；
+5. 成员 B 整理测试用例结果和截图；
+6. 两人共同整理报告、PPT、演示视频和最终提交材料。

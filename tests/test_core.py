@@ -1,4 +1,5 @@
 import unittest
+from unittest.mock import patch
 
 from src.keyword_extractor import keywords_only
 from src.llm_client import local_summary
@@ -34,26 +35,44 @@ class CorePipelineTest(unittest.TestCase):
         self.assertIn("作业任务", topics)
 
     def test_keyword_extraction(self):
-        keywords = keywords_only("作业太多了，作业提交时间也紧", top_k=2)
+        keywords = keywords_only("作业太多了，作业提交时间也紧", top_k=5)
         self.assertIn("作业", keywords)
+        self.assertIn("提交", keywords)
 
     def test_similarity(self):
         score = cosine_similarity("实验环境配置复杂", "实验配置步骤太麻烦")
         self.assertGreater(score, 0)
 
-    def test_analyze_review(self):
+    @patch("src.nlp_analyzer.model_based_sentiment", return_value=None)
+    def test_analyze_review(self, _mock_model):
         result = analyze_review("老师讲课很清楚，课堂互动很多", use_llm=False)
         self.assertEqual(result["sentiment"], "positive")
         self.assertIn("授课方式", result["topics"])
 
-    def test_analyze_english_review(self):
+    @patch("src.nlp_analyzer.model_based_sentiment", return_value=None)
+    def test_analyze_english_review(self, _mock_model):
         result = analyze_review(
             "The instructor explains concepts clearly but the assignments are too many",
             use_llm=False,
         )
         self.assertEqual(result["language"], "en")
-        self.assertIn(result["sentiment"], {"negative", "neutral"})
+        self.assertEqual(result["sentiment"], "neutral")
         self.assertIn("作业任务", result["topics"])
+
+    @patch("src.nlp_analyzer.model_based_sentiment", return_value=None)
+    def test_mixed_bilingual_review_is_neutral(self, _mock_model):
+        result = analyze_review("老师讲解很 clear，但是 assignment 太多，deadline 有点紧。", use_llm=False)
+        self.assertEqual(result["language"], "mixed")
+        self.assertEqual(result["sentiment"], "neutral")
+
+    @patch("src.nlp_analyzer.model_based_sentiment", return_value=("negative", 0.74))
+    def test_balanced_mixed_review_overrides_uncertain_model(self, _mock_model):
+        result = analyze_review(
+            "The instructor explains concepts clearly but the assignments are too many and the setup is confusing.",
+            use_llm=False,
+        )
+        self.assertEqual(result["sentiment"], "neutral")
+        self.assertEqual(result["sentiment_source"], "hybrid")
 
     def test_sentiment_distribution(self):
         results = [

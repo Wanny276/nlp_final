@@ -115,11 +115,11 @@ def render_overview_page() -> None:
     col_3.markdown("**大模型增强**\n\n基于结构化分析结果生成反馈总结和改进建议。")
 
     st.markdown("#### 示例数据预览")
-    st.dataframe(rows_to_frame(rows).head(8), use_container_width=True)
+    st.dataframe(rows_to_frame(rows).head(8), width="stretch")
 
     if COURSERA_SAMPLE.exists():
         st.markdown("#### Coursera 格式样例")
-        st.dataframe(rows_to_frame(load_reviews_csv(COURSERA_SAMPLE)).head(5), use_container_width=True)
+        st.dataframe(rows_to_frame(load_reviews_csv(COURSERA_SAMPLE)).head(5), width="stretch")
 
 
 def render_single_review_page() -> None:
@@ -135,7 +135,7 @@ def render_single_review_page() -> None:
 
     col_a, col_b = st.columns([1, 2])
     use_llm = col_a.toggle("生成总结建议", value=True)
-    analyze_clicked = col_b.button("开始分析", type="primary", use_container_width=True)
+    analyze_clicked = col_b.button("开始分析", type="primary", width="stretch")
 
     if not analyze_clicked:
         return
@@ -172,7 +172,7 @@ def render_single_review_page() -> None:
 
     with tab_similar:
         if result["similar_reviews"]:
-            st.dataframe(result["similar_reviews"], use_container_width=True)
+            st.dataframe(result["similar_reviews"], width="stretch")
         else:
             st.info("暂无相似评论。")
 
@@ -200,11 +200,11 @@ def render_batch_page() -> None:
 
     texts = rows_to_texts(rows)
     st.markdown(f"#### 数据来源：{source_name}")
-    st.dataframe(rows_to_frame(rows).head(12), use_container_width=True)
+    st.dataframe(rows_to_frame(rows).head(12), width="stretch")
 
     col_a, col_b = st.columns([1, 3])
     col_a.metric("有效评价数", len(texts))
-    reanalyze_clicked = col_b.button("重新分析批量数据", type="primary", use_container_width=True)
+    reanalyze_clicked = col_b.button("重新分析批量数据", type="primary", width="stretch")
 
     if not texts:
         st.warning("没有可分析的文本。")
@@ -248,7 +248,7 @@ def render_batch_page() -> None:
 
     st.markdown("#### 分析明细")
     results_df = pd.DataFrame(result_rows(results))
-    st.dataframe(results_df, use_container_width=True)
+    st.dataframe(results_df, width="stretch")
     st.download_button(
         "下载分析结果 CSV",
         data=results_df.to_csv(index=False).encode("utf-8-sig"),
@@ -264,7 +264,7 @@ def render_test_cases_page() -> None:
         return
 
     cases = pd.read_csv(TEST_CASES)
-    st.dataframe(cases, use_container_width=True)
+    st.dataframe(cases, width="stretch")
 
     if not st.button("运行测试用例", type="primary"):
         return
@@ -298,7 +298,7 @@ def render_test_cases_page() -> None:
     col_a, col_b = st.columns(2)
     col_a.metric("通过数量", passed_count)
     col_b.metric("用例总数", len(output_df))
-    st.dataframe(output_df, use_container_width=True)
+    st.dataframe(output_df, width="stretch")
 
 
 def render_tech_page() -> None:
@@ -325,7 +325,7 @@ def render_tech_page() -> None:
         ("LLM 增强", "src/llm_client.py", "结构化 Prompt 和本地兜底"),
         ("Web 界面", "app.py", "Streamlit 交互页面"),
     ]
-    st.dataframe(pd.DataFrame(module_rows, columns=["模块", "文件", "说明"]), use_container_width=True)
+    st.dataframe(pd.DataFrame(module_rows, columns=["模块", "文件", "说明"]), width="stretch")
 
     st.markdown("#### Coursera 评分转标签")
     st.dataframe(
@@ -337,7 +337,7 @@ def render_tech_page() -> None:
             ],
             columns=["评分", "标签", "含义"],
         ),
-        use_container_width=True,
+        width="stretch",
     )
 
     st.markdown("#### 模型对比结果")
@@ -357,7 +357,7 @@ def render_tech_page() -> None:
             }
             for name, values in metrics.get("results", {}).items()
         ]
-        st.dataframe(pd.DataFrame(rows), use_container_width=True)
+        st.dataframe(pd.DataFrame(rows), width="stretch")
         st.caption(f"训练数据：{metrics.get('data_path', '')}；训练集 {metrics.get('train_size', 0)} 条。")
     else:
         st.info("尚未生成模型指标。运行训练命令后会显示模型对比结果。")

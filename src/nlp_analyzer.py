@@ -48,20 +48,45 @@ ENGLISH_MIXED_HINTS = {"but", "however", "although", "wish", "could", "while"}
 SENTIMENT_MODEL: Any | None = None
 TFIDF_VECTORIZER: Any | None = None
 MODEL_LOAD_ATTEMPTED = False
+MIXED_MODEL_OVERRIDE_THRESHOLD = 0.78
 
 
-def rule_based_sentiment(text: str) -> tuple[str, float]:
-    """A lightweight sentiment fallback used before model training."""
-
+def _sentiment_hint_counts(text: str) -> tuple[int, int]:
     normalized = text.lower()
     positive_hits = sum(1 for word in POSITIVE_HINTS if word in text)
     negative_hits = sum(1 for word in NEGATIVE_HINTS if word in text)
     positive_hits += sum(1 for word in ENGLISH_POSITIVE_HINTS if word in normalized)
     negative_hits += sum(1 for word in ENGLISH_NEGATIVE_HINTS if word in normalized)
-    has_mixed_signal = any(word in text for word in NEGATION_HINTS) or any(
+    return positive_hits, negative_hits
+
+
+def _has_mixed_signal(text: str) -> bool:
+    normalized = text.lower()
+    return any(word in text for word in NEGATION_HINTS) or any(
         word in normalized for word in ENGLISH_MIXED_HINTS
     )
 
+
+def _is_balanced_mixed_review(text: str) -> bool:
+    positive_hits, negative_hits = _sentiment_hint_counts(text)
+    return (
+        positive_hits > 0
+        and negative_hits > 0
+        and _has_mixed_signal(text)
+        and negative_hits < positive_hits + 2
+    )
+
+
+def rule_based_sentiment(text: str) -> tuple[str, float]:
+    """A lightweight sentiment fallback used before model training."""
+
+    positive_hits, negative_hits = _sentiment_hint_counts(text)
+    has_mixed_signal = _has_mixed_signal(text)
+
+    if positive_hits > 0 and negative_hits > 0 and has_mixed_signal:
+        if negative_hits >= positive_hits + 2:
+            return "negative", min(0.95, 0.65 + negative_hits * 0.1)
+        return "neutral", 0.72
     if positive_hits > negative_hits and not has_mixed_signal:
         return "positive", min(0.95, 0.65 + positive_hits * 0.1)
     if negative_hits > positive_hits:
@@ -109,6 +134,14 @@ def predict_sentiment(text: str, processed_text: str) -> tuple[str, float, str]:
     model_result = model_based_sentiment(processed_text)
     if model_result is not None:
         model_sentiment, model_confidence = model_result
+        if (
+            model_sentiment != "neutral"
+            and _is_balanced_mixed_review(text)
+            and model_confidence < MIXED_MODEL_OVERRIDE_THRESHOLD
+        ):
+            return "neutral", 0.72, "hybrid"
+        if model_sentiment != rule_sentiment and model_confidence < 0.55:
+            return rule_sentiment, max(rule_confidence, model_confidence), "hybrid"
         if (
             model_sentiment != rule_sentiment
             and rule_confidence >= 0.75

@@ -32,6 +32,7 @@ ENGLISH_STOPWORDS = {
     "have",
     "he",
     "her",
+    "however",
     "his",
     "i",
     "in",
@@ -52,14 +53,70 @@ ENGLISH_STOPWORDS = {
     "was",
     "we",
     "were",
+    "while",
     "with",
     "you",
     "your",
+    "although",
+    "could",
     "course",
     "teacher",
     "student",
     "students",
 }
+CHINESE_DOMAIN_TERMS = (
+    "知识点",
+    "不明确",
+    "实验环境",
+    "教学内容",
+    "课程内容",
+    "作业",
+    "提交",
+    "时间",
+    "太多",
+    "实验",
+    "环境",
+    "配置",
+    "复杂",
+    "步骤",
+    "麻烦",
+    "内容",
+    "难度",
+    "重点",
+    "案例",
+    "复习",
+    "概念",
+    "讲课",
+    "讲解",
+    "语速",
+    "互动",
+    "解释",
+    "清楚",
+    "课堂",
+    "氛围",
+    "任务",
+    "练习",
+    "批改",
+    "报告",
+    "考试",
+    "范围",
+    "题型",
+    "成绩",
+    "代码",
+    "运行",
+    "报错",
+    "示例",
+    "实践",
+    "收获",
+    "帮助",
+    "能力",
+    "理解",
+    "提高",
+    "有用",
+    "压力",
+    "困难",
+    "紧",
+)
 
 
 def load_stopwords(path: str | Path = DEFAULT_STOPWORDS_PATH) -> set[str]:
@@ -110,6 +167,17 @@ def _english_tokens(text: str) -> list[str]:
     return [token.lower() for token in re.findall(r"[A-Za-z]+(?:'[A-Za-z]+)?|\d+", text)]
 
 
+def _expand_chinese_token(token: str) -> list[str]:
+    if not re.search(r"[\u4e00-\u9fa5]", token):
+        return [token]
+
+    matches = [term for term in CHINESE_DOMAIN_TERMS if term in token and term != token]
+    if not matches:
+        return [token]
+
+    return matches
+
+
 def tokenize(text: object, stopwords: set[str] | None = None) -> list[str]:
     """Clean, segment, and filter a Chinese, English, or mixed review."""
 
@@ -122,7 +190,7 @@ def tokenize(text: object, stopwords: set[str] | None = None) -> list[str]:
     if language == "en":
         raw_tokens = _english_tokens(cleaned)
     elif jieba is not None:
-        raw_tokens = jieba.lcut(cleaned)
+        raw_tokens = jieba.cut_for_search(cleaned)
     else:
         raw_tokens = re.findall(r"[\u4e00-\u9fa5A-Za-z0-9]+", cleaned)
 
@@ -136,9 +204,11 @@ def tokenize(text: object, stopwords: set[str] | None = None) -> list[str]:
             token = token.lower()
         if re.fullmatch(r"[，。！？；、,.!?;:：]+", token):
             continue
-        if token in merged_stopwords and token not in NEGATION_WORDS | ENGLISH_NEGATION_WORDS:
-            continue
-        tokens.append(token)
+        expanded_tokens = _expand_chinese_token(token)
+        for expanded_token in expanded_tokens:
+            if expanded_token in merged_stopwords and expanded_token not in NEGATION_WORDS | ENGLISH_NEGATION_WORDS:
+                continue
+            tokens.append(expanded_token)
 
     return tokens
 
