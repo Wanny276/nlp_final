@@ -14,7 +14,7 @@ LABEL_ORDER = ["positive", "neutral", "negative"]
 def clean_coursera(
     input_path: str | Path,
     output_path: str | Path,
-    per_label: int = 80,
+    per_label: int = 3000,
     min_chars: int = 20,
     max_chars: int = 1200,
     random_state: int = 42,
@@ -94,7 +94,7 @@ def main() -> None:
     parser.add_argument("--coursera", default="data/processed/coursera_reviews_sampled.csv")
     parser.add_argument("--cleaned-coursera", default="data/processed/coursera_reviews_cleaned.csv")
     parser.add_argument("--output", default="data/processed/bilingual_reviews_train.csv")
-    parser.add_argument("--per-label", type=int, default=80)
+    parser.add_argument("--per-label", type=int, default=3000)
     parser.add_argument("--min-chars", type=int, default=20)
     parser.add_argument("--max-chars", type=int, default=1200)
     args = parser.parse_args()
