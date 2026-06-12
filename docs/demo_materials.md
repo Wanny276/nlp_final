@@ -37,17 +37,43 @@
 数据集说明：
 
 ```text
-英文课程评论来自 Hugging Face 的 MungunshagaiT/coursera-reviews 数据集。项目按 positive、neutral、negative 三类均衡抽样，每类 3000 条，共 9000 条英文 Coursera 评论。中文课程评价样本为项目组根据高校课程评价场景人工构造和标注，共 120 条，用于中文 NLP 流程和中英双语输入验证。最终双语训练集共 9120 条。
+英文课程评论来自 Hugging Face 的 MungunshagaiT/coursera-reviews 数据集。项目按 positive、neutral、negative 三类均衡抽样，每类 3000 条，共 9000 条英文 Coursera 评论。中文课程评价样本为项目组根据高校课程评价场景人工构造和标注，共 120 条，用于高校课程评价场景适配、中文 NLP 流程验证和中文输入演示。最终训练集共 9120 条。当前量化评估主要基于英文 Coursera 评论，不把中文小样本指标作为强性能结论。
 ```
 
 模型说明：
 
 ```text
-系统使用 TF-IDF unigram/bigram 特征和传统机器学习模型进行三分类情感识别，并比较 Dummy、Logistic Regression、Naive Bayes 和 Linear SVM。当前最优模型为 Logistic Regression，accuracy 为 0.6877，macro_f1 为 0.6867。
+系统使用 TF-IDF unigram/bigram 特征和传统机器学习模型进行三分类情感识别，并比较 Dummy baseline、Logistic Regression、Naive Bayes 和 Linear SVM。当前最优模型为 Logistic Regression，accuracy 为 0.6877，macro_f1 为 0.6867。三分类任务中 macro_f1 比 accuracy 更能反映三类整体表现，因此报告中建议两个指标一起展示。
 ```
 
 系统说明：
 
 ```text
-传统 NLP 模块负责语言识别、文本预处理、情感分类、主题识别、关键词提取和相似评论检索；大模型模块基于结构化分析结果生成课程反馈总结和改进建议。未配置 API 或 API 失败时，系统会自动使用本地模板兜底，保证演示流程稳定。
+传统 NLP 模块负责语言识别、文本预处理、情感分类、主题识别、关键词提取和相似评论检索；大模型模块基于结构化分析结果生成课程反馈总结和改进建议。系统支持 OpenAI-compatible API，演示默认使用 ECNU Open API 配置。未配置 API、API 失败或返回 JSON 不可解析时，系统会自动使用本地模板兜底，保证演示流程稳定。
+```
+
+## 四、答辩重点口径
+
+中文数据定位：
+
+```text
+本项目的核心量化评估主要基于 Coursera 英文课程评论；中文部分主要用于高校课程评价场景适配、中文预处理流程验证和中文输入演示。系统通过中文分词、课程维度关键词、规则兜底和本地模板增强中文可用性，但不把当前 120 条中文小样本作为中文模型强性能结论。
+```
+
+创新点 1：
+
+```text
+面向课程评价场景的“结构化 NLP -> LLM 建议生成”链路。系统先输出语言、情感、主题、关键词和相似评论，再让 LLM 基于这些结构化结果生成总结与建议，而不是直接把原始评论交给大模型。
+```
+
+创新点 2：
+
+```text
+可解释的课程维度识别。主题识别不仅返回维度标签，还返回命中关键词和证据片段，便于教师理解系统为什么判断该评价涉及教学内容、作业任务、实验实践等方面。
+```
+
+模型结果答法：
+
+```text
+我们选择 TF-IDF + Logistic Regression，是因为它训练成本低、结果可解释、部署稳定，适合课程项目演示。后续如果补充更多真实中文课程评价，可以再引入 BERT/RoBERTa 等预训练模型做语义表示增强。
 ```

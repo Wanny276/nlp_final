@@ -16,16 +16,16 @@ except ImportError:  # pragma: no cover - used only before dependencies are inst
 @dataclass
 class LLMConfig:
     api_key: str = ""
-    base_url: str = "https://api.deepseek.com/v1"
-    model: str = "deepseek-chat"
+    base_url: str = "https://chat.ecnu.edu.cn/open/api/v1"
+    model: str = "ecnu-plus"
     timeout: int = 20
 
     @classmethod
     def from_env(cls) -> "LLMConfig":
         return cls(
             api_key=os.getenv("LLM_API_KEY", ""),
-            base_url=os.getenv("LLM_BASE_URL", "https://api.deepseek.com/v1"),
-            model=os.getenv("LLM_MODEL", "deepseek-chat"),
+            base_url=os.getenv("LLM_BASE_URL", "https://chat.ecnu.edu.cn/open/api/v1"),
+            model=os.getenv("LLM_MODEL", "ecnu-plus"),
             timeout=int(os.getenv("LLM_TIMEOUT", "20")),
         )
 
@@ -33,6 +33,8 @@ class LLMConfig:
 def build_single_review_prompt(analysis: dict[str, Any]) -> str:
     """Build a structured prompt for one review."""
 
+    topic_evidence = json.dumps(analysis.get("topic_evidence", []), ensure_ascii=False)
+    similar_reviews = json.dumps(analysis.get("similar_reviews", []), ensure_ascii=False)
     return f"""你是一个高校教学评价分析助手。请根据下面的学生课程评价，结合系统已经识别出的情感倾向、主题类别和关键词，生成简洁的分析结果。
 
 学生评价：{analysis.get("text", "")}
@@ -40,9 +42,12 @@ def build_single_review_prompt(analysis: dict[str, Any]) -> str:
 情感倾向：{analysis.get("sentiment", "")}
 主题类别：{", ".join(analysis.get("topics", []))}
 关键词：{", ".join(analysis.get("keywords", []))}
+主题证据：{topic_evidence}
+相似评论：{similar_reviews}
 
-请输出 JSON 格式，包含 summary、problems、suggestions、risk_level。
-要求：不要编造学生没有提到的问题；建议要具体；输出必须是合法 JSON。"""
+请输出合法 JSON 对象，包含 summary、problems、suggestions、risk_level。
+problems 每项包含 aspect、description、evidence；suggestions 每项包含 aspect、suggestion、evidence。
+要求：不要编造学生没有提到的问题；aspect 优先来自主题证据；evidence 必须引用学生评价、主题证据或相似评论中的原文片段；正面评价也要给出保持优势或继续优化的建议。"""
 
 
 def local_summary(analysis: dict[str, Any]) -> dict[str, Any]:
@@ -54,21 +59,46 @@ def local_summary(analysis: dict[str, Any]) -> dict[str, Any]:
     keywords = analysis.get("keywords", [])
     topic_text = "、".join(topics) if topics else "课程体验"
     keyword_text = "、".join(keywords[:5]) if keywords else "相关内容"
+    aspect = str(topics[0]) if topics else "课程体验"
+    evidence_items = analysis.get("topic_evidence", [])
+    evidence = ""
+    if evidence_items:
+        evidence = str(evidence_items[0].get("evidence", ""))
+    if not evidence:
+        evidence = str(analysis.get("text", ""))[:80]
 
     if sentiment == "positive":
         summary = f"学生整体反馈较积极，主要认可{topic_text}方面。"
         risk_level = "low"
+        problem_text = f"暂未发现明显问题，仍可继续关注与“{keyword_text}”相关的体验"
+        suggestion_text = f"保持{topic_text}相关优势，并结合学生原文继续优化课程体验"
     elif sentiment == "negative":
         summary = f"学生反馈偏负面，问题集中在{topic_text}方面。"
         risk_level = "high"
+        problem_text = f"需要关注与“{keyword_text}”相关的负面反馈"
+        suggestion_text = f"优先优化{topic_text}相关环节，降低学生学习阻力"
     else:
         summary = f"学生反馈较为中性，涉及{topic_text}，同时包含肯定和改进建议。"
         risk_level = "middle"
+        problem_text = f"需要进一步区分与“{keyword_text}”相关的肯定点和改进点"
+        suggestion_text = f"保留{topic_text}中被认可的部分，同时处理学生提出的具体不便"
 
     return {
         "summary": summary,
-        "problems": [f"需要关注与“{keyword_text}”相关的反馈"],
-        "suggestions": [f"结合学生原文，优先优化{topic_text}相关环节"],
+        "problems": [
+            {
+                "aspect": aspect,
+                "description": problem_text,
+                "evidence": evidence,
+            }
+        ],
+        "suggestions": [
+            {
+                "aspect": aspect,
+                "suggestion": suggestion_text,
+                "evidence": evidence,
+            }
+        ],
         "risk_level": risk_level,
         "language": language,
         "source": "local_fallback",

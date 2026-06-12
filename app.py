@@ -218,6 +218,17 @@ def render_single_review_page() -> None:
         col_left.write("、".join(result["topics"]) or "未识别")
         col_right.markdown("#### 关键词")
         col_right.write("、".join(result["keywords"]) or "无")
+        if result.get("topic_evidence"):
+            evidence_rows = [
+                {
+                    "课程维度": item["aspect"],
+                    "命中关键词": "、".join(item["keywords"]),
+                    "证据片段": item["evidence"],
+                }
+                for item in result["topic_evidence"]
+            ]
+            st.markdown("#### 主题证据")
+            st.dataframe(pd.DataFrame(evidence_rows), width="stretch")
         st.markdown("#### 预处理结果")
         st.code(result["processed_text"] or "无", language="text")
 
@@ -402,6 +413,10 @@ def render_tech_page() -> None:
         ]
         st.dataframe(pd.DataFrame(rows), width="stretch")
         st.caption(f"训练数据：{metrics.get('data_path', '')}；训练集 {metrics.get('train_size', 0)} 条。")
+        st.info(
+            "三分类课程评论任务需要兼顾 positive、neutral、negative 三类，因此报告中建议同时展示 "
+            "Macro-F1。当前量化评估主要基于英文 Coursera 抽样数据，中文样本更多用于流程演示和输入验证。"
+        )
     else:
         st.info("尚未生成模型指标。运行训练命令后会显示模型对比结果。")
 

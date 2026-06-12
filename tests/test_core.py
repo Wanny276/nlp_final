@@ -12,7 +12,7 @@ from src.nlp_analyzer import analyze_review, sentiment_distribution
 from src.data_loader import label_from_rating, load_reviews_csv
 from src.preprocess import clean_text, detect_language, tokenize
 from src.similarity import cosine_similarity
-from src.topic_analyzer import detect_topics
+from src.topic_analyzer import detect_topic_evidence, detect_topics
 
 
 class CorePipelineTest(unittest.TestCase):
@@ -34,6 +34,13 @@ class CorePipelineTest(unittest.TestCase):
     def test_topic_detection(self):
         topics = detect_topics("实验环境配置太复杂，经常运行报错")
         self.assertIn("实验实践", topics)
+
+    def test_topic_detection_returns_evidence(self):
+        evidence = detect_topic_evidence("实验环境配置太复杂，经常运行报错")
+        self.assertTrue(evidence)
+        self.assertEqual(evidence[0]["aspect"], "实验实践")
+        self.assertIn("实验", evidence[0]["keywords"])
+        self.assertIn("实验环境配置", evidence[0]["evidence"])
 
     def test_english_topic_detection(self):
         topics = detect_topics("The assignments are too many and the deadline is stressful")
@@ -61,6 +68,7 @@ class CorePipelineTest(unittest.TestCase):
         result = analyze_review("老师讲课很清楚，课堂互动很多", use_llm=False)
         self.assertEqual(result["sentiment"], "positive")
         self.assertIn("授课方式", result["topics"])
+        self.assertEqual(result["topic_evidence"][0]["aspect"], "授课方式")
 
     @patch("src.nlp_analyzer.model_based_sentiment", return_value=None)
     def test_analyze_english_review(self, _mock_model):
@@ -98,13 +106,24 @@ class CorePipelineTest(unittest.TestCase):
     def test_local_llm_fallback(self):
         result = local_summary(
             {
+                "text": "实验环境配置太复杂，经常报错",
                 "sentiment": "negative",
                 "topics": ["实验实践"],
+                "topic_evidence": [
+                    {
+                        "aspect": "实验实践",
+                        "keywords": ["实验", "配置"],
+                        "evidence": "实验环境配置太复杂",
+                    }
+                ],
                 "keywords": ["实验", "配置"],
             }
         )
         self.assertEqual(result["source"], "local_fallback")
         self.assertEqual(result["risk_level"], "high")
+        self.assertEqual(result["problems"][0]["aspect"], "实验实践")
+        self.assertEqual(result["problems"][0]["evidence"], "实验环境配置太复杂")
+        self.assertEqual(result["suggestions"][0]["aspect"], "实验实践")
 
     def test_rating_to_label(self):
         self.assertEqual(label_from_rating("5"), "positive")
