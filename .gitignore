@@ -14,18 +14,8 @@ env/
 # Local config
 .env
 
-# Generated outputs
-outputs/charts/*
-outputs/reports/*
-!outputs/charts/.gitkeep
-!outputs/reports/.gitkeep
-
 # Raw external datasets
 data/raw/
-
-# Model artifacts
-models/*
-!models/.gitkeep
 
 # OS/editor
 .DS_Store

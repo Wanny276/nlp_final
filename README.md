@@ -161,6 +161,9 @@ python -m src.train_model --data data/processed/bilingual_reviews_train.csv --mo
 models/sentiment_model.pkl
 models/tfidf_vectorizer.pkl
 models/model_metrics.json
+outputs/reports/classification_report.json
+outputs/charts/confusion_matrix.png
+outputs/charts/model_comparison.png
 ```
 
 当前一次训练结果：
@@ -169,12 +172,19 @@ models/model_metrics.json
 best_model = Logistic Regression
 accuracy = 0.6877
 macro_f1 = 0.6867
+en_accuracy = 0.6921
+en_macro_f1 = 0.6912
+zh_accuracy = 0.3077
+zh_macro_f1 = 0.2815
 ```
 
 说明：
 
-- `models/*.pkl` 是训练生成物，默认不建议提交到 GitHub；
-- `models/model_metrics.json` 可用于模型效果页面展示，也可作为报告/PPT 的截图依据；
+- 仓库保留 `models/sentiment_model.pkl`、`models/tfidf_vectorizer.pkl` 和 `models/model_metrics.json`，便于老师直接运行演示；
+- 如果本地 Python 或 scikit-learn 版本不兼容，可重新运行训练命令生成模型文件；
+- `models/model_metrics.json` 包含总体指标、classification report、confusion matrix 和按语言分组的评估指标；
+- `outputs/reports/` 和 `outputs/charts/` 是训练时生成的报告/图表目录，默认不提交生成物；
+- 当前中文测试集只有 26 条，中文分组指标仅作为小样本功能验证，不作为主要量化性能结论；
 - 如果修改了 `src/preprocess.py`、训练数据、模型参数或本地 scikit-learn 版本，建议重新训练模型；
 - 如果只修改 Streamlit 页面、文档或普通单元测试，一般不需要重新训练模型。
 
@@ -193,11 +203,16 @@ macro_f1 = 0.6867
 
 ```text
 LLM_API_KEY=your_api_key
-LLM_BASE_URL=https://api.deepseek.com/v1
-LLM_MODEL=deepseek-chat
+LLM_BASE_URL=https://chat.ecnu.edu.cn/open/api/v1
+LLM_MODEL=ecnu-plus
+LLM_TIMEOUT=20
+LLM_TEMPERATURE=0.7
+LLM_TOP_P=0.9
+LLM_MAX_TOKENS=1024
+LLM_RETRIES=2
 ```
 
-如果没有配置 API，系统会自动使用本地模板生成总结和建议，保证课堂演示不会因为网络问题中断。`.env` 不要提交到仓库。
+系统调用 ECNU OpenAI 兼容的 `/chat/completions` 接口，并使用 JSON schema 约束输出字段。如果没有配置 API、接口异常或返回 JSON 不可解析，系统会自动使用本地模板生成总结和建议，保证课堂演示不会因为网络问题中断。`.env` 不要提交到仓库。
 
 ## 文档导航
 

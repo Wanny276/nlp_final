@@ -9,7 +9,7 @@ from .keyword_extractor import keywords_only
 from .llm_client import generate_review_advice
 from .preprocess import detect_language, load_stopwords, preprocess_text
 from .similarity import find_similar_reviews
-from .topic_analyzer import detect_topics
+from .topic_analyzer import detect_topic_evidence
 
 
 POSITIVE_HINTS = {"清楚", "有用", "帮助", "很好", "不错", "详细", "收获", "喜欢", "积极", "互动"}
@@ -160,7 +160,8 @@ def analyze_review(text: str, reference_reviews: list[str] | None = None, use_ll
     processed = preprocess_text(text, stopwords=stopwords)
     language = detect_language(text)
     sentiment, confidence, sentiment_source = predict_sentiment(text, processed)
-    topics = detect_topics(text)
+    topic_evidence = detect_topic_evidence(text)
+    topics = [str(item["aspect"]) for item in topic_evidence]
     keywords = keywords_only(text, top_k=6, stopwords=stopwords)
     similar_reviews = find_similar_reviews(text, reference_reviews or [], top_k=3)
 
@@ -172,6 +173,7 @@ def analyze_review(text: str, reference_reviews: list[str] | None = None, use_ll
         "confidence": round(confidence, 3),
         "sentiment_source": sentiment_source,
         "topics": topics,
+        "topic_evidence": topic_evidence,
         "keywords": keywords,
         "similar_reviews": [
             {"text": review, "score": round(score, 3)}

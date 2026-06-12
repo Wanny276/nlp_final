@@ -116,18 +116,56 @@ TOPIC_KEYWORDS: dict[str, set[str]] = {
 }
 
 
+def _keyword_position(text: str, keyword: str) -> int:
+    position = text.lower().find(keyword.lower())
+    return position if position >= 0 else len(text) + 1
+
+
+def _evidence_snippet(text: str, keyword: str, window: int = 45) -> str:
+    position = _keyword_position(text, keyword)
+    if position > len(text):
+        return text[: window * 2].strip()
+
+    start = max(0, position - window)
+    end = min(len(text), position + len(keyword) + window)
+    return text[start:end].strip()
+
+
+def detect_topic_evidence(text: str, max_topics: int | None = None) -> list[dict[str, object]]:
+    """Detect course aspects with matched keywords and source evidence snippets."""
+
+    normalized = text.lower()
+    evidence_rows: list[dict[str, object]] = []
+    for topic, keywords in TOPIC_KEYWORDS.items():
+        matched = [keyword for keyword in keywords if keyword in normalized]
+        if not matched:
+            continue
+
+        matched.sort(key=lambda keyword: (_keyword_position(text, keyword), keyword))
+        evidence_rows.append(
+            {
+                "aspect": topic,
+                "keywords": matched,
+                "evidence": _evidence_snippet(text, matched[0]),
+                "score": len(matched),
+            }
+        )
+
+    evidence_rows.sort(key=lambda item: (-int(item["score"]), str(item["aspect"])))
+    if max_topics is not None:
+        evidence_rows = evidence_rows[:max_topics]
+
+    return [
+        {
+            "aspect": item["aspect"],
+            "keywords": item["keywords"],
+            "evidence": item["evidence"],
+        }
+        for item in evidence_rows
+    ]
+
+
 def detect_topics(text: str, max_topics: int | None = None) -> list[str]:
     """Detect topics by keyword hits."""
 
-    normalized = text.lower()
-    scores: list[tuple[str, int]] = []
-    for topic, keywords in TOPIC_KEYWORDS.items():
-        score = sum(1 for keyword in keywords if keyword in normalized)
-        if score > 0:
-            scores.append((topic, score))
-
-    scores.sort(key=lambda item: (-item[1], item[0]))
-    topics = [topic for topic, _ in scores]
-    if max_topics is not None:
-        return topics[:max_topics]
-    return topics
+    return [str(item["aspect"]) for item in detect_topic_evidence(text, max_topics=max_topics)]

@@ -218,6 +218,17 @@ def render_single_review_page() -> None:
         col_left.write("、".join(result["topics"]) or "未识别")
         col_right.markdown("#### 关键词")
         col_right.write("、".join(result["keywords"]) or "无")
+        if result.get("topic_evidence"):
+            evidence_rows = [
+                {
+                    "课程维度": item["aspect"],
+                    "命中关键词": "、".join(item["keywords"]),
+                    "证据片段": item["evidence"],
+                }
+                for item in result["topic_evidence"]
+            ]
+            st.markdown("#### 课程维度证据")
+            st.dataframe(pd.DataFrame(evidence_rows), width="stretch")
         st.markdown("#### 预处理结果")
         st.code(result["processed_text"] or "无", language="text")
 
