@@ -56,8 +56,8 @@ CourseInsight 是面向自然语言处理期末大作业的课程评价分析系
 ├── docs/
 │   ├── README.md
 │   ├── dataset_preparation.md
+│   ├── demo_materials.md
 │   ├── sentiment_labeling_guidelines.md
-│   ├── team_work_plan.md
 │   └── submission_checklist.md
 ├── models/
 ├── outputs/
@@ -82,19 +82,28 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-3. 训练双语情感分类模型：
+3. 准备 Coursera 抽样数据和双语训练集：
+
+```bash
+python scripts\prepare_coursera_dataset.py --input data\raw\coursera_reviews_label_3.csv --output data\processed\coursera_reviews_sampled.csv --per-label 3000 --min-chars 20 --max-chars 1200
+python scripts\build_bilingual_dataset.py --per-label 3000 --min-chars 20 --max-chars 1200
+```
+
+说明：`data/raw/coursera_reviews_label_3.csv` 来自 Hugging Face `MungunshagaiT/coursera-reviews`，原始大文件不提交到仓库。
+
+4. 训练双语情感分类模型：
 
 ```bash
 python -m src.train_model --data data/processed/bilingual_reviews_train.csv --model-dir models
 ```
 
-4. 运行单元测试：
+5. 运行单元测试：
 
 ```bash
 python -m unittest discover -s tests
 ```
 
-5. 启动 Web 系统：
+6. 启动 Web 系统：
 
 ```bash
 streamlit run app.py
@@ -128,6 +137,14 @@ review, reviews, comment, content, rating, course_title, instructor
 data/processed/bilingual_reviews_train.csv
 ```
 
+当前训练集规模：
+
+```text
+英文 Coursera 评论：9000 条（positive / neutral / negative 各 3000 条）
+中文人工课程评价：120 条（positive / neutral / negative 各 40 条）
+合计：9120 条
+```
+
 数据构建和 Coursera 抽样说明见 [docs/dataset_preparation.md](docs/dataset_preparation.md)。
 
 ## 训练模型
@@ -144,6 +161,14 @@ python -m src.train_model --data data/processed/bilingual_reviews_train.csv --mo
 models/sentiment_model.pkl
 models/tfidf_vectorizer.pkl
 models/model_metrics.json
+```
+
+当前一次训练结果：
+
+```text
+best_model = Logistic Regression
+accuracy = 0.6877
+macro_f1 = 0.6867
 ```
 
 说明：
@@ -178,11 +203,10 @@ LLM_MODEL=deepseek-chat
 
 - [CONTRIBUTING.md](CONTRIBUTING.md)：分支、提交和 PR 协作约定；
 - [docs/README.md](docs/README.md)：项目文档目录；
-- [docs/team_work_plan.md](docs/team_work_plan.md)：两人小组分工与开发计划；
+- [docs/demo_materials.md](docs/demo_materials.md)：演示输入、截图清单和报告/PPT 表述；
 - [docs/submission_checklist.md](docs/submission_checklist.md)：期末提交检查清单；
 - [docs/sentiment_labeling_guidelines.md](docs/sentiment_labeling_guidelines.md)：情感标签判定与测试准则；
-- [docs/dataset_preparation.md](docs/dataset_preparation.md)：数据集下载、抽样、清洗和训练说明；
-- [docs/bilingual_upgrade_plan.md](docs/bilingual_upgrade_plan.md)：中英双语改造说明。
+- [docs/dataset_preparation.md](docs/dataset_preparation.md)：数据集下载、抽样、清洗和训练说明。
 
 ## 提交前检查
 

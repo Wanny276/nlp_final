@@ -29,7 +29,9 @@ LABEL_MAP = {
 def prepare_dataset(
     input_path: str | Path,
     output_path: str | Path,
-    per_label: int = 100,
+    per_label: int = 3000,
+    min_chars: int = 20,
+    max_chars: int = 1200,
     random_state: int = 42,
 ) -> pd.DataFrame:
     """Load, clean, balance, and export Coursera reviews."""
@@ -44,6 +46,7 @@ def prepare_dataset(
     prepared = df[["text", "label"]].copy()
     prepared["text"] = prepared["text"].fillna("").astype(str).str.replace(r"\s+", " ", regex=True).str.strip()
     prepared = prepared[prepared["text"].str.len() > 0]
+    prepared = prepared[prepared["text"].str.len().between(min_chars, max_chars)]
     prepared = prepared.drop_duplicates(subset=["text"])
     prepared["source_label"] = prepared["label"]
     prepared["label"] = prepared["label"].map(LABEL_MAP)
@@ -71,7 +74,9 @@ def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--input", default="data/raw/coursera_reviews_label_3.csv")
     parser.add_argument("--output", default="data/processed/coursera_reviews_sampled.csv")
-    parser.add_argument("--per-label", type=int, default=100)
+    parser.add_argument("--per-label", type=int, default=3000)
+    parser.add_argument("--min-chars", type=int, default=20)
+    parser.add_argument("--max-chars", type=int, default=1200)
     parser.add_argument("--random-state", type=int, default=42)
     args = parser.parse_args()
 
@@ -79,6 +84,8 @@ def main() -> None:
         input_path=args.input,
         output_path=args.output,
         per_label=args.per_label,
+        min_chars=args.min_chars,
+        max_chars=args.max_chars,
         random_state=args.random_state,
     )
     print(f"saved={args.output}")

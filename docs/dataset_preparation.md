@@ -1,28 +1,32 @@
 # 数据集下载与抽样说明
 
-本项目当前采用 **中文人工课程评价 + Coursera 英文课程评论抽样数据** 的方式构建中英双语课程评价数据集。
+本项目采用 **中文人工课程评价 + Coursera 英文课程评论抽样数据** 构建中英双语课程评价数据集。英文数据用于模型训练和主要性能评估，中文数据用于中文 NLP 流程演示和跨语言输入验证。
 
 ## 一、Coursera 数据来源
 
-本次下载的数据文件来自 Hugging Face 上的 Coursera Reviews 数据集：
+英文原始数据来自 Hugging Face 数据集：
 
 ```text
 https://huggingface.co/datasets/MungunshagaiT/coursera-reviews
 ```
 
-下载到本地的位置：
+本地原始文件名保持为网站上的原始文件名：
 
 ```text
 data/raw/coursera_reviews_label_3.csv
 ```
 
-原始数据文件较大，已通过 `.gitignore` 忽略：
+当前本地文件校验结果：
 
 ```text
-data/raw/
+rows = 107018
+columns = text,label
+label 0 = 4720
+label 1 = 5071
+label 2 = 97227
 ```
 
-因此不要把完整原始数据上传到 GitHub。
+`data/raw/` 已在 `.gitignore` 中忽略，不要把完整原始数据提交到 GitHub。
 
 ## 二、原始数据格式
 
@@ -32,14 +36,14 @@ data/raw/
 text,label
 ```
 
-其中：
+字段含义：
 
-```text
-text  = 课程评论文本
-label = 原始数字标签
-```
+| 字段 | 含义 |
+|---|---|
+| `text` | Coursera 课程评论文本 |
+| `label` | 原始数字情感标签 |
 
-本项目使用以下映射规则：
+标签映射：
 
 | 原始 label | 项目 label | 含义 |
 |---:|---|---|
@@ -47,7 +51,7 @@ label = 原始数字标签
 | 1 | neutral | 中性/混合评论 |
 | 2 | positive | 正面评论 |
 
-## 三、抽样脚本
+## 三、Coursera 抽样数据
 
 抽样脚本：
 
@@ -55,10 +59,22 @@ label = 原始数字标签
 scripts/prepare_coursera_dataset.py
 ```
 
-运行命令：
+推荐构建命令：
 
 ```bash
-python scripts\prepare_coursera_dataset.py --input data\raw\coursera_reviews_label_3.csv --output data\processed\coursera_reviews_sampled.csv --per-label 100
+python scripts\prepare_coursera_dataset.py --input data\raw\coursera_reviews_label_3.csv --output data\processed\coursera_reviews_sampled.csv --per-label 3000 --min-chars 20 --max-chars 1200
+```
+
+处理规则：
+
+```text
+空值处理
+压缩多余空白
+去除少于 20 个字符的过短文本
+去除超过 1200 个字符的过长文本
+按 text 去重
+映射 0/1/2 到 negative/neutral/positive
+按三类情感均衡抽样
 ```
 
 当前输出文件：
@@ -70,50 +86,20 @@ data/processed/coursera_reviews_sampled.csv
 当前抽样结果：
 
 ```text
-negative    100
-neutral     100
-positive    100
+negative    3000
+neutral     3000
+positive    3000
 ```
 
-总计 300 条英文课程评论。
+总计 9000 条英文课程评论。
 
-## 四、处理后数据格式
-
-处理后的数据格式为：
+处理后字段：
 
 ```csv
 id,text,course,teacher,label,source_label
 ```
 
-字段说明：
-
-| 字段 | 含义 |
-|---|---|
-| `id` | 抽样后的编号 |
-| `text` | Coursera 英文课程评论 |
-| `course` | 统一填充为 `Coursera Online Course` |
-| `teacher` | 统一填充为 `Coursera Instructor` |
-| `label` | 转换后的情感标签 |
-| `source_label` | 原始数字标签 |
-
-## 五、模型训练验证
-
-可以直接用处理后的 Coursera 抽样数据训练模型：
-
-```bash
-python -m src.train_model --data data\processed\coursera_reviews_sampled.csv --model-dir models
-```
-
-当前一次训练结果：
-
-```text
-accuracy = 0.6533
-macro_f1 = 0.6577
-```
-
-后续随着数据清洗和中文数据扩充，模型效果还可以继续提升。
-
-## 六、中文人工课程评价数据
+## 四、中文人工课程评价数据
 
 中文数据文件：
 
@@ -148,43 +134,23 @@ negative    40
 学习收获
 ```
 
-数据来源说明：
+中文课程评价样本由项目组根据高校课程评价场景人工构造和标注，用于系统演示、中文 NLP 流程验证和双语输入验证。由于公开的大规模中文课程评价三分类数据较难获得，当前模型主要性能评估以英文 Coursera 评论为主。
+
+## 五、中英双语训练集
+
+构建脚本：
 
 ```text
-中文课程评价样本由项目组根据高校课程评价场景人工构造和标注，用于系统演示、中文 NLP 流程验证和双语模型训练。
+scripts/build_bilingual_dataset.py
 ```
 
-## 七、英文数据清洗
+构建命令：
 
-基于 300 条 Coursera 均衡抽样数据，进一步生成清洗版英文数据：
-
-```text
-data/processed/coursera_reviews_cleaned.csv
+```bash
+python scripts\build_bilingual_dataset.py --per-label 3000 --min-chars 20 --max-chars 1200
 ```
 
-清洗规则：
-
-```text
-去除空文本
-去除重复文本
-去除少于 20 个字符的过短文本
-去除超过 1200 个字符的过长文本
-每个情感类别保留 80 条
-```
-
-当前规模：
-
-```text
-positive    80
-neutral     80
-negative    80
-```
-
-总计 240 条英文课程评论。
-
-## 八、中英双语训练集
-
-合并中文人工数据和英文 Coursera 清洗数据，生成双语训练集：
+输出文件：
 
 ```text
 data/processed/bilingual_reviews_train.csv
@@ -193,37 +159,25 @@ data/processed/bilingual_reviews_train.csv
 当前规模：
 
 ```text
+英文 en：9000 条
 中文 zh：120 条
-英文 en：240 条
-总计：360 条
-```
-
-情感标签分布：
-
-```text
-positive    120
-neutral     120
-negative    120
+总计：9120 条
 ```
 
 语言和标签交叉分布：
 
 ```text
-en negative    80
-en neutral     80
-en positive    80
-zh negative    40
-zh neutral     40
-zh positive    40
+en negative    3000
+en neutral     3000
+en positive    3000
+zh negative      40
+zh neutral       40
+zh positive      40
 ```
 
-构建命令：
+说明：训练集整体以英文 Coursera 数据为主，中文样本保留为系统双语能力演示和中文流程验证材料。
 
-```bash
-python scripts\build_bilingual_dataset.py --per-label 80 --min-chars 20 --max-chars 1200
-```
-
-## 九、双语模型训练验证
+## 六、模型训练验证
 
 使用双语训练集训练：
 
@@ -234,22 +188,29 @@ python -m src.train_model --data data\processed\bilingual_reviews_train.csv --mo
 当前一次训练结果：
 
 ```text
-accuracy = 0.5333
-macro_f1 = 0.5350
+best_model = Logistic Regression
+accuracy = 0.6877
+macro_f1 = 0.6867
+train_size = 6840
+test_size = 2280
 ```
 
-说明：
+模型对比结果：
 
-```text
-该结果基于当前小规模中英混合数据和传统 TF-IDF + Logistic Regression 模型。由于中英文文本特征空间差异较大，且中文数据规模仍较小，后续可以通过扩充中文样本、增加英文样本、优化预处理和使用更强模型继续提升效果。
-```
+| 模型 | Accuracy | Macro-F1 |
+|---|---:|---:|
+| Dummy Most Frequent | 0.3333 | 0.1667 |
+| Logistic Regression | 0.6877 | 0.6867 |
+| Naive Bayes | 0.6728 | 0.6738 |
+| Linear SVM | 0.6820 | 0.6804 |
 
-## 十、后续建议
+该结果基于扩充后的 Coursera 英文均衡抽样数据和现有中文人工样本。报告中建议优先展示 `macro_f1`，因为它比 accuracy 更能反映三分类任务中各类别的整体表现。
+
+## 七、后续建议
 
 1. 保留 `data/processed/coursera_reviews_sampled.csv` 作为英文训练和演示数据；
 2. 不提交 `data/raw/` 中的完整原始数据；
-3. 使用 `data/processed/coursera_reviews_cleaned.csv` 作为英文清洗数据；
-4. 使用 `data/processed/chinese_manual_reviews.csv` 作为中文人工标注数据；
-5. 使用 `data/processed/bilingual_reviews_train.csv` 作为当前双语训练数据；
-6. 后续继续扩充中文课程评价数据；
-7. 报告中说明 Coursera 数据作为英文在线课程评论来源，中文数据由项目组人工构造和标注。
+3. 使用 `data/processed/chinese_manual_reviews.csv` 作为中文人工标注数据；
+4. 使用 `data/processed/bilingual_reviews_train.csv` 作为当前双语训练数据；
+5. 后续若继续提升中文效果，应优先补充课程领域中文评价，而不是混入酒店、电商、微博等通用中文情感数据；
+6. 报告中说明 Coursera 数据作为英文在线课程评论来源，中文数据由项目组人工构造和标注。

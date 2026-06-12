@@ -22,6 +22,8 @@
 - [ ] `requirements.txt` 完整
 - [ ] `.env.example` 提供 API 配置模板
 - [ ] 示例数据已放入 `data/`
+- [ ] `data/processed/coursera_reviews_sampled.csv` 已按每类 3000 条重新生成
+- [ ] `data/processed/bilingual_reviews_train.csv` 已更新为约 9120 条训练集
 - [ ] `models/model_metrics.json` 可由训练命令生成
 - [ ] 修改预处理、训练数据、模型参数或 scikit-learn 环境后已重新训练模型
 - [ ] 测试代码已放入 `tests/`
@@ -32,6 +34,8 @@
 模型训练命令：
 
 ```bash
+python scripts\prepare_coursera_dataset.py --input data\raw\coursera_reviews_label_3.csv --output data\processed\coursera_reviews_sampled.csv --per-label 3000 --min-chars 20 --max-chars 1200
+python scripts\build_bilingual_dataset.py --per-label 3000 --min-chars 20 --max-chars 1200
 python -m src.train_model --data data/processed/bilingual_reviews_train.csv --model-dir models
 ```
 
@@ -40,6 +44,8 @@ python -m src.train_model --data data/processed/bilingual_reviews_train.csv --mo
 - [ ] 报告标明贡献度
 - [ ] PPT 是报告的简化版
 - [ ] 演示视频包含单条分析和批量分析
+- [ ] 至少 5 张截图覆盖单条中文、单条英文、批量 CSV、测试用例、模型效果页
 - [ ] 报告说明课程知识点对应：预处理、n-gram/TF-IDF、文本分类、Logistic Regression
+- [ ] 报告说明当前双语训练集规模：英文 9000 条、中文 120 条、合计 9120 条
 - [ ] 报告说明 API 失败时的本地兜底方案
 - [ ] 准备 3 到 5 个答辩问题回答

@@ -1,9 +1,11 @@
 import unittest
+from pathlib import Path
 from unittest.mock import patch
 
 import pandas as pd
 
 from app import build_test_case_results, parse_expected_topics
+from scripts.prepare_coursera_dataset import prepare_dataset
 from src.keyword_extractor import keywords_only
 from src.llm_client import local_summary
 from src.nlp_analyzer import analyze_review, sentiment_distribution
@@ -113,6 +115,22 @@ class CorePipelineTest(unittest.TestCase):
         rows = load_reviews_csv("data/coursera_sample_reviews.csv")
         self.assertEqual(rows[0]["text"], "The instructor explains every concept clearly and the examples are useful")
         self.assertEqual(rows[0]["label"], "positive")
+
+    def test_prepare_coursera_dataset_filters_by_text_length(self):
+        input_path = Path("tests/fixtures/coursera_prepare_raw.csv")
+        output_path = Path("outputs/reports/test_prepare_coursera_dataset.csv")
+
+        sampled = prepare_dataset(
+            input_path=input_path,
+            output_path=output_path,
+            per_label=2,
+            min_chars=20,
+            max_chars=60,
+        )
+
+        self.assertEqual(len(sampled), 3)
+        self.assertEqual(set(sampled["label"]), {"negative", "neutral", "positive"})
+        self.assertTrue(output_path.exists())
 
     def test_parse_expected_topics(self):
         self.assertEqual(parse_expected_topics("教学内容;考试安排；学习收获"), ["教学内容", "考试安排", "学习收获"])
