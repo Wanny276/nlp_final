@@ -1,4 +1,4 @@
-"""Core NLP analysis orchestration."""
+"""核心 NLP 分析流程编排。"""
 
 from __future__ import annotations
 
@@ -78,7 +78,7 @@ def _is_balanced_mixed_review(text: str) -> bool:
 
 
 def rule_based_sentiment(text: str) -> tuple[str, float]:
-    """A lightweight sentiment fallback used before model training."""
+    """模型训练前使用的轻量级情感兜底规则。"""
 
     positive_hits, negative_hits = _sentiment_hint_counts(text)
     has_mixed_signal = _has_mixed_signal(text)
@@ -97,7 +97,7 @@ def rule_based_sentiment(text: str) -> tuple[str, float]:
 
 
 def model_based_sentiment(processed_text: str, model_dir: str | Path = "models") -> tuple[str, float] | None:
-    """Predict sentiment with a saved TF-IDF + Logistic Regression model."""
+    """使用已保存的 TF-IDF + Logistic Regression 模型预测情感。"""
 
     global MODEL_LOAD_ATTEMPTED, SENTIMENT_MODEL, TFIDF_VECTORIZER
 
@@ -128,7 +128,7 @@ def model_based_sentiment(processed_text: str, model_dir: str | Path = "models")
 
 
 def predict_sentiment(text: str, processed_text: str) -> tuple[str, float, str]:
-    """Use the trained model when available, otherwise fall back to rules."""
+    """优先使用已训练模型，不可用时回退到规则。"""
 
     rule_sentiment, rule_confidence = rule_based_sentiment(text)
     model_result = model_based_sentiment(processed_text)
@@ -154,7 +154,7 @@ def predict_sentiment(text: str, processed_text: str) -> tuple[str, float, str]:
 
 
 def analyze_review(text: str, reference_reviews: list[str] | None = None, use_llm: bool = True) -> dict[str, Any]:
-    """Analyze one course review."""
+    """分析单条课程评价。"""
 
     stopwords = load_stopwords()
     processed = preprocess_text(text, stopwords=stopwords)
@@ -189,13 +189,13 @@ def analyze_review(text: str, reference_reviews: list[str] | None = None, use_ll
 
 
 def analyze_batch(texts: list[str], use_llm: bool = False) -> list[dict[str, Any]]:
-    """Analyze many reviews."""
+    """批量分析多条评价。"""
 
     return [analyze_review(text, reference_reviews=texts, use_llm=use_llm) for text in texts]
 
 
 def sentiment_distribution(results: list[dict[str, Any]]) -> dict[str, int]:
-    """Count sentiment labels."""
+    """统计情感标签数量。"""
 
     distribution = {"positive": 0, "neutral": 0, "negative": 0}
     for result in results:
@@ -205,7 +205,7 @@ def sentiment_distribution(results: list[dict[str, Any]]) -> dict[str, int]:
 
 
 def topic_distribution(results: list[dict[str, Any]]) -> dict[str, int]:
-    """Count detected topics."""
+    """统计识别出的主题数量。"""
 
     distribution: dict[str, int] = {}
     for result in results:
@@ -215,7 +215,7 @@ def topic_distribution(results: list[dict[str, Any]]) -> dict[str, int]:
 
 
 def load_model_if_available(model_dir: str | Path = "models") -> tuple[Any | None, Any | None]:
-    """Reserved hook for trained sklearn model loading."""
+    """加载已训练 sklearn 模型的保留入口。"""
 
     try:
         import joblib

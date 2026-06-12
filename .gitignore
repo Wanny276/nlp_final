@@ -1,4 +1,4 @@
-# Python
+# Python 临时文件
 __pycache__/
 *.py[cod]
 *.pyo
@@ -6,28 +6,22 @@ __pycache__/
 .mypy_cache/
 .ruff_cache/
 
-# Virtual environments
+# 虚拟环境
 .venv/
 venv/
 env/
 
-# Local config
+# 本地配置
 .env
 
-# Generated outputs
-outputs/charts/*
-outputs/reports/*
-!outputs/charts/.gitkeep
-!outputs/reports/.gitkeep
-
-# Raw external datasets
+# 大文件或外部数据
 data/raw/
+outputs/bert_model/
 
-# Model artifacts
-models/*
-!models/.gitkeep
+# 测试生成的临时产物
+outputs/reports/test_*
 
-# OS/editor
+# 系统和编辑器文件
 .DS_Store
 Thumbs.db
 .idea/

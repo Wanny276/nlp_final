@@ -1,4 +1,4 @@
-"""Text cleaning and tokenization utilities."""
+"""文本清洗与分词工具。"""
 
 from __future__ import annotations
 
@@ -7,7 +7,7 @@ from pathlib import Path
 
 try:
     import jieba
-except ImportError:  # pragma: no cover - used only before dependencies are installed
+except ImportError:  # pragma: no cover - 仅在依赖未安装时使用
     jieba = None
 
 
@@ -120,7 +120,7 @@ CHINESE_DOMAIN_TERMS = (
 
 
 def load_stopwords(path: str | Path = DEFAULT_STOPWORDS_PATH) -> set[str]:
-    """Load stopwords from a text file."""
+    """从文本文件加载停用词。"""
 
     stopwords_path = Path(path)
     if not stopwords_path.exists():
@@ -134,7 +134,7 @@ def load_stopwords(path: str | Path = DEFAULT_STOPWORDS_PATH) -> set[str]:
 
 
 def clean_text(text: object) -> str:
-    """Normalize one raw review string."""
+    """规范化一条原始评价文本。"""
 
     if text is None:
         return ""
@@ -149,7 +149,7 @@ def clean_text(text: object) -> str:
 
 
 def detect_language(text: object) -> str:
-    """Detect whether a review is Chinese, English, or mixed."""
+    """判断评价是中文、英文还是中英混合。"""
 
     cleaned = clean_text(text)
     chinese_chars = len(re.findall(r"[\u4e00-\u9fa5]", cleaned))
@@ -179,7 +179,7 @@ def _expand_chinese_token(token: str) -> list[str]:
 
 
 def tokenize(text: object, stopwords: set[str] | None = None) -> list[str]:
-    """Clean, segment, and filter a Chinese, English, or mixed review."""
+    """清洗、切分并过滤中文、英文或中英混合评价。"""
 
     stopwords = stopwords or set()
     cleaned = clean_text(text)
@@ -214,12 +214,12 @@ def tokenize(text: object, stopwords: set[str] | None = None) -> list[str]:
 
 
 def preprocess_text(text: object, stopwords: set[str] | None = None) -> str:
-    """Return whitespace-joined tokens for vectorizers."""
+    """返回用空格拼接的 tokens，供向量化器使用。"""
 
     return " ".join(tokenize(text, stopwords))
 
 
 def preprocess_many(texts: list[object], stopwords: set[str] | None = None) -> list[str]:
-    """Preprocess a list of texts."""
+    """预处理一组文本。"""
 
     return [preprocess_text(text, stopwords) for text in texts]

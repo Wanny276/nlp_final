@@ -1,4 +1,4 @@
-"""Streamlit entry point for CourseInsight."""
+"""CourseInsight 的 Streamlit 入口。"""
 
 from __future__ import annotations
 
@@ -19,6 +19,8 @@ SAMPLE_DATA = Path("data/sample_reviews.csv")
 TEST_CASES = Path("data/test_cases.csv")
 COURSERA_SAMPLE = Path("data/coursera_sample_reviews.csv")
 MODEL_METRICS = Path("models/model_metrics.json")
+BERT_METRICS = Path("outputs/bert_metrics.json")
+ABLATION_METRICS = Path("outputs/reports/ablation_metrics.json")
 
 SENTIMENT_LABELS = {
     "positive": "正面 positive",
@@ -27,7 +29,7 @@ SENTIMENT_LABELS = {
 }
 LANGUAGE_LABELS = {
     "zh": "中文",
-    "en": "English",
+    "en": "英文",
     "mixed": "中英混合",
     "unknown": "未知",
 }
@@ -56,6 +58,54 @@ def chart_frame(data: dict[str, int], value_name: str = "数量") -> pd.DataFram
     return pd.DataFrame({value_name: data}).sort_values(value_name, ascending=False)
 
 
+def load_json_file(path: str | Path) -> dict:
+    metrics_path = Path(path)
+    if not metrics_path.exists():
+        return {}
+    try:
+        return json.loads(metrics_path.read_text(encoding="utf-8"))
+    except json.JSONDecodeError:
+        return {}
+
+
+def _format_metric(value: object) -> str:
+    if isinstance(value, int | float):
+        return f"{float(value):.4f}"
+    return ""
+
+
+def bert_summary_rows(metrics: dict) -> list[dict[str, object]]:
+    if not metrics:
+        return []
+    return [
+        {
+            "模型": "BERT",
+            "预训练模型": metrics.get("model_name", ""),
+            "准确率": _format_metric(metrics.get("accuracy")),
+            "宏平均F1": _format_metric(metrics.get("macro_f1")),
+            "测试集": metrics.get("test_size", ""),
+        }
+    ]
+
+
+def ablation_summary_rows(metrics: dict) -> list[dict[str, object]]:
+    experiments = metrics.get("experiments", {}) if metrics else {}
+    rows: list[dict[str, object]] = []
+    for name, values in experiments.items():
+        rows.append(
+            {
+                "实验版本": name,
+                "状态": values.get("status", ""),
+                "准确率": _format_metric(values.get("accuracy")),
+                "宏平均F1": _format_metric(values.get("macro_f1")),
+                "通过": values.get("passed", 0),
+                "失败": values.get("failed", 0),
+                "跳过": values.get("skipped", 0),
+            }
+        )
+    return rows
+
+
 def result_rows(results: list[dict]) -> list[dict[str, object]]:
     return [
         {
@@ -72,7 +122,7 @@ def result_rows(results: list[dict]) -> list[dict[str, object]]:
 
 
 def parse_expected_topics(value: object) -> list[str]:
-    """Parse semicolon-separated expected topics from the test case sheet."""
+    """解析测试用例表中的分号分隔预期主题。"""
 
     if value is None or pd.isna(value):
         return []
@@ -88,7 +138,7 @@ def build_test_case_results(
     cases: pd.DataFrame,
     reference_reviews: list[str] | None = None,
 ) -> pd.DataFrame:
-    """Run formal test cases and return a report-friendly result table."""
+    """运行正式测试用例并返回适合报告展示的结果表。"""
 
     outputs: list[dict[str, object]] = []
     for _, row in cases.iterrows():
@@ -137,7 +187,7 @@ def render_shell() -> str:
     )
 
     st.sidebar.markdown("### CourseInsight")
-    st.sidebar.caption("NLP + LLM course feedback analysis")
+    st.sidebar.caption("NLP + LLM 课程反馈分析")
     return st.sidebar.radio(
         "页面",
         ["项目概览", "单条评价分析", "批量 CSV 分析", "测试用例展示", "模型与技术说明"],
@@ -184,7 +234,7 @@ def render_single_review_page() -> None:
 
     samples = {
         "中文评价": "老师讲得很清楚，但是作业有点多，实验环境配置也比较麻烦。",
-        "English review": "The instructor explains concepts clearly but the assignments are too many and the setup is confusing.",
+        "英文评价": "The instructor explains concepts clearly but the assignments are too many and the setup is confusing.",
         "中英混合": "老师讲解很 clear，但是 assignment 太多，deadline 有点紧。",
     }
     sample_key = st.segmented_control("示例", list(samples), default="中文评价")
@@ -395,19 +445,19 @@ def render_tech_page() -> None:
     )
 
     st.markdown("#### 模型对比结果")
-    if MODEL_METRICS.exists():
-        metrics = json.loads(MODEL_METRICS.read_text(encoding="utf-8"))
+    metrics = load_json_file(MODEL_METRICS)
+    if metrics:
         metric_a, metric_b, metric_c, metric_d = st.columns(4)
         metric_a.metric("最佳模型", metrics.get("best_model", "未知"))
-        metric_b.metric("Accuracy", f"{metrics.get('accuracy', 0):.4f}")
-        metric_c.metric("Macro-F1", f"{metrics.get('macro_f1', 0):.4f}")
+        metric_b.metric("准确率", f"{metrics.get('accuracy', 0):.4f}")
+        metric_c.metric("宏平均F1", f"{metrics.get('macro_f1', 0):.4f}")
         metric_d.metric("测试集", metrics.get("test_size", 0))
 
         rows = [
             {
                 "模型": name,
-                "Accuracy": f"{values['accuracy']:.4f}",
-                "Macro-F1": f"{values['macro_f1']:.4f}",
+                "准确率": f"{values['accuracy']:.4f}",
+                "宏平均F1": f"{values['macro_f1']:.4f}",
             }
             for name, values in metrics.get("results", {}).items()
         ]
@@ -419,6 +469,24 @@ def render_tech_page() -> None:
         )
     else:
         st.info("尚未生成模型指标。运行训练命令后会显示模型对比结果。")
+
+    st.markdown("#### BERT 对比实验")
+    bert_rows = bert_summary_rows(load_json_file(BERT_METRICS))
+    if bert_rows:
+        st.dataframe(pd.DataFrame(bert_rows), width="stretch")
+        st.caption(
+            "BERT 作为深度语义模型对比实验展示，不替代当前单条评价分析中的 hybrid 主流程。"
+        )
+    else:
+        st.info("尚未运行 BERT 对比实验。生成 outputs/bert_metrics.json 后会显示结果。")
+
+    st.markdown("#### 消融实验结果")
+    ablation_rows = ablation_summary_rows(load_json_file(ABLATION_METRICS))
+    if ablation_rows:
+        st.dataframe(pd.DataFrame(ablation_rows), width="stretch")
+        st.caption("LLM 只用于建议生成，不纳入基础情感分类消融。")
+    else:
+        st.info("尚未生成消融实验结果。运行 scripts/run_ablation_experiment.py 后会显示对比表。")
 
 
 def main() -> None:

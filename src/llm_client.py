@@ -1,15 +1,21 @@
-"""LLM API client with a deterministic local fallback."""
+"""带确定性本地兜底的大模型 API 客户端。"""
 
 from __future__ import annotations
 
 import json
 import os
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Any
 
 try:
+    from dotenv import load_dotenv
+except ImportError:  # pragma: no cover - 仅在依赖未安装时使用
+    load_dotenv = None
+
+try:
     import requests
-except ImportError:  # pragma: no cover - used only before dependencies are installed
+except ImportError:  # pragma: no cover - 仅在依赖未安装时使用
     requests = None
 
 
@@ -22,6 +28,12 @@ class LLMConfig:
 
     @classmethod
     def from_env(cls) -> "LLMConfig":
+        if load_dotenv is not None:
+            dotenv_path = Path.cwd() / ".env"
+            if not dotenv_path.exists():
+                dotenv_path = Path(__file__).resolve().parents[1] / ".env"
+            load_dotenv(dotenv_path=dotenv_path)
+
         return cls(
             api_key=os.getenv("LLM_API_KEY", ""),
             base_url=os.getenv("LLM_BASE_URL", "https://chat.ecnu.edu.cn/open/api/v1"),
@@ -31,7 +43,7 @@ class LLMConfig:
 
 
 def build_single_review_prompt(analysis: dict[str, Any]) -> str:
-    """Build a structured prompt for one review."""
+    """为单条评价构建结构化提示词。"""
 
     topic_evidence = json.dumps(analysis.get("topic_evidence", []), ensure_ascii=False)
     similar_reviews = json.dumps(analysis.get("similar_reviews", []), ensure_ascii=False)
@@ -51,7 +63,7 @@ problems 每项包含 aspect、description、evidence；suggestions 每项包含
 
 
 def local_summary(analysis: dict[str, Any]) -> dict[str, Any]:
-    """Generate a stable local summary when API is unavailable."""
+    """在 API 不可用时生成稳定的本地总结。"""
 
     sentiment = analysis.get("sentiment", "neutral")
     language = analysis.get("language", "unknown")
@@ -106,11 +118,11 @@ def local_summary(analysis: dict[str, Any]) -> dict[str, Any]:
 
 
 def call_llm_json(prompt: str, config: LLMConfig | None = None) -> dict[str, Any]:
-    """Call an OpenAI-compatible chat completions API and parse JSON output."""
+    """调用配置的大模型聊天接口，并解析 JSON 输出。"""
 
     config = config or LLMConfig.from_env()
     if not config.api_key or requests is None:
-        raise RuntimeError("LLM API is not configured")
+        raise RuntimeError("未配置大模型 API")
 
     url = config.base_url.rstrip("/") + "/chat/completions"
     response = requests.post(
@@ -132,7 +144,7 @@ def call_llm_json(prompt: str, config: LLMConfig | None = None) -> dict[str, Any
 
 
 def generate_review_advice(analysis: dict[str, Any]) -> dict[str, Any]:
-    """Generate LLM advice, falling back to local templates on failure."""
+    """生成大模型建议，失败时回退到本地模板。"""
 
     prompt = build_single_review_prompt(analysis)
     try:

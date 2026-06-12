@@ -1,4 +1,4 @@
-"""Build cleaned Coursera and bilingual training datasets."""
+"""构建清洗后的 Coursera 数据和双语训练集。"""
 
 from __future__ import annotations
 
@@ -19,13 +19,13 @@ def clean_coursera(
     max_chars: int = 1200,
     random_state: int = 42,
 ) -> pd.DataFrame:
-    """Filter Coursera samples and keep a balanced subset."""
+    """筛选 Coursera 样本并保留均衡子集。"""
 
     df = pd.read_csv(input_path)
     required = {"text", "course", "teacher", "label"}
     missing = required - set(df.columns)
     if missing:
-        raise ValueError(f"Coursera sample is missing columns: {sorted(missing)}")
+        raise ValueError(f"Coursera 样本缺少列：{sorted(missing)}")
 
     cleaned = df.copy()
     cleaned["text"] = cleaned["text"].fillna("").astype(str).str.replace(r"\s+", " ", regex=True).str.strip()
@@ -64,7 +64,7 @@ def build_bilingual(
     coursera_path: str | Path,
     output_path: str | Path,
 ) -> pd.DataFrame:
-    """Merge Chinese manual data and cleaned Coursera data."""
+    """合并中文人工数据和清洗后的 Coursera 数据。"""
 
     chinese = pd.read_csv(chinese_path)
     coursera = pd.read_csv(coursera_path)
@@ -73,7 +73,7 @@ def build_bilingual(
     for frame_name, frame in {"chinese": chinese, "coursera": coursera}.items():
         missing = set(columns) - set(frame.columns)
         if missing:
-            raise ValueError(f"{frame_name} data is missing columns: {sorted(missing)}")
+            raise ValueError(f"{frame_name} 数据缺少列：{sorted(missing)}")
 
     merged = pd.concat([chinese[columns], coursera[columns]], ignore_index=True)
     merged["text"] = merged["text"].fillna("").astype(str).str.strip()
@@ -112,9 +112,9 @@ def main() -> None:
         output_path=args.output,
     )
 
-    print(f"cleaned_coursera={args.cleaned_coursera}")
+    print(f"清洗后 Coursera 数据={args.cleaned_coursera}")
     print(cleaned["label"].value_counts().to_string())
-    print(f"bilingual={args.output}")
+    print(f"双语训练集={args.output}")
     print(merged.groupby(["language", "label"]).size().to_string())
 
 

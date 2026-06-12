@@ -1,0 +1,103 @@
+{
+  "best_model": "Logistic Regression",
+  "accuracy": 0.6903508771929825,
+  "macro_f1": 0.6905521739211689,
+  "results": {
+    "Dummy Most Frequent": {
+      "accuracy": 0.3333333333333333,
+      "macro_f1": 0.16666666666666666
+    },
+    "Logistic Regression": {
+      "accuracy": 0.6903508771929825,
+      "macro_f1": 0.6905521739211689
+    },
+    "Naive Bayes": {
+      "accuracy": 0.6771929824561403,
+      "macro_f1": 0.6785328945490784
+    },
+    "Linear SVM": {
+      "accuracy": 0.6811403508771929,
+      "macro_f1": 0.6795447855997986
+    }
+  },
+  "train_size": 6840,
+  "test_size": 2280,
+  "data_path": "data/processed/bilingual_reviews_train.csv",
+  "vectorizer": {
+    "ngram_range": [
+      1,
+      2
+    ],
+    "min_df": 2,
+    "max_df": 0.95,
+    "max_features": 30000,
+    "sublinear_tf": true
+  },
+  "labels": [
+    "negative",
+    "neutral",
+    "positive"
+  ],
+  "confusion_matrix": [
+    [
+      540,
+      198,
+      22
+    ],
+    [
+      252,
+      418,
+      90
+    ],
+    [
+      31,
+      113,
+      616
+    ]
+  ],
+  "classification_report": {
+    "negative": {
+      "precision": 0.6561360874848117,
+      "recall": 0.7105263157894737,
+      "f1-score": 0.6822488945041061,
+      "support": 760.0
+    },
+    "neutral": {
+      "precision": 0.5733882030178327,
+      "recall": 0.55,
+      "f1-score": 0.5614506380120886,
+      "support": 760.0
+    },
+    "positive": {
+      "precision": 0.8461538461538461,
+      "recall": 0.8105263157894737,
+      "f1-score": 0.8279569892473119,
+      "support": 760.0
+    },
+    "accuracy": 0.6903508771929825,
+    "macro avg": {
+      "precision": 0.6918927122188302,
+      "recall": 0.6903508771929824,
+      "f1-score": 0.6905521739211689,
+      "support": 2280.0
+    },
+    "weighted avg": {
+      "precision": 0.6918927122188302,
+      "recall": 0.6903508771929825,
+      "f1-score": 0.6905521739211689,
+      "support": 2280.0
+    }
+  },
+  "language_metrics": {
+    "en": {
+      "accuracy": 0.6925465838509317,
+      "macro_f1": 0.6927057564549326,
+      "support": 2254
+    },
+    "zh": {
+      "accuracy": 0.5,
+      "macro_f1": 0.4954248366013072,
+      "support": 26
+    }
+  }
+}

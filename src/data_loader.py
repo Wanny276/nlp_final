@@ -1,4 +1,4 @@
-"""Data loading and validation."""
+"""数据读取与校验。"""
 
 from __future__ import annotations
 
@@ -22,7 +22,7 @@ def _find_column(fieldnames: list[str], candidates: tuple[str, ...]) -> str | No
 
 
 def label_from_rating(value: str) -> str:
-    """Convert 1-5 star ratings to sentiment labels."""
+    """将 1-5 分评分转换为情感标签。"""
 
     try:
         rating = float(value)
@@ -37,7 +37,7 @@ def label_from_rating(value: str) -> str:
 
 
 def load_reviews_csv(path: str | Path) -> list[dict[str, str]]:
-    """Load review rows from a CSV file with a required text column."""
+    """从 CSV 文件读取评价记录，并要求存在文本列。"""
 
     csv_path = Path(path)
     if not csv_path.exists():
@@ -46,11 +46,11 @@ def load_reviews_csv(path: str | Path) -> list[dict[str, str]]:
     with csv_path.open("r", encoding="utf-8-sig", newline="") as file:
         reader = csv.DictReader(file)
         if reader.fieldnames is None:
-            raise ValueError("CSV must include a header row")
+            raise ValueError("CSV 必须包含表头行")
 
         text_column = _find_column(reader.fieldnames, TEXT_COLUMN_CANDIDATES)
         if text_column is None:
-            raise ValueError("CSV must include one of these text columns: text, review, reviews, comment, content")
+            raise ValueError("CSV 必须包含以下文本列之一：text, review, reviews, comment, content")
 
         course_column = _find_column(reader.fieldnames, COURSE_COLUMN_CANDIDATES)
         teacher_column = _find_column(reader.fieldnames, TEACHER_COLUMN_CANDIDATES)
@@ -78,6 +78,6 @@ def load_reviews_csv(path: str | Path) -> list[dict[str, str]]:
 
 
 def rows_to_texts(rows: list[dict[str, str]]) -> list[str]:
-    """Extract review texts from loaded rows."""
+    """从读取后的记录中提取评价文本。"""
 
     return [row[REQUIRED_TEXT_COLUMN] for row in rows if row.get(REQUIRED_TEXT_COLUMN)]

@@ -1,0 +1,6 @@
+﻿实验版本,编号,评价文本,预期情感,实际情感
+model-only,4,课程内容不错，但是考试范围不太明确,neutral,positive
+model-only,5,老师互动很多，课堂氛围很好,positive,negative
+model-only,6,这门课难度比较大，但学完之后收获很多,neutral,negative
+model-only,8,PPT 内容比较多，复习的时候抓不到重点,negative,positive
+model-only,11,The course is difficult but I learned practical skills,neutral,positive

@@ -1,17 +1,22 @@
 import unittest
+import os
+import subprocess
+import sys
 from pathlib import Path
 from unittest.mock import patch
 
 import pandas as pd
 
-from app import build_test_case_results, parse_expected_topics
+from app import ablation_summary_rows, bert_summary_rows, build_test_case_results, parse_expected_topics
+from scripts.run_ablation_experiment import run_ablation
 from scripts.prepare_coursera_dataset import prepare_dataset
 from src.keyword_extractor import keywords_only
-from src.llm_client import local_summary
+from src.llm_client import LLMConfig, local_summary
 from src.nlp_analyzer import analyze_review, sentiment_distribution
 from src.data_loader import label_from_rating, load_reviews_csv
 from src.preprocess import clean_text, detect_language, tokenize
 from src.similarity import cosine_similarity
+from src.train_model import train
 from src.topic_analyzer import detect_topic_evidence, detect_topics
 
 
@@ -125,6 +130,41 @@ class CorePipelineTest(unittest.TestCase):
         self.assertEqual(result["problems"][0]["evidence"], "实验环境配置太复杂")
         self.assertEqual(result["suggestions"][0]["aspect"], "实验实践")
 
+    def test_llm_config_loads_dotenv_file(self):
+        names = ["LLM_API_KEY", "LLM_BASE_URL", "LLM_MODEL", "LLM_TIMEOUT"]
+        old_env = {name: os.environ.pop(name, None) for name in names}
+        old_cwd = Path.cwd()
+        temp_path = old_cwd / "outputs" / "reports" / "test_llm_dotenv"
+
+        try:
+            temp_path.mkdir(parents=True, exist_ok=True)
+            (temp_path / ".env").write_text(
+                "\n".join(
+                    [
+                        "LLM_API_KEY=test-key",
+                        "LLM_BASE_URL=https://example.test/open/api/v1",
+                        "LLM_MODEL=test-model",
+                        "LLM_TIMEOUT=7",
+                    ]
+                ),
+                encoding="utf-8",
+            )
+            os.chdir(temp_path)
+
+            config = LLMConfig.from_env()
+
+            self.assertEqual(config.api_key, "test-key")
+            self.assertEqual(config.base_url, "https://example.test/open/api/v1")
+            self.assertEqual(config.model, "test-model")
+            self.assertEqual(config.timeout, 7)
+        finally:
+            os.chdir(old_cwd)
+            for name, value in old_env.items():
+                if value is None:
+                    os.environ.pop(name, None)
+                else:
+                    os.environ[name] = value
+
     def test_rating_to_label(self):
         self.assertEqual(label_from_rating("5"), "positive")
         self.assertEqual(label_from_rating("3"), "neutral")
@@ -181,6 +221,139 @@ class CorePipelineTest(unittest.TestCase):
         self.assertEqual(results.loc[0, "是否通过"], "通过")
         self.assertEqual(results.loc[0, "情感来源"], "规则兜底")
         self.assertEqual(results.loc[0, "关键词"], "清楚、内容")
+
+    def test_train_model_writes_detailed_metrics(self):
+        data_path = Path("outputs/reports/test_train_metrics_data.csv")
+        model_dir = Path("outputs/reports/test_train_metrics_model")
+        rows = []
+        examples = {
+            "positive": [
+                "clear useful helpful course",
+                "clear useful practical examples",
+                "helpful practical course clear",
+                "useful helpful examples clear",
+            ],
+            "neutral": [
+                "clear but assignments many",
+                "useful but deadline stressful",
+                "practical but difficult course",
+                "helpful but confusing setup",
+            ],
+            "negative": [
+                "confusing difficult boring course",
+                "unclear difficult stressful assignments",
+                "boring confusing outdated course",
+                "unclear stressful difficult setup",
+            ],
+        }
+        for label, texts in examples.items():
+            for index, text in enumerate(texts):
+                rows.append(
+                    {
+                        "id": f"{label}-{index}",
+                        "text": text,
+                        "label": label,
+                        "language": "en",
+                    }
+                )
+        pd.DataFrame(rows).to_csv(data_path, index=False)
+
+        metrics = train(data_path, model_dir=model_dir)
+
+        self.assertIn("classification_report", metrics)
+        self.assertIn("confusion_matrix", metrics)
+        self.assertIn("language_metrics", metrics)
+        self.assertIn("vectorizer", metrics)
+        self.assertEqual(metrics["vectorizer"]["min_df"], 2)
+        self.assertTrue((model_dir / "model_metrics.json").exists())
+
+    def test_ablation_runs_without_saved_model(self):
+        output_dir = Path("outputs/reports/test_ablation")
+        cases = pd.DataFrame(
+            [
+                {
+                    "id": 1,
+                    "text": "老师讲课很清楚，内容也很有用",
+                    "expected_sentiment": "positive",
+                },
+                {
+                    "id": 2,
+                    "text": "作业太多了，每周都做不完",
+                    "expected_sentiment": "negative",
+                },
+            ]
+        )
+
+        metrics = run_ablation(cases, output_dir=output_dir, model_dir="outputs/reports/missing_model")
+
+        self.assertIn("rule-only", metrics["experiments"])
+        self.assertIn("hybrid", metrics["experiments"])
+        self.assertEqual(metrics["experiments"]["model-only"]["status"], "跳过")
+        self.assertTrue((output_dir / "ablation_metrics.json").exists())
+        self.assertTrue((output_dir / "ablation_errors.csv").exists())
+
+    def test_ablation_script_runs_as_file(self):
+        result = subprocess.run(
+            [
+                sys.executable,
+                "scripts/run_ablation_experiment.py",
+                "--cases",
+                "data/test_cases.csv",
+                "--output-dir",
+                "outputs/reports/test_ablation_cli",
+                "--model-dir",
+                "outputs/reports/missing_model",
+            ],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("rule-only:", result.stdout)
+        self.assertIn("model-only: 跳过", result.stdout)
+
+    def test_app_formats_bert_and_ablation_metrics(self):
+        bert_metrics = {
+            "model_name": "bert-base-multilingual-cased",
+            "accuracy": 0.75,
+            "macro_f1": 0.72,
+            "test_size": 20,
+        }
+        ablation_metrics = {
+            "experiments": {
+                "rule-only": {
+                    "status": "completed",
+                    "accuracy": 0.5,
+                    "macro_f1": 0.44,
+                    "passed": 1,
+                    "failed": 1,
+                    "skipped": 0,
+                },
+                "model-only": {"status": "跳过", "skipped": 2},
+            }
+        }
+
+        bert_rows = bert_summary_rows(bert_metrics)
+        ablation_rows = ablation_summary_rows(ablation_metrics)
+
+        self.assertEqual(bert_rows[0]["模型"], "BERT")
+        self.assertEqual(bert_rows[0]["预训练模型"], "bert-base-multilingual-cased")
+        self.assertEqual(ablation_rows[0]["实验版本"], "rule-only")
+        self.assertEqual(ablation_rows[1]["状态"], "跳过")
+
+    def test_bert_help_does_not_require_transformers(self):
+        result = subprocess.run(
+            [sys.executable, "-m", "src.train_bert", "--help"],
+            capture_output=True,
+            text=True,
+            check=False,
+        )
+
+        self.assertEqual(result.returncode, 0, result.stderr)
+        self.assertIn("用法:", result.stdout)
+        self.assertIn("选项:", result.stdout)
+        self.assertIn("--sample-per-label", result.stdout)
 
 
 if __name__ == "__main__":

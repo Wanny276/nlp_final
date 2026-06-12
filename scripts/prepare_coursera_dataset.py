@@ -1,10 +1,10 @@
-"""Prepare a balanced Coursera review sample for CourseInsight.
+"""为 CourseInsight 准备均衡的 Coursera 评价样本。
 
-The source file is expected to contain:
+源文件应包含：
 
     text,label
 
-Label mapping used by this project:
+本项目使用的标签映射：
 
     0 -> negative
     1 -> neutral
@@ -34,14 +34,14 @@ def prepare_dataset(
     max_chars: int = 1200,
     random_state: int = 42,
 ) -> pd.DataFrame:
-    """Load, clean, balance, and export Coursera reviews."""
+    """读取、清洗、均衡抽样并导出 Coursera 评价。"""
 
     input_file = Path(input_path)
     output_file = Path(output_path)
 
     df = pd.read_csv(input_file)
     if "text" not in df.columns or "label" not in df.columns:
-        raise ValueError("Input CSV must contain 'text' and 'label' columns")
+        raise ValueError("输入 CSV 必须包含 'text' 和 'label' 列")
 
     prepared = df[["text", "label"]].copy()
     prepared["text"] = prepared["text"].fillna("").astype(str).str.replace(r"\s+", " ", regex=True).str.strip()
@@ -88,8 +88,8 @@ def main() -> None:
         max_chars=args.max_chars,
         random_state=args.random_state,
     )
-    print(f"saved={args.output}")
-    print(f"rows={len(sampled)}")
+    print(f"已保存={args.output}")
+    print(f"行数={len(sampled)}")
     print(sampled["label"].value_counts().to_string())
 
 

@@ -1,170 +1,90 @@
-# CourseInsight: 中英双语课程评价智能分析与改进建议系统
+# CourseInsight: 中英双语课程评价分析系统
 
-CourseInsight 是面向自然语言处理期末大作业的课程评价分析系统。项目采用 **传统 NLP 分析 + 大模型 API 增强** 的混合架构：先用文本预处理、情感分类、主题识别、关键词提取和相似评论检索得到结构化结果，再调用大模型生成课程反馈总结与改进建议。
+CourseInsight 是一个自然语言处理课程项目，用来分析中文高校课程评价和英文在线课程评论。系统先做文本预处理、情感分类、课程维度识别、关键词提取和相似评论检索，再把结构化结果交给大模型生成课程反馈建议。大模型不可用时，系统会使用本地模板兜底，演示流程不会中断。
 
-系统支持两类课程反馈：
+项目主线仍然是轻量、可解释、能稳定运行的传统 NLP 流程。BERT 只作为深度语义模型对比实验，不替代当前系统。
 
-- 中文高校课程评价：用于课堂演示和体现中文 NLP 处理流程；
-- 英文在线课程评论：用于接入 Coursera 等公开课程评论数据。
+## 项目功能
 
-需要说明的是，当前量化评估主要基于 Coursera 英文课程评论；中文人工样本规模较小，主要用于高校课程评价场景适配、中文预处理流程验证和中文输入演示，不把中文小样本结果作为强性能结论。
+- 单条评价分析：识别语言、情感、置信度、课程维度、关键词、相似评论，并生成反馈建议。
+- CSV 批量分析：支持常见评论字段，展示情感分布、主题分布、高频关键词和分析明细。
+- 模型训练与评估：比较 Dummy、Naive Bayes、Logistic Regression、Linear SVM，并保存最优传统模型。
+- 消融实验：比较 rule-only、model-only、hybrid，说明规则、模型和规则校正各自的作用。
+- BERT 对比实验：提供可选脚本，用 multilingual BERT 做深度学习对照，不接入实时预测主流程。
 
-## 功能概览
-
-- 单条课程评价分析：语言识别、情感倾向、置信度、主题、关键词、预处理结果、相似评论；
-- CSV 批量分析：兼容中文样本和 Coursera 风格字段，展示情感分布、主题分布、高频关键词和明细表；
-- 传统 NLP 模块：中文/英文分词、停用词过滤、TF-IDF、Logistic Regression、规则兜底、余弦相似度；
-- 大模型增强：根据结构化结果生成总结、问题归纳和改进建议，API 失败时使用本地模板兜底；
-- 测试与展示：内置测试用例页面、模型与技术说明页面，便于报告和 PPT 截图。
-
-## 关键设计点
-
-- 结构化 NLP 到 LLM 建议生成：系统不是直接把原始评论交给大模型，而是先生成语言、情感、主题、关键词和相似评论等结构化结果，再要求大模型输出 JSON 格式的总结、问题和建议；本地兜底也保留相同的 summary / problems / suggestions / risk_level 结构。
-- 可解释课程维度识别：主题识别不仅返回课程维度标签，还返回命中关键词和证据片段，便于在答辩和界面中说明系统为什么判定为“作业任务”“实验实践”或“教学内容”等维度。
-
-## 课程知识点对应
-
-| 课上内容 | 项目体现 |
-|---|---|
-| L1 Introduction | 课程评价自动分析的真实应用背景 |
-| L2 Text Preprocessing | 文本清洗、语言识别、中文 jieba 分词、英文正则分词、停用词过滤 |
-| L3 n-gram Language Model | 使用 unigram / bigram 作为 TF-IDF 特征 |
-| L4 Text Classification | 将评价划分为 `positive`、`neutral`、`negative` |
-| L5 Logistic Regression | 使用 TF-IDF + Logistic Regression 训练情感分类模型 |
-| L6-L8 Word Embedding / Word2Vec / Sequence Models | 作为后续拓展方向，可用于更强的语义表示和分类模型 |
-
-## 情感标签标准
-
-项目统一使用三分类情感标签：
-
-| 标签 | 判定标准 |
-|---|---|
-| `positive` | 评价主体主要表达认可、满意或表扬，没有明显问题 |
-| `neutral` | 有好有坏、转折评价、建议型评价，或正负面信号相对均衡 |
-| `negative` | 评价主体主要表达抱怨、不满或明显问题，负面信号占主导 |
-
-同时包含正负面信息并出现“但是 / but / however”等转折信号的评价，优先视为混合评价；在三分类中统一映射为 `neutral`。完整准则见 [docs/sentiment_labeling_guidelines.md](docs/sentiment_labeling_guidelines.md)。
-
-## 目录结构
+## 目录说明
 
 ```text
-.
-├── app.py
-├── requirements.txt
-├── README.md
-├── CONTRIBUTING.md
-├── .env.example
-├── data/
-│   ├── sample_reviews.csv
-│   ├── coursera_sample_reviews.csv
-│   ├── stopwords.txt
-│   ├── test_cases.csv
-│   └── processed/
-├── docs/
-│   ├── README.md
-│   ├── dataset_preparation.md
-│   ├── demo_materials.md
-│   ├── sentiment_labeling_guidelines.md
-│   └── submission_checklist.md
-├── models/
-├── outputs/
-├── src/
-└── tests/
+app.py                         Streamlit 页面入口
+src/                           NLP 分析、模型训练、LLM 调用等核心代码
+scripts/                       数据处理和消融实验脚本
+data/                          示例数据和处理后的训练数据
+models/                        传统模型和指标文件
+outputs/reports/               消融实验结果
+docs/report.md                 课程报告正文
+tests/                         单元测试
 ```
 
-## 快速开始
+## 环境与运行
 
-建议使用 Python 3.10 或 3.11。
-
-1. 创建并激活虚拟环境：
+普通运行使用项目虚拟环境即可：
 
 ```bash
 python -m venv .venv
 .venv\Scripts\activate
-```
-
-2. 安装依赖：
-
-```bash
 pip install -r requirements.txt
 ```
 
-3. 准备 Coursera 抽样数据和双语训练集：
+启动系统：
+
+```bash
+streamlit run app.py
+```
+
+运行测试：
+
+```bash
+python -m unittest discover -s tests
+```
+
+## 数据来源
+
+训练集由两部分组成：
+
+| 数据 | 数量 | 用途 |
+|---|---:|---|
+| Coursera 英文课程评论 | 9000 条，每类 3000 条 | 主要训练和量化评估 |
+| 中文人工课程评价 | 120 条，每类 40 条 | 中文流程验证和课堂演示 |
+
+英文数据来自 Hugging Face 数据集 `MungunshagaiT/coursera-reviews`。原始文件放在 `data/raw/coursera_reviews_label_3.csv`，该目录不提交。中文数据由项目组按高校课程评价场景人工构造和标注，覆盖教学内容、授课方式、作业任务、考试安排、实验实践和学习收获。
+
+这一点需要明确：当前模型性能主要反映英文 Coursera 评论上的效果，中文样本主要用于验证中文分词、规则识别和系统演示，不把 120 条中文样本包装成充分的中文模型训练数据。
+
+重新构建数据：
 
 ```bash
 python scripts\prepare_coursera_dataset.py --input data\raw\coursera_reviews_label_3.csv --output data\processed\coursera_reviews_sampled.csv --per-label 3000 --min-chars 20 --max-chars 1200
 python scripts\build_bilingual_dataset.py --per-label 3000 --min-chars 20 --max-chars 1200
 ```
 
-说明：`data/raw/coursera_reviews_label_3.csv` 来自 Hugging Face `MungunshagaiT/coursera-reviews`，原始大文件不提交到仓库。
-
-4. 训练课程评论情感分类模型：
+## 传统模型训练
 
 ```bash
 python -m src.train_model --data data/processed/bilingual_reviews_train.csv --model-dir models
 ```
 
-5. 运行单元测试：
+当前一次训练结果：
 
-```bash
-python -m unittest discover -s tests
-```
+| 模型 | Accuracy | Macro-F1 |
+|---|---:|---:|
+| Dummy Most Frequent | 0.3333 | 0.1667 |
+| Logistic Regression | 0.6904 | 0.6906 |
+| Naive Bayes | 0.6772 | 0.6785 |
+| Linear SVM | 0.6811 | 0.6795 |
 
-6. 启动 Web 系统：
+最优模型是 Logistic Regression。它不是最复杂的模型，但训练快、结果稳定、部署简单，也方便解释。三分类任务中 neutral 边界比较模糊，所以报告中同时展示 Accuracy 和 Macro-F1。
 
-```bash
-streamlit run app.py
-```
-
-## 数据格式
-
-标准 CSV 字段：
-
-```csv
-id,text,course,teacher,label
-```
-
-系统也兼容常见英文课程评论字段：
-
-```text
-review, reviews, comment, content, rating, course_title, instructor
-```
-
-若上传数据包含 `rating` 字段，系统会自动转换情感标签：
-
-```text
-4-5 分 -> positive
-3 分 -> neutral
-1-2 分 -> negative
-```
-
-当前双语训练集为：
-
-```text
-data/processed/bilingual_reviews_train.csv
-```
-
-当前训练集规模：
-
-```text
-英文 Coursera 评论：9000 条（positive / neutral / negative 各 3000 条）
-中文人工课程评价：120 条（positive / neutral / negative 各 40 条）
-合计：9120 条
-```
-
-训练集整体以英文 Coursera 数据为主。中文样本用于中文流程演示和输入验证，后续若要强调中文模型效果，应补充更多真实中文课程评价数据。
-
-数据构建和 Coursera 抽样说明见 [docs/dataset_preparation.md](docs/dataset_preparation.md)。
-
-## 训练模型
-
-使用当前双语训练集训练 TF-IDF + 传统分类模型，并保存最优模型：
-
-```bash
-python -m src.train_model --data data/processed/bilingual_reviews_train.csv --model-dir models
-```
-
-训练后会生成：
+训练会生成：
 
 ```text
 models/sentiment_model.pkl
@@ -172,37 +92,59 @@ models/tfidf_vectorizer.pkl
 models/model_metrics.json
 ```
 
-当前一次训练结果：
+## 消融实验
 
-```text
-best_model = Logistic Regression
-accuracy = 0.6877
-macro_f1 = 0.6867
+```bash
+python scripts\run_ablation_experiment.py --cases data\test_cases.csv --output-dir outputs\reports --model-dir models
 ```
 
-说明：
+当前测试用例结果：
 
-- `models/*.pkl` 是训练生成物，默认不建议提交到 GitHub；
-- `models/model_metrics.json` 可用于模型效果页面展示，也可作为报告/PPT 的截图依据；
-- 三分类课程评论任务需要兼顾 `positive`、`neutral`、`negative` 三类，报告中建议同时展示 `macro_f1`，不要只展示 accuracy；
-- 当前指标适合作为英文 Coursera 抽样为主的数据集上的可用性参考，不作为中文情感分类强性能结论；
-- 已比较 Dummy baseline、Logistic Regression、Naive Bayes 和 Linear SVM，当前选择 Logistic Regression 是因为训练成本低、部署稳定且便于解释；
-- BERT / RoBERTa 等预训练模型适合作为后续改进方向，建议在补充更多真实中文课程评价后再引入；
-- 如果修改了 `src/preprocess.py`、训练数据、模型参数或本地 scikit-learn 版本，建议重新训练模型；
-- 如果只修改 Streamlit 页面、文档或普通单元测试，一般不需要重新训练模型。
+| 实验版本 | 说明 | 结果 |
+|---|---|---|
+| rule-only | 只用规则情感词和转折判断 | 12/12 |
+| model-only | 只用 TF-IDF 模型 | 7/12 |
+| hybrid | 模型预测加规则校正 | 12/12 |
 
-建议重新训练的情况：
+这个结果说明：测试集中有不少混合评价和中文短句，单独依赖模型容易误判；规则校正能把明显的转折句、建议型评价和正负混合评价拉回到更合理的标签。
+
+输出文件：
 
 ```text
-修改文本清洗、分词、停用词、领域词表
-修改 data/processed/ 中的训练数据
-修改 src/train_model.py 中的模型或特征参数
-更换 Python / scikit-learn 环境后出现模型加载版本警告
+outputs/reports/ablation_metrics.json
+outputs/reports/ablation_errors.csv
 ```
 
-## 大模型 API 配置
+## BERT 对比实验
 
-复制 `.env.example` 为 `.env`，填入自己的 API 信息：
+BERT 只作为可选实验支线。运行前需要准备一个已安装 `torch` 和 `transformers` 的 Python 环境，不建议把这些重依赖混进主系统的普通运行环境。
+
+示例做法是单独准备一个 BERT 实验环境：
+
+```bash
+python -m venv .bert-venv
+.bert-venv\Scripts\activate
+pip install -r requirements.txt
+pip install -r requirements-bert.txt
+```
+
+然后运行：
+
+```bash
+python -m src.train_bert --data data/processed/bilingual_reviews_train.csv --model-name bert-base-multilingual-cased --output-dir outputs/bert_model --metrics-path outputs/bert_metrics.json
+```
+
+如果只检查脚本和数据流，可以用小样本：
+
+```bash
+python -m src.train_bert --sample-per-label 2 --epochs 1
+```
+
+`outputs/bert_metrics.json` 可以提交用于展示；`outputs/bert_model/` 是模型权重目录，体积较大，不提交。
+
+## 大模型配置
+
+复制 `.env.example` 为 `.env`，填入 API 信息：
 
 ```text
 LLM_API_KEY=your_api_key
@@ -211,33 +153,21 @@ LLM_MODEL=ecnu-plus
 LLM_TIMEOUT=20
 ```
 
-系统支持 OpenAI-compatible Chat Completions API；本项目演示默认使用 ECNU Open API 配置。LLM prompt 要求输出合法 JSON，并让问题和建议尽量绑定课程维度与原文证据。如果没有配置 API、接口异常或返回 JSON 不可解析，系统会自动使用本地模板生成总结和建议，保证课堂演示不会因为网络问题中断。`.env` 不要提交到仓库。
+系统默认配置为 ChatECNU API 地址，调用格式兼容聊天补全接口；如果换用其他同类接口，只需要调整 `LLM_BASE_URL` 和 `LLM_MODEL`。LLM 只根据情感、课程维度、关键词、证据片段和相似评论生成总结建议，不直接替代情感分类器。没有 API 或 API 返回异常时，系统使用本地模板生成 summary、problems、suggestions 和 risk_level。
 
-演示时可以按两种模式准备：
+## 提交说明
 
-- 无 API：直接运行 `streamlit run app.py`，系统使用本地兜底建议；
-- 有 API：复制 `.env.example` 为 `.env` 并填写 `LLM_API_KEY`，再启动 Streamlit 生成大模型总结建议。
+交付给老师时建议保留：
 
-## 文档导航
+- 代码、README、`docs/report.md`
+- `data/processed/` 下的处理后数据
+- `models/model_metrics.json` 和需要演示的模型文件
+- `outputs/reports/ablation_metrics.json`
+- `outputs/reports/ablation_errors.csv`
 
-- [CONTRIBUTING.md](CONTRIBUTING.md)：分支、提交和 PR 协作约定；
-- [docs/README.md](docs/README.md)：项目文档目录；
-- [docs/demo_materials.md](docs/demo_materials.md)：演示输入、截图清单和报告/PPT 表述；
-- [docs/submission_checklist.md](docs/submission_checklist.md)：期末提交检查清单；
-- [docs/sentiment_labeling_guidelines.md](docs/sentiment_labeling_guidelines.md)：情感标签判定与测试准则；
-- [docs/dataset_preparation.md](docs/dataset_preparation.md)：数据集下载、抽样、清洗和训练说明。
+不建议提交：
 
-## 提交前检查
-
-```bash
-python -m unittest discover -s tests
-streamlit run app.py
-```
-
-提交前确认：
-
-- 单条中文、英文、中英混合评价都能分析；
-- CSV 批量分析能展示图表和明细；
-- 大模型 API 或本地兜底能生成总结建议；
-- `data/test_cases.csv` 中 12 个测试用例可在页面运行，覆盖中文正面/负面/混合/建议型评价和英文正面/负面/混合/实验环境等场景；
-- 没有提交 `.env`、`data/raw/`、无关缓存和大文件。
+- `.env`
+- `data/raw/`
+- `outputs/bert_model/`
+- `__pycache__`、测试临时文件和编辑器缓存

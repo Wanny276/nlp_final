@@ -1,2 +1,1 @@
-"""CourseInsight core package."""
-
+"""CourseInsight 核心包。"""

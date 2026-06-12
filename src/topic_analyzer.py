@@ -1,4 +1,4 @@
-"""Rule-based topic/aspect recognition."""
+"""基于规则的主题和课程维度识别。"""
 
 from __future__ import annotations
 
@@ -132,7 +132,7 @@ def _evidence_snippet(text: str, keyword: str, window: int = 45) -> str:
 
 
 def detect_topic_evidence(text: str, max_topics: int | None = None) -> list[dict[str, object]]:
-    """Detect course aspects with matched keywords and source evidence snippets."""
+    """根据命中关键词和原文证据片段识别课程维度。"""
 
     normalized = text.lower()
     evidence_rows: list[dict[str, object]] = []
@@ -166,6 +166,6 @@ def detect_topic_evidence(text: str, max_topics: int | None = None) -> list[dict
 
 
 def detect_topics(text: str, max_topics: int | None = None) -> list[str]:
-    """Detect topics by keyword hits."""
+    """根据关键词命中结果识别主题。"""
 
     return [str(item["aspect"]) for item in detect_topic_evidence(text, max_topics=max_topics)]

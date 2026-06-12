@@ -1,4 +1,4 @@
-"""Similar review retrieval."""
+"""相似评价检索。"""
 
 from __future__ import annotations
 
@@ -13,7 +13,7 @@ def _term_vector(text: str) -> Counter[str]:
 
 
 def cosine_similarity(text_a: str, text_b: str) -> float:
-    """Calculate cosine similarity with simple term-frequency vectors."""
+    """使用简单词频向量计算余弦相似度。"""
 
     vec_a = _term_vector(text_a)
     vec_b = _term_vector(text_b)
@@ -31,9 +31,8 @@ def cosine_similarity(text_a: str, text_b: str) -> float:
 
 
 def find_similar_reviews(query: str, reviews: list[str], top_k: int = 3) -> list[tuple[str, float]]:
-    """Return top-k similar reviews by cosine similarity."""
+    """按余弦相似度返回前 top-k 条相似评价。"""
 
     scored = [(review, cosine_similarity(query, review)) for review in reviews if review != query]
     scored.sort(key=lambda item: item[1], reverse=True)
     return scored[:top_k]
-
