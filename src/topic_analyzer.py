@@ -136,6 +136,7 @@ def detect_topic_evidence(text: str, max_topics: int | None = None) -> list[dict
 
     normalized = text.lower()
     evidence_rows: list[dict[str, object]] = []
+    evidence_rows: list[dict[str, object]] = []
     for topic, keywords in TOPIC_KEYWORDS.items():
         matched = [keyword for keyword in keywords if keyword in normalized]
         if not matched:
@@ -150,7 +151,21 @@ def detect_topic_evidence(text: str, max_topics: int | None = None) -> list[dict
                 "score": len(matched),
             }
         )
+        matched = [keyword for keyword in keywords if keyword in normalized]
+        if not matched:
+            continue
 
+        matched.sort(key=lambda keyword: (_keyword_position(text, keyword), keyword))
+        evidence_rows.append(
+            {
+                "aspect": topic,
+                "keywords": matched,
+                "evidence": _evidence_snippet(text, matched[0]),
+                "score": len(matched),
+            }
+        )
+
+    evidence_rows.sort(key=lambda item: (-int(item["score"]), str(item["aspect"])))
     evidence_rows.sort(key=lambda item: (-int(item["score"]), str(item["aspect"])))
     if max_topics is not None:
         evidence_rows = evidence_rows[:max_topics]

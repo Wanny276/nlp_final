@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import json
 from pathlib import Path
+from typing import Any
 
 from .cli_utils import ChineseArgumentParser
 from .preprocess import detect_language, load_stopwords, preprocess_many
@@ -54,6 +55,7 @@ def train(data_path: str | Path, model_dir: str | Path = "models") -> dict[str, 
     from sklearn.dummy import DummyClassifier
     from sklearn.feature_extraction.text import TfidfVectorizer
     from sklearn.linear_model import LogisticRegression
+    from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, f1_score
     from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, f1_score
     from sklearn.model_selection import train_test_split
     from sklearn.naive_bayes import MultinomialNB
@@ -115,11 +117,20 @@ def train(data_path: str | Path, model_dir: str | Path = "models") -> dict[str, 
     joblib.dump(trained_models[best_name], output_dir / "sentiment_model.pkl")
     joblib.dump(vectorizer, output_dir / "tfidf_vectorizer.pkl")
 
+    report_output_dir = Path(report_dir)
+    chart_output_dir = Path(chart_dir)
+    report_output_dir.mkdir(parents=True, exist_ok=True)
+    chart_output_dir.mkdir(parents=True, exist_ok=True)
+
     metrics = {
         "best_model": best_name,
         "accuracy": best_metrics["accuracy"],
         "macro_f1": best_metrics["macro_f1"],
         "results": results,
+        "classification_report": report,
+        "confusion_matrix": matrix,
+        "labels": LABEL_ORDER,
+        "language_metrics": language_metrics,
         "train_size": len(x_train),
         "test_size": len(x_test),
         "data_path": str(data_path),
@@ -149,6 +160,22 @@ def train(data_path: str | Path, model_dir: str | Path = "models") -> dict[str, 
         json.dumps(metrics, ensure_ascii=False, indent=2),
         encoding="utf-8",
     )
+    (report_output_dir / "classification_report.json").write_text(
+        json.dumps(
+            {
+                "best_model": best_name,
+                "labels": LABEL_ORDER,
+                "classification_report": report,
+                "confusion_matrix": matrix,
+                "language_metrics": language_metrics,
+            },
+            ensure_ascii=False,
+            indent=2,
+        ),
+        encoding="utf-8",
+    )
+    _plot_confusion_matrix(matrix, chart_output_dir / "confusion_matrix.png")
+    _plot_model_comparison(results, chart_output_dir / "model_comparison.png")
     return metrics
 
 
@@ -156,6 +183,8 @@ def main() -> None:
     parser = ChineseArgumentParser(description="训练并比较传统情感分类模型")
     parser.add_argument("--data", default="data/sample_reviews.csv")
     parser.add_argument("--model-dir", default="models")
+    parser.add_argument("--report-dir", default="outputs/reports")
+    parser.add_argument("--chart-dir", default="outputs/charts")
     args = parser.parse_args()
 
     metrics = train(args.data, args.model_dir)

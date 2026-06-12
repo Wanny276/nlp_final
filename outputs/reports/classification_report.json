@@ -1,0 +1,75 @@
+{
+  "best_model": "Logistic Regression",
+  "labels": [
+    "positive",
+    "neutral",
+    "negative"
+  ],
+  "classification_report": {
+    "positive": {
+      "precision": 0.8404401650618982,
+      "recall": 0.8039473684210526,
+      "f1-score": 0.8217888365837256,
+      "support": 760.0
+    },
+    "neutral": {
+      "precision": 0.5811594202898551,
+      "recall": 0.5276315789473685,
+      "f1-score": 0.5531034482758621,
+      "support": 760.0
+    },
+    "negative": {
+      "precision": 0.6442641946697567,
+      "recall": 0.7315789473684211,
+      "f1-score": 0.685150955021565,
+      "support": 760.0
+    },
+    "accuracy": 0.6877192982456141,
+    "macro avg": {
+      "precision": 0.6886212600071699,
+      "recall": 0.6877192982456141,
+      "f1-score": 0.6866810799603842,
+      "support": 2280.0
+    },
+    "weighted avg": {
+      "precision": 0.6886212600071699,
+      "recall": 0.6877192982456141,
+      "f1-score": 0.6866810799603842,
+      "support": 2280.0
+    }
+  },
+  "confusion_matrix": [
+    [
+      611,
+      111,
+      38
+    ],
+    [
+      90,
+      401,
+      269
+    ],
+    [
+      26,
+      178,
+      556
+    ]
+  ],
+  "language_metrics": {
+    "overall": {
+      "accuracy": 0.6877192982456141,
+      "macro_f1": 0.6866810799603842,
+      "test_size": 2280
+    },
+    "en": {
+      "accuracy": 0.6921029281277729,
+      "macro_f1": 0.6912056728320038,
+      "test_size": 2254
+    },
+    "zh": {
+      "accuracy": 0.3076923076923077,
+      "macro_f1": 0.2814814814814815,
+      "test_size": 26
+    }
+  }
+}
