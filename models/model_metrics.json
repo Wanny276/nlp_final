@@ -94,5 +94,5 @@
   },
   "train_size": 6840,
   "test_size": 2280,
-  "data_path": "data/processed/bilingual_reviews_train.csv"
+  "data_path": "data\\processed\\bilingual_reviews_train.csv"
 }
