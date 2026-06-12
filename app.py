@@ -1678,6 +1678,20 @@ def load_model_metrics() -> dict:
 
 
 @st.cache_data(show_spinner=False)
+def load_bert_metrics() -> dict:
+    if not BERT_METRICS.exists():
+        return {}
+    return json.loads(BERT_METRICS.read_text(encoding="utf-8"))
+
+
+@st.cache_data(show_spinner=False)
+def load_ablation_metrics() -> dict:
+    if not ABLATION_METRICS.exists():
+        return {}
+    return json.loads(ABLATION_METRICS.read_text(encoding="utf-8"))
+
+
+@st.cache_data(show_spinner=False)
 def overview_statistics(
     rows: tuple[tuple[str, str], ...],
 ) -> tuple[dict[str, int], dict[str, int]]:
@@ -2181,6 +2195,52 @@ def result_rows(results: list[dict]) -> list[dict[str, object]]:
         }
         for item in results
     ]
+
+
+def bert_summary_rows(metrics: dict) -> list[dict[str, object]]:
+    if not metrics:
+        return []
+    return [
+        {
+            "模型": "BERT",
+            "预训练模型": metrics.get("model_name", "未知"),
+            "Accuracy": f"{metrics.get('accuracy', 0):.4f}",
+            "Macro-F1": f"{metrics.get('macro_f1', 0):.4f}",
+            "测试样本": metrics.get("test_size", 0),
+        }
+    ]
+
+
+def ablation_summary_rows(metrics: dict) -> list[dict[str, object]]:
+    rows: list[dict[str, object]] = []
+    status_labels = {
+        "completed": "完成",
+        "完成": "完成",
+        "skipped": "跳过",
+        "跳过": "跳过",
+    }
+    for name, values in metrics.get("experiments", {}).items():
+        status = status_labels.get(values.get("status", ""), values.get("status", "未知"))
+        rows.append(
+            {
+                "实验版本": name,
+                "状态": status,
+                "Accuracy": (
+                    f"{values.get('accuracy', 0):.4f}"
+                    if values.get("accuracy") is not None
+                    else "-"
+                ),
+                "Macro-F1": (
+                    f"{values.get('macro_f1', 0):.4f}"
+                    if values.get("macro_f1") is not None
+                    else "-"
+                ),
+                "通过": values.get("passed", 0),
+                "失败": values.get("failed", 0),
+                "跳过": values.get("skipped", 0),
+            }
+        )
+    return rows
 
 
 def parse_expected_topics(value: object) -> list[str]:
@@ -2893,6 +2953,20 @@ def render_tech_page() -> None:
             )
     else:
         st.info("尚未生成模型指标。运行训练命令后会显示模型对比结果。")
+
+    bert_rows = bert_summary_rows(load_bert_metrics())
+    render_section_heading("BERT 对比实验", icon="model")
+    if bert_rows:
+        st.dataframe(pd.DataFrame(bert_rows), width="stretch", hide_index=True)
+    else:
+        st.info("尚未生成 BERT 指标。运行 BERT 对比实验后会显示结果。")
+
+    ablation_rows = ablation_summary_rows(load_ablation_metrics())
+    render_section_heading("消融实验", icon="check")
+    if ablation_rows:
+        st.dataframe(pd.DataFrame(ablation_rows), width="stretch", hide_index=True)
+    else:
+        st.info("尚未生成消融实验结果。运行消融脚本后会显示对比表。")
 
     with st.expander("查看系统组件"):
         render_compact_items(

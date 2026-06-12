@@ -20,41 +20,6 @@
       "macro_f1": 0.6795447855997986
     }
   },
-  "train_size": 6840,
-  "test_size": 2280,
-  "data_path": "data/processed/bilingual_reviews_train.csv",
-  "vectorizer": {
-    "ngram_range": [
-      1,
-      2
-    ],
-    "min_df": 2,
-    "max_df": 0.95,
-    "max_features": 30000,
-    "sublinear_tf": true
-  },
-  "labels": [
-    "negative",
-    "neutral",
-    "positive"
-  ],
-  "confusion_matrix": [
-    [
-      540,
-      198,
-      22
-    ],
-    [
-      252,
-      418,
-      90
-    ],
-    [
-      31,
-      113,
-      616
-    ]
-  ],
   "classification_report": {
     "negative": {
       "precision": 0.6561360874848117,
@@ -88,6 +53,28 @@
       "support": 2280.0
     }
   },
+  "confusion_matrix": [
+    [
+      540,
+      198,
+      22
+    ],
+    [
+      252,
+      418,
+      90
+    ],
+    [
+      31,
+      113,
+      616
+    ]
+  ],
+  "labels": [
+    "negative",
+    "neutral",
+    "positive"
+  ],
   "language_metrics": {
     "en": {
       "accuracy": 0.6925465838509317,
@@ -99,5 +86,18 @@
       "macro_f1": 0.4954248366013072,
       "support": 26
     }
+  },
+  "train_size": 6840,
+  "test_size": 2280,
+  "data_path": "data/processed/bilingual_reviews_train.csv",
+  "vectorizer": {
+    "ngram_range": [
+      1,
+      2
+    ],
+    "min_df": 2,
+    "max_df": 0.95,
+    "max_features": 30000,
+    "sublinear_tf": true
   }
 }

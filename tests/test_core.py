@@ -1,4 +1,5 @@
 import unittest
+import logging
 import os
 import subprocess
 import sys
@@ -6,12 +7,17 @@ from pathlib import Path
 from unittest.mock import patch
 
 import pandas as pd
+from streamlit.runtime.caching import cache_data_api
+
+logging.getLogger("streamlit.runtime.caching.cache_data_api").setLevel(logging.ERROR)
+logging.getLogger("streamlit").setLevel(logging.ERROR)
+cache_data_api._LOGGER.setLevel(logging.ERROR)
 
 from app import ablation_summary_rows, bert_summary_rows, build_test_case_results, parse_expected_topics
 from scripts.run_ablation_experiment import run_ablation
 from scripts.prepare_coursera_dataset import prepare_dataset
 from src.keyword_extractor import keywords_only
-from src.llm_client import LLMConfig, local_summary
+from src.llm_client import LLMConfig, call_llm_json, generate_review_advice, local_summary
 from src.nlp_analyzer import analyze_review, sentiment_distribution
 from src.data_loader import label_from_rating, load_reviews_csv
 from src.preprocess import clean_text, detect_language, tokenize
@@ -90,6 +96,7 @@ class CorePipelineTest(unittest.TestCase):
         result = analyze_review("老师讲解很 clear，但是 assignment 太多，deadline 有点紧。", use_llm=False)
         self.assertEqual(result["language"], "mixed")
         self.assertEqual(result["sentiment"], "neutral")
+        self.assertEqual(len(result["topics"]), len(set(result["topics"])))
 
     @patch("src.nlp_analyzer.model_based_sentiment", return_value=("negative", 0.74))
     def test_balanced_mixed_review_overrides_uncertain_model(self, _mock_model):
@@ -129,6 +136,74 @@ class CorePipelineTest(unittest.TestCase):
         self.assertEqual(result["problems"][0]["aspect"], "实验实践")
         self.assertEqual(result["problems"][0]["evidence"], "实验环境配置太复杂")
         self.assertEqual(result["suggestions"][0]["aspect"], "实验实践")
+
+    def test_local_fallback_deduplicates_topics(self):
+        result = local_summary(
+            {
+                "text": "老师讲解很 clear，但是 assignment 太多，deadline 有点紧。",
+                "sentiment": "neutral",
+                "topics": ["作业任务", "作业任务", "授课方式", "授课方式"],
+                "topic_evidence": [{"aspect": "作业任务", "evidence": "assignment 太多"}],
+                "keywords": ["讲解", "clear", "assignment"],
+            }
+        )
+
+        self.assertNotIn("作业任务、作业任务", result["summary"])
+        self.assertNotIn("授课方式、授课方式", result["suggestions"][0]["suggestion"])
+
+    @patch("src.llm_client.call_llm_json")
+    def test_generate_review_advice_uses_api_result(self, mock_call):
+        mock_call.return_value = {
+            "summary": "课堂反馈整体积极。",
+            "problems": [],
+            "suggestions": [{"aspect": "教学内容", "suggestion": "继续保持", "evidence": "讲得清楚"}],
+            "risk_level": "low",
+        }
+
+        result = generate_review_advice(
+            {
+                "text": "老师讲得清楚",
+                "sentiment": "positive",
+                "topics": ["教学内容"],
+                "keywords": ["清楚"],
+            }
+        )
+
+        self.assertEqual(result["source"], "llm_api")
+        mock_call.assert_called_once()
+
+    @patch("src.llm_client.requests.post")
+    def test_llm_request_uses_compatible_payload(self, mock_post):
+        class FakeResponse:
+            def raise_for_status(self):
+                return None
+
+            def json(self):
+                return {
+                    "choices": [
+                        {
+                            "message": {
+                                "content": (
+                                    '{"summary":"反馈中性。","problems":[],'
+                                    '"suggestions":[{"aspect":"作业任务","suggestion":"适当调整作业量。",'
+                                    '"evidence":"assignment 太多"}],"risk_level":"middle"}'
+                                )
+                            }
+                        }
+                    ]
+                }
+
+        mock_post.return_value = FakeResponse()
+
+        result = call_llm_json(
+            "请生成建议",
+            config=LLMConfig(api_key="test-key", base_url="https://example.test", retries=0),
+        )
+        payload = mock_post.call_args.kwargs["json"]
+
+        self.assertEqual(result["risk_level"], "middle")
+        self.assertNotIn("response_format", payload)
+        self.assertEqual(payload["temperature"], 0.2)
 
     def test_llm_config_loads_dotenv_file(self):
         names = ["LLM_API_KEY", "LLM_BASE_URL", "LLM_MODEL", "LLM_TIMEOUT"]
@@ -177,7 +252,7 @@ class CorePipelineTest(unittest.TestCase):
 
     def test_prepare_coursera_dataset_filters_by_text_length(self):
         input_path = Path("tests/fixtures/coursera_prepare_raw.csv")
-        output_path = Path("outputs/reports/test_prepare_coursera_dataset.csv")
+        output_path = Path("outputs/reports/test_prepare_coursera_dataset/generated.csv")
 
         sampled = prepare_dataset(
             input_path=input_path,

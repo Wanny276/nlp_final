@@ -21,6 +21,14 @@ VECTORIZER_CONFIG = {
 }
 
 
+def _write_json(path: Path, data: dict[str, Any]) -> None:
+    path.write_text(
+        json.dumps(data, ensure_ascii=False, indent=2),
+        encoding="utf-8",
+        newline="\n",
+    )
+
+
 def _language_metrics(
     y_true: list[str],
     y_pred: list[str],
@@ -47,7 +55,74 @@ def _language_metrics(
     return metrics
 
 
-def train(data_path: str | Path, model_dir: str | Path = "models") -> dict[str, object]:
+def _configure_plot_font() -> bool:
+    import matplotlib.pyplot as plt
+    from matplotlib import font_manager
+
+    candidates = [
+        "Microsoft YaHei",
+        "SimHei",
+        "Noto Sans CJK SC",
+        "Source Han Sans SC",
+        "Arial Unicode MS",
+    ]
+    available_fonts = {font.name for font in font_manager.fontManager.ttflist}
+    for font_name in candidates:
+        if font_name in available_fonts:
+            plt.rcParams["font.sans-serif"] = [font_name, "DejaVu Sans"]
+            plt.rcParams["axes.unicode_minus"] = False
+            return True
+    return False
+
+
+def _plot_confusion_matrix(matrix: list[list[int]], output_path: Path) -> None:
+    import matplotlib.pyplot as plt
+
+    has_chinese_font = _configure_plot_font()
+    x_label = "预测标签" if has_chinese_font else "Predicted label"
+    y_label = "真实标签" if has_chinese_font else "True label"
+
+    fig, ax = plt.subplots(figsize=(5, 4))
+    image = ax.imshow(matrix, cmap="Blues")
+    ax.set_xticks(range(len(LABEL_ORDER)), LABEL_ORDER, rotation=30, ha="right")
+    ax.set_yticks(range(len(LABEL_ORDER)), LABEL_ORDER)
+    ax.set_xlabel(x_label)
+    ax.set_ylabel(y_label)
+    for row_index, row in enumerate(matrix):
+        for col_index, value in enumerate(row):
+            ax.text(col_index, row_index, str(value), ha="center", va="center")
+    fig.colorbar(image, ax=ax, fraction=0.046, pad=0.04)
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=160)
+    plt.close(fig)
+
+
+def _plot_model_comparison(results: dict[str, dict[str, float]], output_path: Path) -> None:
+    import matplotlib.pyplot as plt
+
+    _configure_plot_font()
+    names = list(results)
+    accuracy = [results[name]["accuracy"] for name in names]
+    macro_f1 = [results[name]["macro_f1"] for name in names]
+    indexes = range(len(names))
+
+    fig, ax = plt.subplots(figsize=(8, 4))
+    ax.bar([index - 0.18 for index in indexes], accuracy, width=0.36, label="Accuracy")
+    ax.bar([index + 0.18 for index in indexes], macro_f1, width=0.36, label="Macro-F1")
+    ax.set_xticks(list(indexes), names, rotation=20, ha="right")
+    ax.set_ylim(0, 1)
+    ax.legend()
+    fig.tight_layout()
+    fig.savefig(output_path, dpi=160)
+    plt.close(fig)
+
+
+def train(
+    data_path: str | Path,
+    model_dir: str | Path = "models",
+    report_dir: str | Path | None = None,
+    chart_dir: str | Path | None = None,
+) -> dict[str, object]:
     """训练多个分类器并保存最优模型。"""
 
     import joblib
@@ -55,7 +130,6 @@ def train(data_path: str | Path, model_dir: str | Path = "models") -> dict[str, 
     from sklearn.dummy import DummyClassifier
     from sklearn.feature_extraction.text import TfidfVectorizer
     from sklearn.linear_model import LogisticRegression
-    from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, f1_score
     from sklearn.metrics import accuracy_score, classification_report, confusion_matrix, f1_score
     from sklearn.model_selection import train_test_split
     from sklearn.naive_bayes import MultinomialNB
@@ -117,10 +191,19 @@ def train(data_path: str | Path, model_dir: str | Path = "models") -> dict[str, 
     joblib.dump(trained_models[best_name], output_dir / "sentiment_model.pkl")
     joblib.dump(vectorizer, output_dir / "tfidf_vectorizer.pkl")
 
-    report_output_dir = Path(report_dir)
-    chart_output_dir = Path(chart_dir)
-    report_output_dir.mkdir(parents=True, exist_ok=True)
-    chart_output_dir.mkdir(parents=True, exist_ok=True)
+    matrix = confusion_matrix(
+        y_test,
+        best_predictions,
+        labels=LABEL_ORDER,
+    ).tolist()
+    report = classification_report(
+        y_test,
+        best_predictions,
+        labels=LABEL_ORDER,
+        zero_division=0,
+        output_dict=True,
+    )
+    language_metrics = _language_metrics(y_test, best_predictions, language_test)
 
     metrics = {
         "best_model": best_name,
@@ -141,27 +224,14 @@ def train(data_path: str | Path, model_dir: str | Path = "models") -> dict[str, 
             "max_features": VECTORIZER_CONFIG["max_features"],
             "sublinear_tf": VECTORIZER_CONFIG["sublinear_tf"],
         },
-        "labels": LABEL_ORDER,
-        "confusion_matrix": confusion_matrix(
-            y_test,
-            best_predictions,
-            labels=LABEL_ORDER,
-        ).tolist(),
-        "classification_report": classification_report(
-            y_test,
-            best_predictions,
-            labels=LABEL_ORDER,
-            zero_division=0,
-            output_dict=True,
-        ),
-        "language_metrics": _language_metrics(y_test, best_predictions, language_test),
     }
-    (output_dir / "model_metrics.json").write_text(
-        json.dumps(metrics, ensure_ascii=False, indent=2),
-        encoding="utf-8",
-    )
-    (report_output_dir / "classification_report.json").write_text(
-        json.dumps(
+    _write_json(output_dir / "model_metrics.json", metrics)
+
+    if report_dir is not None:
+        report_output_dir = Path(report_dir)
+        report_output_dir.mkdir(parents=True, exist_ok=True)
+        _write_json(
+            report_output_dir / "classification_report.json",
             {
                 "best_model": best_name,
                 "labels": LABEL_ORDER,
@@ -169,13 +239,14 @@ def train(data_path: str | Path, model_dir: str | Path = "models") -> dict[str, 
                 "confusion_matrix": matrix,
                 "language_metrics": language_metrics,
             },
-            ensure_ascii=False,
-            indent=2,
-        ),
-        encoding="utf-8",
-    )
-    _plot_confusion_matrix(matrix, chart_output_dir / "confusion_matrix.png")
-    _plot_model_comparison(results, chart_output_dir / "model_comparison.png")
+        )
+
+    if chart_dir is not None:
+        chart_output_dir = Path(chart_dir)
+        chart_output_dir.mkdir(parents=True, exist_ok=True)
+        _plot_confusion_matrix(matrix, chart_output_dir / "confusion_matrix.png")
+        _plot_model_comparison(results, chart_output_dir / "model_comparison.png")
+
     return metrics
 
 
@@ -187,7 +258,7 @@ def main() -> None:
     parser.add_argument("--chart-dir", default="outputs/charts")
     args = parser.parse_args()
 
-    metrics = train(args.data, args.model_dir)
+    metrics = train(args.data, args.model_dir, report_dir=args.report_dir, chart_dir=args.chart_dir)
     print("模型对比：")
     for name, result in metrics["results"].items():
         print(f"- {name}: 准确率={result['accuracy']:.4f}，宏平均F1={result['macro_f1']:.4f}")

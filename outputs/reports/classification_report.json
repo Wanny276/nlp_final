@@ -1,75 +1,70 @@
 {
   "best_model": "Logistic Regression",
   "labels": [
-    "positive",
+    "negative",
     "neutral",
-    "negative"
+    "positive"
   ],
   "classification_report": {
-    "positive": {
-      "precision": 0.8404401650618982,
-      "recall": 0.8039473684210526,
-      "f1-score": 0.8217888365837256,
+    "negative": {
+      "precision": 0.6561360874848117,
+      "recall": 0.7105263157894737,
+      "f1-score": 0.6822488945041061,
       "support": 760.0
     },
     "neutral": {
-      "precision": 0.5811594202898551,
-      "recall": 0.5276315789473685,
-      "f1-score": 0.5531034482758621,
+      "precision": 0.5733882030178327,
+      "recall": 0.55,
+      "f1-score": 0.5614506380120886,
       "support": 760.0
     },
-    "negative": {
-      "precision": 0.6442641946697567,
-      "recall": 0.7315789473684211,
-      "f1-score": 0.685150955021565,
+    "positive": {
+      "precision": 0.8461538461538461,
+      "recall": 0.8105263157894737,
+      "f1-score": 0.8279569892473119,
       "support": 760.0
     },
-    "accuracy": 0.6877192982456141,
+    "accuracy": 0.6903508771929825,
     "macro avg": {
-      "precision": 0.6886212600071699,
-      "recall": 0.6877192982456141,
-      "f1-score": 0.6866810799603842,
+      "precision": 0.6918927122188302,
+      "recall": 0.6903508771929824,
+      "f1-score": 0.6905521739211689,
       "support": 2280.0
     },
     "weighted avg": {
-      "precision": 0.6886212600071699,
-      "recall": 0.6877192982456141,
-      "f1-score": 0.6866810799603842,
+      "precision": 0.6918927122188302,
+      "recall": 0.6903508771929825,
+      "f1-score": 0.6905521739211689,
       "support": 2280.0
     }
   },
   "confusion_matrix": [
     [
-      611,
-      111,
-      38
+      540,
+      198,
+      22
     ],
     [
-      90,
-      401,
-      269
+      252,
+      418,
+      90
     ],
     [
-      26,
-      178,
-      556
+      31,
+      113,
+      616
     ]
   ],
   "language_metrics": {
-    "overall": {
-      "accuracy": 0.6877192982456141,
-      "macro_f1": 0.6866810799603842,
-      "test_size": 2280
-    },
     "en": {
-      "accuracy": 0.6921029281277729,
-      "macro_f1": 0.6912056728320038,
-      "test_size": 2254
+      "accuracy": 0.6925465838509317,
+      "macro_f1": 0.6927057564549326,
+      "support": 2254
     },
     "zh": {
-      "accuracy": 0.3076923076923077,
-      "macro_f1": 0.2814814814814815,
-      "test_size": 26
+      "accuracy": 0.5,
+      "macro_f1": 0.4954248366013072,
+      "support": 26
     }
   }
 }
