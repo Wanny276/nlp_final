@@ -10,7 +10,14 @@ from app import build_test_case_results, parse_expected_topics
 from scripts.prepare_coursera_dataset import prepare_dataset
 from src.keyword_extractor import keywords_only
 from src import topic_analyzer
-from src.llm_client import LLMConfig, call_llm_json, generate_review_advice, local_summary
+from src.llm_client import (
+    LLMConfig,
+    REVIEW_ADVICE_SCHEMA,
+    build_single_review_prompt,
+    call_llm_json,
+    generate_review_advice,
+    local_summary,
+)
 from src.nlp_analyzer import analyze_review, sentiment_distribution
 from src.data_loader import label_from_rating, load_reviews_csv
 from src.preprocess import clean_text, detect_language, tokenize
@@ -120,6 +127,30 @@ class CorePipelineTest(unittest.TestCase):
         homework = next(item for item in evidence if item["aspect"] == "作业任务")
         self.assertIn("assignments", homework["keywords"])
         self.assertIn("assignments", homework["evidence"].lower())
+
+    def test_review_prompt_requires_actionable_evidence_bound_suggestions(self):
+        prompt = build_single_review_prompt(
+            {
+                "text": "老师讲课逻辑清晰，案例很实用，课堂互动也很多。",
+                "sentiment": "positive",
+                "topics": ["授课方式", "教学内容"],
+                "keywords": ["讲课", "案例", "互动"],
+                "topic_evidence": [
+                    {
+                        "aspect": "授课方式",
+                        "keywords": ["讲课", "互动"],
+                        "evidence": "老师讲课逻辑清晰，课堂互动也很多。",
+                    }
+                ],
+                "similar_reviews": [],
+            }
+        )
+
+        self.assertIn("suggestions 至少 1 条", prompt)
+        self.assertIn("正面评价", prompt)
+        self.assertIn("aspect 必须优先来自 topic_evidence.aspect", prompt)
+        self.assertIn("evidence 必须引用", prompt)
+        self.assertEqual(REVIEW_ADVICE_SCHEMA["properties"]["suggestions"]["minItems"], 1)
 
     @patch("src.llm_client.requests.post")
     def test_call_llm_json_uses_ecnu_schema_payload(self, mock_post):

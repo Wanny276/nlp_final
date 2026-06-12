@@ -8,6 +8,11 @@ from dataclasses import dataclass
 from typing import Any
 
 try:
+    from dotenv import load_dotenv
+except ImportError:  # pragma: no cover - dependency is declared in requirements
+    load_dotenv = None
+
+try:
     import requests
 except ImportError:  # pragma: no cover - used only before dependencies are installed
     requests = None
@@ -26,6 +31,8 @@ class LLMConfig:
 
     @classmethod
     def from_env(cls) -> "LLMConfig":
+        if load_dotenv is not None:
+            load_dotenv(dotenv_path=".env")
         return cls(
             api_key=os.getenv("LLM_API_KEY", ""),
             base_url=os.getenv("LLM_BASE_URL", "https://chat.ecnu.edu.cn/open/api/v1"),
@@ -56,6 +63,7 @@ REVIEW_ADVICE_SCHEMA: dict[str, Any] = {
         },
         "suggestions": {
             "type": "array",
+            "minItems": 1,
             "items": {
                 "type": "object",
                 "properties": {
@@ -72,7 +80,10 @@ REVIEW_ADVICE_SCHEMA: dict[str, Any] = {
 }
 
 SYSTEM_PROMPT = """你是高校课程评价分析助手。请只根据用户提供的结构化 NLP 结果、课程维度证据和相似评论生成建议。
-禁止编造学生没有提到的问题。输出必须是合法 JSON，字段必须符合 schema。"""
+禁止编造学生没有提到的问题。输出必须是合法 JSON 对象，必须包含 summary、problems、suggestions、risk_level 四个字段。
+problems 可以为空数组，但字段不能省略；suggestions 至少 1 条。
+正面评价也必须给出维护型或推广型建议。aspect 必须优先来自 topic_evidence.aspect。
+evidence 必须引用 review_text、topic_evidence.evidence 或 similar_reviews.text 中的原文片段。"""
 
 
 def build_single_review_prompt(analysis: dict[str, Any]) -> str:
@@ -90,7 +101,12 @@ def build_single_review_prompt(analysis: dict[str, Any]) -> str:
 
     return (
         "请基于以下课程评价分析结果生成结构化建议。"
-        "每个 problem 和 suggestion 都必须绑定 aspect，并尽量引用 evidence。\n\n"
+        "输出必须包含：summary 字符串；problems 数组，每项含 aspect、description、evidence；"
+        "suggestions 至少 1 条，每项含 aspect、suggestion、evidence；risk_level 只能是 low/middle/high。"
+        "每个 problem 和 suggestion 都必须绑定 aspect，aspect 必须优先来自 topic_evidence.aspect。"
+        "evidence 必须引用 review_text、topic_evidence.evidence 或 similar_reviews.text 中的原文片段。"
+        "正面评价也要输出保持优势、推广做法或继续优化的维护型建议。"
+        "即使没有明显问题，也要保留 problems 字段为空数组。\n\n"
         f"{json.dumps(payload, ensure_ascii=False, indent=2)}"
     )
 
@@ -168,9 +184,19 @@ def _validate_review_advice(result: dict[str, Any]) -> None:
     for key in ["problems", "suggestions"]:
         if not isinstance(result[key], list):
             raise ValueError(f"LLM response key must be a list: {key}")
+        if key == "suggestions" and not result[key]:
+            raise ValueError("LLM response suggestions must contain at least one item")
         for item in result[key]:
             if not isinstance(item, dict):
                 raise ValueError(f"LLM response list item must be an object: {key}")
+            required = ["aspect", "evidence"]
+            if key == "problems":
+                required.append("description")
+            else:
+                required.append("suggestion")
+            for item_key in required:
+                if not item.get(item_key):
+                    raise ValueError(f"LLM response item missing required key: {item_key}")
 
 
 def call_llm_json(prompt: str, config: LLMConfig | None = None) -> dict[str, Any]:
