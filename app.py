@@ -45,8 +45,8 @@ SENTIMENT_SOURCE_LABELS = {
     "model": "模型预测",
     "rule": "规则兜底",
     "hybrid": "规则校正",
-    "bert": "BERT 预测",
-    "bert+rule": "BERT + 规则校正",
+    "bert": "BERT 主模型",
+    "bert+rule": "BERT 主模型 + 规则校正",
     "tfidf": "TF-IDF 回退",
     "tfidf+rule": "TF-IDF + 规则校正",
 }
@@ -1754,6 +1754,130 @@ def current_env_version() -> int:
     return env_path.stat().st_mtime_ns if env_path.exists() else 0
 
 
+def confidence_status(confidence: float, sentiment: str) -> dict[str, str]:
+    confidence = max(0.0, min(1.0, float(confidence)))
+    if confidence < 0.45:
+        level = "较低"
+        label = "置信度较低"
+        detail = "建议结合问题归因与原文证据查看，不把单一标签当作最终结论。"
+        tone = "negative"
+    elif confidence < 0.7:
+        level = "中等"
+        label = "置信度中等"
+        detail = "可以作为初步判断，建议同时查看课程维度和证据片段。"
+        tone = "neutral"
+    else:
+        level = "较高"
+        label = "置信度较高"
+        detail = "模型倾向比较明确，仍建议在教学决策前回看原文。"
+        tone = "positive"
+
+    if sentiment == "neutral":
+        reason = "该评价可能同时包含正向表述和改进诉求，因此模型不确定性更高。"
+    else:
+        reason = "该说明用于提示模型判断边界，方便教师决定是否人工复核。"
+
+    return {
+        "level": level,
+        "label": label,
+        "detail": detail,
+        "reason": reason,
+        "tone": tone,
+    }
+
+
+def batch_conclusion_card(
+    sentiments: dict[str, int],
+    topics: dict[str, int],
+    keywords: dict[str, int],
+    total: int,
+) -> dict[str, str]:
+    if total <= 0:
+        return {
+            "title": "暂无批量结论",
+            "detail": "当前数据没有可分析的有效评价。",
+            "tone": "neutral",
+        }
+
+    positive_rate = sentiments.get("positive", 0) / total
+    neutral_rate = sentiments.get("neutral", 0) / total
+    negative_rate = sentiments.get("negative", 0) / total
+    top_topic = next(iter(topics), "未识别课程维度")
+    top_keywords = "、".join(list(keywords)[:3]) if keywords else "暂无高频关键词"
+
+    if negative_rate >= 0.25 and negative_rate >= positive_rate:
+        return {
+            "title": f"优先关注{top_topic}",
+            "detail": (
+                f"本批评价中负面反馈占比 {negative_rate:.1%}，主要集中在{top_topic}。"
+                f"建议优先查看相关原文，并结合关键词“{top_keywords}”确认具体问题。"
+            ),
+            "tone": "negative",
+        }
+    if neutral_rate >= positive_rate and neutral_rate >= negative_rate:
+        return {
+            "title": f"重点复核{top_topic}",
+            "detail": (
+                f"本批评价以中性或混合反馈为主，占比 {neutral_rate:.1%}。"
+                f"建议先看{top_topic}下的原文证据，再决定是否调整课程安排。"
+            ),
+            "tone": "neutral",
+        }
+    return {
+        "title": f"{top_topic}反馈整体较稳定",
+        "detail": (
+            f"本批评价正面反馈占比 {positive_rate:.1%}。"
+            f"建议保留已有做法，同时跟踪关键词“{top_keywords}”中的具体诉求。"
+        ),
+        "tone": "positive",
+    }
+
+
+def bert_metric_status(metrics: dict) -> dict[str, str]:
+    if not metrics or metrics.get("macro_f1") is None:
+        return {
+            "label": "BERT 最终指标",
+            "value": "待补充",
+            "detail": "完成最终训练后更新。",
+            "tone": "neutral",
+        }
+
+    return {
+        "label": "阶段性 BERT Macro-F1",
+        "value": f"{float(metrics.get('macro_f1', 0)):.3f}",
+        "detail": (
+            f"基于当前 {metrics.get('test_size', 0)} 条测试样本的阶段性评估，"
+            "最终训练后更新。"
+        ),
+        "tone": "neutral",
+    }
+
+
+def language_metric_rows(metrics: dict) -> list[dict[str, object]]:
+    rows: list[dict[str, object]] = []
+    for language, values in metrics.get("language_metrics", {}).items():
+        support = int(values.get("support", values.get("test_size", 0)) or 0)
+        if support <= 0:
+            continue
+        rows.append(
+            {
+                "语言": LANGUAGE_LABELS.get(language, "总体" if language == "overall" else language),
+                "Accuracy": (
+                    f"{values.get('accuracy', 0):.4f}"
+                    if values.get("accuracy") is not None
+                    else "-"
+                ),
+                "Macro-F1": (
+                    f"{values.get('macro_f1', 0):.4f}"
+                    if values.get("macro_f1") is not None
+                    else "-"
+                ),
+                "样本": support,
+            }
+        )
+    return rows
+
+
 def escaped(value: object) -> str:
     return html.escape(str(value))
 
@@ -1993,6 +2117,7 @@ def render_analysis_result(result: dict) -> None:
     sentiment_ui = SENTIMENT_UI.get(sentiment, SENTIMENT_UI["neutral"])
     confidence = float(result.get("confidence", 0))
     confidence_percent = max(0, min(100, round(confidence * 100)))
+    confidence_ui = confidence_status(confidence, sentiment)
     sentiment_icon = {
         "positive": "check",
         "neutral": "chart",
@@ -2011,8 +2136,8 @@ def render_analysis_result(result: dict) -> None:
                     </div>
                 </div>
                 <div class="confidence-box">
-                    <div class="confidence-value">{confidence_percent}%</div>
-                    <div class="confidence-label">分类置信度</div>
+                    <div class="confidence-value">{escaped(confidence_ui['level'])}</div>
+                    <div class="confidence-label">{confidence_percent}% 分类置信度</div>
                     <div class="progress-track">
                         <div class="progress-fill" style="width:{confidence_percent}%"></div>
                     </div>
@@ -2020,6 +2145,11 @@ def render_analysis_result(result: dict) -> None:
             </div>
         </section>
         """
+    )
+    render_inline_notice(
+        confidence_ui["label"],
+        f"{confidence_ui['detail']} {confidence_ui['reason']}",
+        "analysis" if confidence_ui["tone"] == "negative" else "chart",
     )
 
     chunk_count = int(result.get("sentiment_chunk_count", 0) or 0)
@@ -2065,57 +2195,54 @@ def render_analysis_result(result: dict) -> None:
             icon="topic",
         )
 
-    tab_result, tab_advice, tab_similar = st.tabs(
-        ["结构化分析", "总结与改进建议", "相似评价"]
-    )
+    tab_result, tab_advice, tab_similar = st.tabs(["问题归因", "改进建议", "相似评价"])
 
     with tab_result:
+        render_section_heading(
+            "原始评价",
+            "分析结论需要能回到学生原文。",
+            "text",
+        )
+        st.html(f'<div class="quote-card">{escaped(result.get("text", ""))}</div>')
+
         left, right = st.columns([1, 1])
         with left:
             render_section_heading(
                 "课程维度",
-                "将评价映射到可处理的教学环节",
+                "将评价映射到可处理的教学环节。",
                 "topic",
             )
             render_chips([str(item) for item in result.get("topics", [])], "primary")
         with right:
             render_section_heading(
                 "关键词",
-                "保留最能代表评价内容的词语",
+                "保留最能代表评价内容的词语。",
                 "keyword",
             )
             render_chips([str(item) for item in result.get("keywords", [])])
 
-        with st.expander("查看原始评价与课程证据"):
-            render_section_heading(
-                "原始评价",
-                "分析结论始终回到学生原文",
-                "text",
-            )
-            st.html(f'<div class="quote-card">{escaped(result.get("text", ""))}</div>')
+        render_section_heading(
+            "课程维度证据",
+            "命中词与对应原文。",
+            "topic",
+        )
+        evidence_items = result.get("topic_evidence", [])
+        if evidence_items:
+            for item in evidence_items:
+                keywords = "、".join(str(word) for word in item.get("keywords", []))
+                st.html(
+                    f"""
+                    <div class="evidence-card">
+                        <div class="evidence-title">{escaped(item.get("aspect", "课程维度"))}</div>
+                        <div class="evidence-text">{escaped(item.get("evidence", ""))}</div>
+                        <div class="evidence-source">命中关键词：{escaped(keywords)}</div>
+                    </div>
+                    """
+                )
+        else:
+            st.info("当前评价没有命中预设课程维度。")
 
-            render_section_heading(
-                "课程维度证据",
-                "命中词与对应原文",
-                "topic",
-            )
-            evidence_items = result.get("topic_evidence", [])
-            if evidence_items:
-                for item in evidence_items:
-                    keywords = "、".join(str(word) for word in item.get("keywords", []))
-                    st.html(
-                        f"""
-                        <div class="evidence-card">
-                            <div class="evidence-title">{escaped(item.get("aspect", "课程维度"))}</div>
-                            <div class="evidence-text">{escaped(item.get("evidence", ""))}</div>
-                            <div class="evidence-source">命中关键词：{escaped(keywords)}</div>
-                        </div>
-                        """
-                    )
-            else:
-                st.info("当前评价没有命中预设课程维度。")
-
-        with st.expander("查看文本预处理结果"):
+        with st.expander("开发者视图：预处理与分词"):
             sentiment_text = result.get("sentiment_text", "")
             if sentiment_text and sentiment_text != result.get("text", ""):
                 st.caption("情感模型标准化输入")
@@ -2189,7 +2316,7 @@ def render_analysis_result(result: dict) -> None:
                     """
                 )
 
-            with st.expander("查看结构化 JSON"):
+            with st.expander("开发者视图：结构化 JSON"):
                 st.json(advice)
 
     with tab_similar:
@@ -2254,6 +2381,8 @@ def bert_summary_rows(metrics: dict) -> list[dict[str, object]]:
             "Accuracy": f"{metrics.get('accuracy', 0):.4f}",
             "Macro-F1": f"{metrics.get('macro_f1', 0):.4f}",
             "测试样本": metrics.get("test_size", 0),
+            "状态": "阶段性评估",
+            "说明": "最终训练完成后更新",
         }
     ]
 
@@ -2402,10 +2531,10 @@ def render_shell() -> str:
 
 def render_overview_page() -> None:
     render_page_intro(
-        "NLP Application",
-        "让课程评价从文本变成可执行的改进线索",
-        "系统面向高校教师、课程负责人和教学管理者，将中英文学生评价转化为情感趋势、"
-        "课程维度证据、相似反馈与改进建议。",
+        "课程反馈分析系统",
+        "面向教师与课程管理者的课程评价智能分析系统",
+        "系统支持情感识别、课程维度归因、问题提取与改进建议生成，"
+        "用于把分散的学生反馈整理成可复核的改进线索。",
     )
 
     rows = load_sample_rows()
@@ -2416,25 +2545,27 @@ def render_overview_page() -> None:
     )
     sentiments, topics = overview_statistics(overview_rows)
 
-    metrics = load_model_metrics()
     bert_metrics = load_bert_metrics()
+    bert_status_card = bert_metric_status(bert_metrics)
 
     col_a, col_b, col_c, col_d = st.columns(4)
     with col_a:
         render_stat_card("双语训练数据", "9,120", "英文 9,000 条，中文 120 条")
     with col_b:
         render_stat_card(
-            "最佳模型",
-            bert_metrics.get("model_name", "BERT"),
-            "BERT 主模型，TF-IDF 自动回退",
+            "当前部署方案",
+            "BERT + 规则校正",
+            "TF-IDF 和规则用于回退",
             "positive",
+            "model",
         )
     with col_c:
         render_stat_card(
-            "Macro-F1",
-            f"{bert_metrics.get('macro_f1', metrics.get('macro_f1', 0)):.3f}",
-            "三分类整体均衡指标",
-            "neutral",
+            bert_status_card["label"],
+            bert_status_card["value"],
+            bert_status_card["detail"],
+            bert_status_card["tone"],
+            "chart",
         )
     with col_d:
         test_count = len(load_test_cases())
@@ -2472,7 +2603,7 @@ def render_overview_page() -> None:
         render_feature_card(
             "02",
             "可解释情感分类",
-            "模型预测结合规则校正，展示置信度、判定来源和混合评价处理过程。",
+            "单条分析使用 BERT 与规则校正，并明确展示置信度和判定来源。",
         )
     with col_3:
         render_feature_card(
@@ -2484,7 +2615,7 @@ def render_overview_page() -> None:
         render_feature_card(
             "04",
             "改进建议生成",
-            "基于结构化结果调用 ChatECNU；接口异常时自动切换本地模板。",
+            "根据情感、证据和相似反馈生成建议；接口不可用时使用本地模板。",
         )
 
     render_section_heading("内置样本概况", "快速查看项目自带课程评价的情感与主题分布。")
@@ -2720,6 +2851,7 @@ def render_batch_page() -> None:
     positive_rate = sentiments.get("positive", 0) / total if total else 0
     negative_rate = sentiments.get("negative", 0) / total if total else 0
     top_topic = next(iter(topics), "未识别")
+    batch_conclusion = batch_conclusion_card(sentiments, topics, keywords, total)
 
     metric_a, metric_b, metric_c, metric_d = st.columns(4)
     with metric_a:
@@ -2748,6 +2880,19 @@ def render_batch_page() -> None:
             "neutral",
             "topic",
         )
+
+    st.html(
+        f"""
+        <div class="summary-card">
+            <div class="summary-meta">
+                <span class="badge {escaped(batch_conclusion['tone'])}">批量分析结论</span>
+                <span class="badge">{escaped(source_name)}</span>
+            </div>
+            <p><strong>{escaped(batch_conclusion['title'])}</strong></p>
+            <p>{escaped(batch_conclusion['detail'])}</p>
+        </div>
+        """
+    )
 
     render_section_heading("整体趋势", icon="chart")
     chart_a, chart_b = st.columns(2)
@@ -2834,9 +2979,10 @@ def render_test_cases_page() -> None:
     with info_col:
         render_inline_notice(
             f"{len(cases)} 个固定案例",
-            "覆盖中文、英文和混合评价",
+            "用于验证系统流程和典型分类逻辑",
             "check",
         )
+        st.caption("固定测试案例不等同于真实场景泛化性能；最终模型效果以独立测试集评估为准。")
 
     if output_df is None:
         output_df = st.session_state.get("test_case_results")
@@ -2875,7 +3021,7 @@ def render_test_cases_page() -> None:
         )
 
     if pass_rate == 1:
-        st.success("全部测试案例均通过，当前版本满足演示用例要求。")
+        st.success("全部固定案例均通过，可用于演示系统流程。")
     else:
         st.warning("部分案例需要检查，请重点查看“需检查”行。")
 
@@ -2904,46 +3050,50 @@ def render_test_cases_page() -> None:
 def render_tech_page() -> None:
     render_workspace_header(
         "系统信息",
-        "查看模型状态、运行指标和系统组件。",
+        "查看部署口径、阶段性指标和系统组件。",
         "运行正常",
         "system",
     )
 
     metrics = load_model_metrics()
-    if metrics:
-        metric_a, metric_b, metric_c, metric_d = st.columns(4)
-        with metric_a:
-            render_stat_card(
-                "最佳模型",
-                metrics.get("best_model", "未知"),
-                "按 Macro-F1 选择",
-                icon="model",
-            )
-        with metric_b:
-            render_stat_card(
-                "Accuracy",
-                f"{metrics.get('accuracy', 0):.4f}",
-                "整体分类准确率",
-                "positive",
-                "check",
-            )
-        with metric_c:
-            render_stat_card(
-                "Macro-F1",
-                f"{metrics.get('macro_f1', 0):.4f}",
-                "三类等权平均",
-                "neutral",
-                "chart",
-            )
-        with metric_d:
-            render_stat_card(
-                "测试集",
-                metrics.get("test_size", 0),
-                "训练集外评估样本",
-                icon="data",
-            )
+    bert_metrics = load_bert_metrics()
+    bert_status_card = bert_metric_status(bert_metrics)
+    metric_a, metric_b, metric_c, metric_d = st.columns(4)
+    with metric_a:
+        render_stat_card(
+            "当前部署模型",
+            "BERT + 规则校正",
+            "失败时回退到 TF-IDF 或规则",
+            "positive",
+            "model",
+        )
+    with metric_b:
+        render_stat_card(
+            "离线传统模型对比",
+            metrics.get("best_model", "待补充") if metrics else "待补充",
+            "用于对比和回退，不作为主模型叙事",
+            "neutral",
+            "chart",
+        )
+    with metric_c:
+        render_stat_card(
+            bert_status_card["label"],
+            bert_status_card["value"],
+            bert_status_card["detail"],
+            bert_status_card["tone"],
+            "check",
+        )
+    with metric_d:
+        render_stat_card(
+            "最终指标状态",
+            "待补充",
+            "BERT 最终训练完成后更新",
+            "neutral",
+            "data",
+        )
 
-        render_section_heading("模型评估", icon="chart")
+    if metrics:
+        render_section_heading("传统模型离线评估", icon="chart")
         rows = [
             {
                 "模型": name,
@@ -2962,32 +3112,17 @@ def render_tech_page() -> None:
             )
         with language_col:
             st.markdown("##### 分语言评估")
-            language_metrics = metrics.get("language_metrics", {})
-            language_rows = []
-            for language, values in language_metrics.items():
-                language_rows.append(
-                    {
-                        "语言": LANGUAGE_LABELS.get(language, "总体" if language == "overall" else language),
-                        "Accuracy": (
-                            f"{values.get('accuracy', 0):.4f}"
-                            if values.get("accuracy") is not None
-                            else "-"
-                        ),
-                        "Macro-F1": (
-                            f"{values.get('macro_f1', 0):.4f}"
-                            if values.get("macro_f1") is not None
-                            else "-"
-                        ),
-                        "样本": values.get("test_size", 0),
-                    }
+            language_rows = language_metric_rows(metrics)
+            if language_rows:
+                st.dataframe(
+                    pd.DataFrame(language_rows),
+                    width="stretch",
+                    hide_index=True,
                 )
-            st.dataframe(
-                pd.DataFrame(language_rows),
-                width="stretch",
-                hide_index=True,
-            )
+            else:
+                st.caption("暂无非空分语言评估结果。")
 
-        with st.expander("查看模型图表与训练说明"):
+        with st.expander("查看传统模型图表与训练说明"):
             chart_a, chart_b = st.columns(2)
             with chart_a:
                 if Path("outputs/charts/model_comparison.png").exists():
@@ -3010,19 +3145,21 @@ def render_tech_page() -> None:
     else:
         st.info("尚未生成模型指标。运行训练命令后会显示模型对比结果。")
 
-    bert_rows = bert_summary_rows(load_bert_metrics())
-    render_section_heading("BERT 主模型评估", icon="model")
+    bert_rows = bert_summary_rows(bert_metrics)
+    render_section_heading("BERT 阶段性评估", icon="model")
     if bert_rows:
         st.dataframe(pd.DataFrame(bert_rows), width="stretch", hide_index=True)
+        st.caption("当前数值用于阶段性展示，不写作最终训练结论。")
     else:
         st.info("尚未生成 BERT 指标。运行 BERT 训练后会显示结果。")
 
     ablation_rows = ablation_summary_rows(load_ablation_metrics())
-    render_section_heading("消融实验", icon="check")
-    if ablation_rows:
-        st.dataframe(pd.DataFrame(ablation_rows), width="stretch", hide_index=True)
-    else:
-        st.info("尚未生成消融实验结果。运行消融脚本后会显示对比表。")
+    with st.expander("查看消融实验（固定案例）"):
+        if ablation_rows:
+            st.caption("消融实验基于固定测试案例，用于说明流程差异，不代表泛化性能。")
+            st.dataframe(pd.DataFrame(ablation_rows), width="stretch", hide_index=True)
+        else:
+            st.info("尚未生成消融实验结果。运行消融脚本后会显示对比表。")
 
     with st.expander("查看系统组件"):
         render_compact_items(

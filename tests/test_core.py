@@ -15,7 +15,16 @@ logging.getLogger("streamlit.runtime.caching.cache_data_api").setLevel(logging.E
 logging.getLogger("streamlit").setLevel(logging.ERROR)
 cache_data_api._LOGGER.setLevel(logging.ERROR)
 
-from app import ablation_summary_rows, bert_summary_rows, build_test_case_results, parse_expected_topics
+from app import (
+    ablation_summary_rows,
+    batch_conclusion_card,
+    bert_metric_status,
+    bert_summary_rows,
+    build_test_case_results,
+    confidence_status,
+    language_metric_rows,
+    parse_expected_topics,
+)
 from scripts.run_ablation_experiment import run_ablation
 from scripts.prepare_coursera_dataset import prepare_dataset
 from src.bert_sentiment import _split_token_ids
@@ -595,6 +604,44 @@ class CorePipelineTest(unittest.TestCase):
     def test_parse_expected_topics(self):
         self.assertEqual(parse_expected_topics("教学内容;考试安排；学习收获"), ["教学内容", "考试安排", "学习收获"])
 
+    def test_confidence_status_explains_low_mixed_feedback(self):
+        status = confidence_status(0.35, "neutral")
+
+        self.assertEqual(status["level"], "较低")
+        self.assertIn("问题归因", status["detail"])
+        self.assertIn("正向表述", status["reason"])
+
+    def test_batch_conclusion_prioritizes_negative_topic(self):
+        conclusion = batch_conclusion_card(
+            {"positive": 3, "neutral": 5, "negative": 8},
+            {"作业任务": 6, "教学内容": 3},
+            {"作业": 5, "deadline": 2},
+            16,
+        )
+
+        self.assertIn("作业任务", conclusion["title"])
+        self.assertIn("优先", conclusion["detail"])
+        self.assertEqual(conclusion["tone"], "negative")
+
+    def test_bert_metric_status_marks_stage_metrics(self):
+        status = bert_metric_status({"macro_f1": 0.75529, "test_size": 2280})
+
+        self.assertEqual(status["label"], "阶段性 BERT Macro-F1")
+        self.assertEqual(status["value"], "0.755")
+        self.assertIn("最终训练", status["detail"])
+
+    def test_language_metric_rows_uses_support_and_skips_empty_rows(self):
+        rows = language_metric_rows(
+            {
+                "language_metrics": {
+                    "zh": {"accuracy": 0.5, "macro_f1": 0.49, "support": 26},
+                    "mixed": {"accuracy": 0.0, "macro_f1": 0.0, "support": 0},
+                }
+            }
+        )
+
+        self.assertEqual(rows, [{"语言": "中文", "Accuracy": "0.5000", "Macro-F1": "0.4900", "样本": 26}])
+
     @patch("app.analyze_batch")
     def test_build_test_case_results(self, mock_analyze):
         mock_analyze.return_value = [{
@@ -740,6 +787,7 @@ class CorePipelineTest(unittest.TestCase):
 
         self.assertEqual(bert_rows[0]["模型"], "BERT")
         self.assertEqual(bert_rows[0]["预训练模型"], "bert-base-multilingual-cased")
+        self.assertEqual(bert_rows[0]["状态"], "阶段性评估")
         self.assertEqual(ablation_rows[0]["实验版本"], "rule-only")
         self.assertEqual(ablation_rows[1]["状态"], "跳过")
 
