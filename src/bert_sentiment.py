@@ -52,6 +52,8 @@ class BertConfig:
     device: str = "auto"
     batch_size: int = 32
     max_length: int = 160
+    stride: int = 32
+    max_chunks: int = 16
 
     @classmethod
     def from_env(cls) -> "BertConfig":
@@ -63,6 +65,8 @@ class BertConfig:
             device=os.getenv("BERT_DEVICE", "auto").strip().lower() or "auto",
             batch_size=_positive_int("BERT_BATCH_SIZE", 32),
             max_length=_positive_int("BERT_MAX_LENGTH", 160),
+            stride=_positive_int("BERT_STRIDE", 32),
+            max_chunks=_positive_int("BERT_MAX_CHUNKS", 16),
         )
 
 
@@ -71,6 +75,39 @@ class BertPrediction:
     label: str
     confidence: float
     device: str
+    chunk_count: int = 1
+    token_count: int = 0
+    truncated: bool = False
+
+
+def _split_token_ids(
+    token_ids: list[int],
+    content_limit: int,
+    stride: int,
+    max_chunks: int,
+) -> tuple[list[list[int]], bool]:
+    """Split token ids into overlapping windows and report capped input."""
+
+    if content_limit <= 0:
+        raise ValueError("BERT_MAX_LENGTH is too small for tokenizer special tokens")
+    if max_chunks <= 0:
+        raise ValueError("BERT_MAX_CHUNKS must be positive")
+    if not token_ids:
+        return [[]], False
+
+    overlap = min(max(stride, 0), content_limit - 1)
+    step = content_limit - overlap
+    chunks: list[list[int]] = []
+    start = 0
+    while start < len(token_ids):
+        chunk = token_ids[start : start + content_limit]
+        chunks.append(chunk)
+        if start + len(chunk) >= len(token_ids):
+            return chunks, False
+        if len(chunks) >= max_chunks:
+            return chunks, True
+        start += step
+    return chunks, False
 
 
 class BertSentimentPredictor:
@@ -115,6 +152,44 @@ class BertSentimentPredictor:
             raise ValueError(f"Unsupported BERT labels: {normalized}")
         return normalized
 
+    def _encode_chunks(
+        self,
+        text: str,
+    ) -> tuple[list[dict[str, list[int]]], int, bool]:
+        encoded = self.tokenizer(
+            text,
+            add_special_tokens=False,
+            truncation=False,
+            return_attention_mask=False,
+            return_token_type_ids=False,
+            verbose=False,
+        )
+        token_ids = list(encoded["input_ids"])
+        special_tokens = self.tokenizer.num_special_tokens_to_add(pair=False)
+        content_limit = self.config.max_length - special_tokens
+        chunks, truncated = _split_token_ids(
+            token_ids,
+            content_limit=content_limit,
+            stride=self.config.stride,
+            max_chunks=self.config.max_chunks,
+        )
+
+        features: list[dict[str, list[int]]] = []
+        cls_token_id = self.tokenizer.cls_token_id
+        sep_token_id = self.tokenizer.sep_token_id
+        if cls_token_id is None or sep_token_id is None:
+            raise ValueError("BERT tokenizer must define CLS and SEP token ids")
+        for chunk in chunks:
+            input_ids = [cls_token_id, *chunk, sep_token_id]
+            feature = {
+                "input_ids": input_ids,
+                "attention_mask": [1] * len(input_ids),
+            }
+            if "token_type_ids" in self.tokenizer.model_input_names:
+                feature["token_type_ids"] = [0] * len(input_ids)
+            features.append(feature)
+        return features, len(token_ids), truncated
+
     def predict(self, texts: list[str]) -> list[BertPrediction]:
         if not texts:
             return []
@@ -123,40 +198,95 @@ class BertSentimentPredictor:
         with self._inference_lock:
             for start in range(0, len(texts), self.config.batch_size):
                 batch_texts = texts[start : start + self.config.batch_size]
-                encoded = self.tokenizer(
-                    batch_texts,
-                    truncation=True,
-                    padding=True,
-                    max_length=self.config.max_length,
-                    return_tensors="pt",
-                ).to(self.device)
-                with self.torch.inference_mode():
-                    probabilities = self.torch.softmax(
-                        self.model(**encoded).logits,
-                        dim=-1,
+                chunk_features: list[dict[str, list[int]]] = []
+                chunk_owners: list[int] = []
+                chunk_weights: list[int] = []
+                sample_metadata: list[tuple[int, int, bool]] = []
+
+                for sample_index, text in enumerate(batch_texts):
+                    features, token_count, truncated = self._encode_chunks(text)
+                    sample_metadata.append(
+                        (len(features), token_count, truncated)
                     )
-                confidence, predicted_ids = probabilities.max(dim=-1)
-                predictions.extend(
-                    BertPrediction(
-                        label=self.id_to_label[int(label_id)],
-                        confidence=float(score),
-                        device=self.device,
+                    for feature in features:
+                        chunk_features.append(feature)
+                        chunk_owners.append(sample_index)
+                        special_tokens = (
+                            self.tokenizer.num_special_tokens_to_add(pair=False)
+                        )
+                        chunk_weights.append(
+                            max(1, len(feature["input_ids"]) - special_tokens)
+                        )
+
+                probability_sums: list[list[float] | None] = [
+                    None for _ in batch_texts
+                ]
+                weight_sums = [0 for _ in batch_texts]
+                for chunk_start in range(
+                    0,
+                    len(chunk_features),
+                    self.config.batch_size,
+                ):
+                    chunk_end = chunk_start + self.config.batch_size
+                    encoded_chunks = self.tokenizer.pad(
+                        chunk_features[chunk_start:chunk_end],
+                        padding=True,
+                        return_tensors="pt",
+                    ).to(self.device)
+                    with self.torch.inference_mode():
+                        chunk_probabilities = self.torch.softmax(
+                            self.model(**encoded_chunks).logits,
+                            dim=-1,
+                        )
+
+                    for probabilities, owner, weight in zip(
+                        chunk_probabilities.detach().cpu().tolist(),
+                        chunk_owners[chunk_start:chunk_end],
+                        chunk_weights[chunk_start:chunk_end],
+                    ):
+                        if probability_sums[owner] is None:
+                            probability_sums[owner] = [
+                                0.0 for _ in probabilities
+                            ]
+                        for index, probability in enumerate(probabilities):
+                            probability_sums[owner][index] += probability * weight
+                        weight_sums[owner] += weight
+
+                for sample_index, metadata in enumerate(sample_metadata):
+                    chunk_count, token_count, truncated = metadata
+                    weighted = probability_sums[sample_index]
+                    if weighted is None or weight_sums[sample_index] <= 0:
+                        raise RuntimeError("BERT produced no chunk probabilities")
+                    averaged = [
+                        probability / weight_sums[sample_index]
+                        for probability in weighted
+                    ]
+                    predicted_id = max(
+                        range(len(averaged)),
+                        key=averaged.__getitem__,
                     )
-                    for label_id, score in zip(
-                        predicted_ids.detach().cpu().tolist(),
-                        confidence.detach().cpu().tolist(),
+                    predictions.append(
+                        BertPrediction(
+                            label=self.id_to_label[predicted_id],
+                            confidence=float(averaged[predicted_id]),
+                            device=self.device,
+                            chunk_count=chunk_count,
+                            token_count=token_count,
+                            truncated=truncated,
+                        )
                     )
-                )
         return predictions
 
 
 _PREDICTOR: BertSentimentPredictor | None = None
-_PREDICTOR_KEY: tuple[str, str, int, int, int, int] | None = None
+_PREDICTOR_KEY: tuple[str, str, int, int, int, int, int, int] | None = None
 _PREDICTOR_ERROR: str | None = None
 _PREDICTOR_LOCK = threading.Lock()
 
 
-def _config_key(config: BertConfig) -> tuple[str, str, int, int, int, int]:
+def _config_key(
+    config: BertConfig,
+) -> tuple[str, str, int, int, int, int, int, int]:
     config_path = config.model_path / "config.json"
     weight_candidates = [
         config.model_path / "model.safetensors",
@@ -172,6 +302,8 @@ def _config_key(config: BertConfig) -> tuple[str, str, int, int, int, int]:
         config.device,
         config.batch_size,
         config.max_length,
+        config.stride,
+        config.max_chunks,
         config_version,
         weight_version,
     )
@@ -239,6 +371,9 @@ def bert_status(config: BertConfig | None = None) -> dict[str, Any]:
         ),
         "loaded": _PREDICTOR is not None and _PREDICTOR_KEY == _config_key(config),
         "device": _PREDICTOR.device if _PREDICTOR is not None else config.device,
+        "max_length": config.max_length,
+        "stride": config.stride,
+        "max_chunks": config.max_chunks,
         "error": _PREDICTOR_ERROR,
     }
 

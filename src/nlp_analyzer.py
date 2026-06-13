@@ -11,6 +11,10 @@ from .bert_sentiment import BertConfig, bert_status, predict_bert
 from .keyword_extractor import keywords_only
 from .llm_client import generate_review_advice
 from .preprocess import detect_language, load_stopwords, preprocess_text
+from .sentiment_normalizer import (
+    SentimentNormalization,
+    normalize_sentiment_text_with_details,
+)
 from .similarity import find_similar_reviews
 from .topic_analyzer import detect_topic_evidence
 
@@ -70,7 +74,9 @@ SUPPORTED_SENTIMENT_BACKENDS = {"auto", "bert", "tfidf", "rule"}
 
 ENGLISH_NEGATION_PATTERN = (
     r"(?:not|never|isn't|isnt|wasn't|wasnt|aren't|arent|"
-    r"is\s+not|was\s+not|are\s+not)"
+    r"is\s+not|was\s+not|are\s+not|do\s+not|does\s+not|"
+    r"did\s+not|can\s+not|cannot|could\s+not|should\s+not|"
+    r"would\s+not|will\s+not|have\s+not|has\s+not|had\s+not)"
 )
 ENGLISH_NEGATIVE_WORD_PATTERN = (
     r"(?:bad|poor|boring|difficult|hard|confusing|unclear|"
@@ -78,7 +84,7 @@ ENGLISH_NEGATIVE_WORD_PATTERN = (
 )
 ENGLISH_POSITIVE_WORD_PATTERN = (
     r"(?:good|great|helpful|useful|clear|engaging|practical|"
-    r"worthwhile|excellent|recommendable)"
+    r"worthwhile|excellent|recommend|recommendable)"
 )
 
 
@@ -125,17 +131,19 @@ def _semantic_sentiment_override(text: str) -> tuple[str, float] | None:
         return "positive", 0.78
 
     # Negating a positive expression is a direct negative signal.
-    if re.search(
+    english_negated_positive = re.search(
         rf"\b{ENGLISH_NEGATION_PATTERN}\s+(?:very\s+|so\s+|that\s+)?"
         rf"{ENGLISH_POSITIVE_WORD_PATTERN}\b",
         normalized,
-    ):
-        return "negative", 0.80
-    if re.search(
+    )
+    chinese_negated_positive = re.search(
         r"(?:不|没有)(?:太|很|那么)?"
         r"(?:好|清楚|有用|值得|实用|合理|简单|有帮助|有收获)",
         text,
-    ):
+    )
+    if (
+        english_negated_positive or chinese_negated_positive
+    ) and not _is_balanced_mixed_review(text):
         return "negative", 0.80
 
     english_sarcasm_marker = re.search(
@@ -307,19 +315,49 @@ def model_based_sentiments(
     return results
 
 
-def bert_based_sentiments(texts: list[str]) -> list[tuple[str, float, str]] | None:
+def bert_based_sentiments(
+    texts: list[str],
+) -> list[tuple[str, float, str, int, int, bool]] | None:
     predictions = predict_bert(texts)
     if predictions is None:
         return None
     return [
-        (prediction.label, prediction.confidence, prediction.device)
+        (
+            prediction.label,
+            prediction.confidence,
+            prediction.device,
+            prediction.chunk_count,
+            prediction.token_count,
+            prediction.truncated,
+        )
         for prediction in predictions
     ]
 
 
-def bert_based_sentiment(text: str) -> tuple[str, float, str] | None:
+def bert_based_sentiment(
+    text: str,
+) -> tuple[str, float, str, int, int, bool] | None:
     predictions = bert_based_sentiments([text])
     return predictions[0] if predictions else None
+
+
+def _bert_result_details(
+    result: tuple[Any, ...],
+) -> tuple[str, float, str, int, int, bool]:
+    """Accept current BERT metadata while keeping older test doubles valid."""
+
+    label, confidence, device = result[:3]
+    chunk_count = int(result[3]) if len(result) > 3 else 1
+    token_count = int(result[4]) if len(result) > 4 else 0
+    truncated = bool(result[5]) if len(result) > 5 else False
+    return (
+        str(label),
+        float(confidence),
+        str(device),
+        chunk_count,
+        token_count,
+        truncated,
+    )
 
 
 def configured_sentiment_backend() -> str:
@@ -334,11 +372,22 @@ def _apply_rule_correction(
     model_confidence: float,
     source: str,
     device: str,
-) -> tuple[str, float, str, str]:
+    chunk_count: int = 0,
+    token_count: int = 0,
+    truncated: bool = False,
+) -> tuple[str, float, str, str, int, int, bool]:
     semantic_override = _semantic_sentiment_override(text)
     if semantic_override is not None:
         sentiment, confidence = semantic_override
-        return sentiment, confidence, f"{source}+rule", device
+        return (
+            sentiment,
+            confidence,
+            f"{source}+rule",
+            device,
+            chunk_count,
+            token_count,
+            truncated,
+        )
 
     rule_sentiment, rule_confidence = rule_based_sentiment(text)
     corrected_source = f"{source}+rule"
@@ -352,61 +401,128 @@ def _apply_rule_correction(
         and _is_balanced_mixed_review(text)
         and model_confidence < mixed_threshold
     ):
-        return "neutral", max(0.72, rule_confidence), corrected_source, device
+        return (
+            "neutral",
+            max(0.72, rule_confidence),
+            corrected_source,
+            device,
+            chunk_count,
+            token_count,
+            truncated,
+        )
     if (
         model_sentiment == "neutral"
         and rule_sentiment == "negative"
         and not _has_mixed_signal(text)
         and model_confidence < 0.75
     ):
-        return "negative", rule_confidence, corrected_source, device
+        return (
+            "negative",
+            rule_confidence,
+            corrected_source,
+            device,
+            chunk_count,
+            token_count,
+            truncated,
+        )
     if model_sentiment != rule_sentiment and model_confidence < 0.55:
         return (
             rule_sentiment,
             max(rule_confidence, model_confidence),
             corrected_source,
             device,
+            chunk_count,
+            token_count,
+            truncated,
         )
     if (
         model_sentiment != rule_sentiment
         and rule_confidence >= 0.75
         and model_confidence < 0.68
     ):
-        return rule_sentiment, rule_confidence, corrected_source, device
-    return model_sentiment, model_confidence, source, device
+        return (
+            rule_sentiment,
+            rule_confidence,
+            corrected_source,
+            device,
+            chunk_count,
+            token_count,
+            truncated,
+        )
+    return (
+        model_sentiment,
+        model_confidence,
+        source,
+        device,
+        chunk_count,
+        token_count,
+        truncated,
+    )
 
 
 def predict_sentiment(
     text: str,
     processed_text: str,
-) -> tuple[str, float, str, str]:
+    sentiment_text: str | None = None,
+    sentiment_processed_text: str | None = None,
+) -> tuple[str, float, str, str, int, int, bool]:
     """Prefer BERT, then TF-IDF, and always retain a rule fallback."""
 
+    sentiment_text = (
+        sentiment_text
+        if sentiment_text is not None
+        else normalize_sentiment_text_with_details(text).text
+    )
+    sentiment_processed_text = (
+        sentiment_processed_text
+        if sentiment_processed_text is not None
+        else (
+            processed_text
+            if sentiment_text == text
+            else preprocess_text(sentiment_text, stopwords=load_stopwords())
+        )
+    )
     backend = configured_sentiment_backend()
     if backend in {"auto", "bert"}:
-        bert_result = bert_based_sentiment(text)
+        bert_result = bert_based_sentiment(sentiment_text)
         if bert_result is not None:
-            label, confidence, device = bert_result
+            (
+                label,
+                confidence,
+                device,
+                chunk_count,
+                token_count,
+                truncated,
+            ) = _bert_result_details(bert_result)
             return _apply_rule_correction(
-                text, label, confidence, "bert", device
+                sentiment_text,
+                label,
+                confidence,
+                "bert",
+                device,
+                chunk_count,
+                token_count,
+                truncated,
             )
 
     if backend in {"auto", "bert", "tfidf"}:
-        model_result = model_based_sentiment(processed_text)
+        model_result = model_based_sentiment(sentiment_processed_text)
         if model_result is not None:
             label, confidence = model_result
             return _apply_rule_correction(
-                text, label, confidence, "tfidf", "cpu"
+                sentiment_text, label, confidence, "tfidf", "cpu"
             )
 
-    label, confidence = rule_based_sentiment(text)
-    return label, confidence, "rule", "cpu"
+    label, confidence = rule_based_sentiment(sentiment_text)
+    return label, confidence, "rule", "cpu", 0, 0, False
 
 
 def predict_sentiments(
     texts: list[str],
     processed_texts: list[str],
-) -> list[tuple[str, float, str, str]]:
+    sentiment_texts: list[str] | None = None,
+    sentiment_processed_texts: list[str] | None = None,
+) -> list[tuple[str, float, str, str, int, int, bool]]:
     """Select a backend once and classify a full batch."""
 
     if len(texts) != len(processed_texts):
@@ -414,23 +530,72 @@ def predict_sentiments(
     if not texts:
         return []
 
+    if sentiment_texts is None:
+        sentiment_texts = [
+            normalize_sentiment_text_with_details(text).text
+            for text in texts
+        ]
+    if len(sentiment_texts) != len(texts):
+        raise ValueError("sentiment_texts and texts must have the same length")
+    if sentiment_processed_texts is None:
+        stopwords = load_stopwords()
+        sentiment_processed_texts = [
+            (
+                processed
+                if sentiment_text == text
+                else preprocess_text(sentiment_text, stopwords=stopwords)
+            )
+            for text, processed, sentiment_text in zip(
+                texts,
+                processed_texts,
+                sentiment_texts,
+            )
+        ]
+    if len(sentiment_processed_texts) != len(texts):
+        raise ValueError(
+            "sentiment_processed_texts and texts must have the same length"
+        )
+
     backend = configured_sentiment_backend()
     if backend in {"auto", "bert"}:
-        bert_results = bert_based_sentiments(texts)
+        bert_results = bert_based_sentiments(sentiment_texts)
         if bert_results is not None and len(bert_results) == len(texts):
-            return [
-                _apply_rule_correction(text, label, confidence, "bert", device)
-                for text, (label, confidence, device) in zip(texts, bert_results)
-            ]
+            predictions = []
+            for text, bert_result in zip(sentiment_texts, bert_results):
+                (
+                    label,
+                    confidence,
+                    device,
+                    chunk_count,
+                    token_count,
+                    truncated,
+                ) = _bert_result_details(bert_result)
+                predictions.append(
+                    _apply_rule_correction(
+                        text,
+                        label,
+                        confidence,
+                        "bert",
+                        device,
+                        chunk_count,
+                        token_count,
+                        truncated,
+                    )
+                )
+            return predictions
 
     if backend in {"auto", "bert", "tfidf"}:
-        model_results = model_based_sentiments(processed_texts)
+        model_results = model_based_sentiments(sentiment_processed_texts)
         if model_results is not None:
-            predictions: list[tuple[str, float, str, str]] = []
-            for text, model_result in zip(texts, model_results):
+            predictions: list[
+                tuple[str, float, str, str, int, int, bool]
+            ] = []
+            for text, model_result in zip(sentiment_texts, model_results):
                 if model_result is None:
                     label, confidence = rule_based_sentiment(text)
-                    predictions.append((label, confidence, "rule", "cpu"))
+                    predictions.append(
+                        (label, confidence, "rule", "cpu", 0, 0, False)
+                    )
                     continue
                 label, confidence = model_result
                 predictions.append(
@@ -441,20 +606,29 @@ def predict_sentiments(
             return predictions
 
     return [
-        (*rule_based_sentiment(text), "rule", "cpu")
-        for text in texts
+        (*rule_based_sentiment(text), "rule", "cpu", 0, 0, False)
+        for text in sentiment_texts
     ]
 
 
 def _build_analysis(
     text: str,
     processed: str,
-    prediction: tuple[str, float, str, str],
+    normalization: SentimentNormalization,
+    prediction: tuple[str, float, str, str, int, int, bool],
     stopwords: set[str],
     reference_reviews: list[str],
     use_llm: bool,
 ) -> dict[str, Any]:
-    sentiment, confidence, sentiment_source, sentiment_device = prediction
+    (
+        sentiment,
+        confidence,
+        sentiment_source,
+        sentiment_device,
+        sentiment_chunk_count,
+        sentiment_token_count,
+        long_text_truncated,
+    ) = prediction
     language = detect_language(text)
     topic_evidence = detect_topic_evidence(text)
     topics = [str(item["aspect"]) for item in topic_evidence]
@@ -465,10 +639,23 @@ def _build_analysis(
         "text": text,
         "language": language,
         "processed_text": processed,
+        "sentiment_text": normalization.text,
+        "sentiment_replacements": [
+            {
+                "original": replacement.original,
+                "replacement": replacement.replacement,
+                "kind": replacement.kind,
+            }
+            for replacement in normalization.replacements
+        ],
         "sentiment": sentiment,
         "confidence": round(confidence, 3),
         "sentiment_source": sentiment_source,
         "sentiment_device": sentiment_device,
+        "sentiment_chunk_count": sentiment_chunk_count,
+        "sentiment_token_count": sentiment_token_count,
+        "long_text_handled": sentiment_chunk_count > 1,
+        "long_text_truncated": long_text_truncated,
         "topics": topics,
         "topic_evidence": topic_evidence,
         "keywords": keywords,
@@ -494,10 +681,18 @@ def analyze_review(
 
     stopwords = load_stopwords()
     processed = preprocess_text(text, stopwords=stopwords)
-    prediction = predict_sentiment(text, processed)
+    normalization = normalize_sentiment_text_with_details(text)
+    sentiment_processed = preprocess_text(normalization.text, stopwords=stopwords)
+    prediction = predict_sentiment(
+        text,
+        processed,
+        sentiment_text=normalization.text,
+        sentiment_processed_text=sentiment_processed,
+    )
     return _build_analysis(
         text,
         processed,
+        normalization,
         prediction,
         stopwords,
         reference_reviews or [],
@@ -517,18 +712,38 @@ def analyze_batch(
         preprocess_text(text, stopwords=stopwords)
         for text in texts
     ]
-    predictions = predict_sentiments(texts, processed_texts)
+    normalizations = [
+        normalize_sentiment_text_with_details(text)
+        for text in texts
+    ]
+    sentiment_texts = [normalization.text for normalization in normalizations]
+    sentiment_processed_texts = [
+        preprocess_text(text, stopwords=stopwords)
+        for text in sentiment_texts
+    ]
+    predictions = predict_sentiments(
+        texts,
+        processed_texts,
+        sentiment_texts=sentiment_texts,
+        sentiment_processed_texts=sentiment_processed_texts,
+    )
     references = texts if reference_reviews is None else reference_reviews
     return [
         _build_analysis(
             text,
             processed,
+            normalization,
             prediction,
             stopwords,
             references,
             use_llm,
         )
-        for text, processed, prediction in zip(texts, processed_texts, predictions)
+        for text, processed, normalization, prediction in zip(
+            texts,
+            processed_texts,
+            normalizations,
+            predictions,
+        )
     ]
 
 

@@ -11,6 +11,7 @@ CourseInsight 是一个自然语言处理课程项目，用来分析中文高校
 - 模型训练与评估：微调 multilingual BERT，同时保留传统分类器作为轻量回退。
 - 消融实验：比较 rule-only、model-only、bert-only、hybrid，说明各层模型和规则校正的作用。
 - BERT 实时预测：优先使用微调后的 multilingual BERT，支持 GPU/CPU 自动选择和批量推理。
+- 噪声文本标准化：展开常见英文缩写，并对情感词执行受限拼写纠错，同时保留原文用于展示和证据提取。
 
 ## 目录说明
 
@@ -146,9 +147,24 @@ BERT_MODEL_PATH=outputs/bert_model
 BERT_DEVICE=auto
 BERT_BATCH_SIZE=32
 BERT_MAX_LENGTH=160
+BERT_STRIDE=32
+BERT_MAX_CHUNKS=16
 ```
 
 `SENTIMENT_BACKEND` 可设置为 `auto`、`bert`、`tfidf` 或 `rule`。`BERT_DEVICE=auto` 会优先使用 CUDA，没有 GPU 时使用 CPU。批量分析会合并文本后一次推理，避免逐条调用 GPU。
+
+超过 `BERT_MAX_LENGTH` 的评价会按模型 Token 使用滑动窗口分段，相邻窗口重叠 `BERT_STRIDE` 个 Token，再按每段有效 Token 数加权聚合分类概率。`BERT_MAX_CHUNKS` 限制单条评价的最大分段数；达到上限时，页面会明确提示仍有后续内容未进入 BERT。短文本仍只执行一次预测。
+
+情感分类前会单独生成标准化文本，例如：
+
+```text
+Tbh this crs is dificult -> To be honest this course is difficult
+I cant recomend this crs -> I can not recommend this course
+borng and uncler -> boring and unclear
+goooood -> good
+```
+
+缩写使用词级映射；重复拉长拼写会先在情感词集合内收缩。其他拼写纠错只面向情感词，要求唯一候选、相同前缀，并且最多只有一次漏字、多字或相邻字母换位。合法词形变化会被保护，`PyTorch`、`NumPy`、课程名等技术词不会参与自动纠错。原始评价仍用于页面展示、关键词、课程维度和证据提取。
 
 `outputs/bert_metrics.json` 可以提交用于展示；`outputs/bert_model/` 约 711 MB，受 GitHub 单文件限制，不直接提交，应在部署时单独下载或挂载。
 

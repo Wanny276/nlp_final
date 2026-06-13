@@ -18,6 +18,7 @@ cache_data_api._LOGGER.setLevel(logging.ERROR)
 from app import ablation_summary_rows, bert_summary_rows, build_test_case_results, parse_expected_topics
 from scripts.run_ablation_experiment import run_ablation
 from scripts.prepare_coursera_dataset import prepare_dataset
+from src.bert_sentiment import _split_token_ids
 from src.keyword_extractor import keywords_only
 from src.llm_client import LLMConfig, call_llm_json, generate_review_advice, local_summary
 from src.nlp_analyzer import (
@@ -28,6 +29,10 @@ from src.nlp_analyzer import (
 )
 from src.data_loader import label_from_rating, load_reviews_csv
 from src.preprocess import clean_text, detect_language, tokenize
+from src.sentiment_normalizer import (
+    correct_sentiment_spelling,
+    normalize_sentiment_text_with_details,
+)
 from src.similarity import cosine_similarity
 from src.train_bert import sample_per_label
 from src.train_model import train
@@ -44,6 +49,76 @@ class CorePipelineTest(unittest.TestCase):
 
     def test_detect_english_language(self):
         self.assertEqual(detect_language("The instructor explains concepts clearly"), "en")
+
+    def test_bert_token_windows_overlap_and_cap_extreme_text(self):
+        chunks, truncated = _split_token_ids(
+            list(range(10)),
+            content_limit=4,
+            stride=1,
+            max_chunks=8,
+        )
+
+        self.assertEqual(chunks, [[0, 1, 2, 3], [3, 4, 5, 6], [6, 7, 8, 9]])
+        self.assertFalse(truncated)
+
+        capped_chunks, capped = _split_token_ids(
+            list(range(20)),
+            content_limit=4,
+            stride=1,
+            max_chunks=2,
+        )
+        self.assertEqual(capped_chunks, [[0, 1, 2, 3], [3, 4, 5, 6]])
+        self.assertTrue(capped)
+
+    def test_sentiment_normalizer_expands_abbreviations_and_typos(self):
+        result = normalize_sentiment_text_with_details(
+            "Tbh, this crs is gud but kinda dificult."
+        )
+
+        self.assertEqual(
+            result.text,
+            "To be honest, this course is good but somewhat difficult.",
+        )
+        self.assertEqual(
+            [(item.original, item.replacement, item.kind) for item in result.replacements],
+            [
+                ("Tbh", "To be honest", "abbreviation"),
+                ("crs", "course", "abbreviation"),
+                ("gud", "good", "spelling"),
+                ("kinda", "somewhat", "abbreviation"),
+                ("dificult", "difficult", "spelling"),
+            ],
+        )
+        self.assertEqual(
+            normalize_sentiment_text_with_details(
+                "I can't recomend this crs"
+            ).text,
+            "I can not recommend this course",
+        )
+
+    def test_sentiment_spelling_correction_is_conservative(self):
+        expected = {
+            "confusin": "confusing",
+            "excelent": "excellent",
+            "borng": "boring",
+            "goooood": "good",
+            "baaaad": "bad",
+        }
+        for token, correction in expected.items():
+            with self.subTest(token=token):
+                self.assertEqual(correct_sentiment_spelling(token), correction)
+
+        for token in [
+            "clean",
+            "pytorch",
+            "numpy",
+            "course",
+            "teacher",
+            "organize",
+            "recommends",
+        ]:
+            with self.subTest(token=token):
+                self.assertIsNone(correct_sentiment_spelling(token))
 
     def test_english_tokenize_removes_common_stopwords(self):
         tokens = tokenize("The instructor explains concepts clearly")
@@ -136,6 +211,77 @@ class CorePipelineTest(unittest.TestCase):
     @patch.dict(os.environ, {"SENTIMENT_BACKEND": "auto"})
     @patch(
         "src.nlp_analyzer.bert_based_sentiment",
+        return_value=("positive", 0.88, "cuda", 3, 380, False),
+    )
+    def test_long_text_metadata_reaches_analysis_result(self, _mock_bert):
+        result = analyze_review(
+            "The lectures cover many useful examples across the semester.",
+            use_llm=False,
+        )
+
+        self.assertEqual(result["sentiment_chunk_count"], 3)
+        self.assertEqual(result["sentiment_token_count"], 380)
+        self.assertTrue(result["long_text_handled"])
+        self.assertFalse(result["long_text_truncated"])
+
+    @patch.dict(os.environ, {"SENTIMENT_BACKEND": "auto"})
+    @patch(
+        "src.nlp_analyzer.bert_based_sentiments",
+        return_value=[
+            ("positive", 0.91, "cuda", 1, 12, False),
+            ("negative", 0.84, "cuda", 4, 510, True),
+        ],
+    )
+    def test_batch_preserves_chunk_metadata_per_review(self, _mock_bert):
+        results = analyze_batch(
+            [
+                "The examples are useful.",
+                "The final part is confusing and difficult.",
+            ],
+            use_llm=False,
+        )
+
+        self.assertEqual(results[0]["sentiment_chunk_count"], 1)
+        self.assertFalse(results[0]["long_text_handled"])
+        self.assertEqual(results[1]["sentiment_chunk_count"], 4)
+        self.assertEqual(results[1]["sentiment_token_count"], 510)
+        self.assertTrue(results[1]["long_text_truncated"])
+
+    @patch.dict(os.environ, {"SENTIMENT_BACKEND": "auto"})
+    @patch(
+        "src.nlp_analyzer.bert_based_sentiment",
+        return_value=("negative", 0.91, "cuda"),
+    )
+    def test_analyze_review_normalizes_only_sentiment_input(self, mock_bert):
+        original = "Tbh this crs is confusin and awfull"
+
+        result = analyze_review(original, use_llm=False)
+
+        self.assertEqual(result["text"], original)
+        self.assertEqual(
+            result["sentiment_text"],
+            "To be honest this course is confusing and awful",
+        )
+        self.assertTrue(result["sentiment_replacements"])
+        mock_bert.assert_called_once_with(
+            "To be honest this course is confusing and awful"
+        )
+
+    @patch.dict(os.environ, {"SENTIMENT_BACKEND": "tfidf"})
+    @patch(
+        "src.nlp_analyzer.model_based_sentiment",
+        return_value=("negative", 0.82),
+    )
+    def test_tfidf_fallback_receives_normalized_tokens(self, mock_tfidf):
+        result = analyze_review("The setup is confusin", use_llm=False)
+
+        self.assertEqual(result["text"], "The setup is confusin")
+        self.assertEqual(result["sentiment_text"], "The setup is confusing")
+        mock_tfidf.assert_called_once_with("setup confusing")
+
+    @patch.dict(os.environ, {"SENTIMENT_BACKEND": "auto"})
+    @patch(
+        "src.nlp_analyzer.bert_based_sentiment",
         return_value=("negative", 0.85, "cuda"),
     )
     def test_bert_mixed_review_uses_rule_correction(self, _mock_bert):
@@ -146,6 +292,25 @@ class CorePipelineTest(unittest.TestCase):
 
         self.assertEqual(result["sentiment"], "neutral")
         self.assertEqual(result["sentiment_source"], "bert+rule")
+
+    @patch.dict(os.environ, {"SENTIMENT_BACKEND": "auto"})
+    @patch(
+        "src.nlp_analyzer.bert_based_sentiment",
+        return_value=("negative", 0.43, "cuda", 3, 347, False),
+    )
+    def test_local_negation_does_not_override_balanced_long_review(
+        self,
+        _mock_bert,
+    ):
+        result = analyze_review(
+            "课程内容很有用，讲解也很清楚，但是实验环境比较复杂，"
+            "考试范围没有清楚公布，总体有价值但仍需改进。",
+            use_llm=False,
+        )
+
+        self.assertEqual(result["sentiment"], "neutral")
+        self.assertEqual(result["sentiment_source"], "bert+rule")
+        self.assertEqual(result["sentiment_chunk_count"], 3)
 
     @patch.dict(os.environ, {"SENTIMENT_BACKEND": "auto"})
     @patch(

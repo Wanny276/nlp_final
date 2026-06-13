@@ -47,7 +47,9 @@ CourseInsight 面向课程评价文本，完成情感分析、课程维度识别
 
 文本预处理部分先清洗 URL、特殊符号和多余空白，再按语言做分词。中文使用 `jieba`，英文使用正则分词和停用词过滤。为了适配课程评价，系统额外保留“作业、考试、实验、讲解、收获”等领域词。
 
-情感分类主模型使用在项目三分类数据上微调的 `bert-base-multilingual-cased`。模型直接读取原始文本，利用上下文表示输出 `positive`、`neutral` 和 `negative` 的概率。批量分析会把多条文本合并后一次送入模型，避免逐条调用 GPU。
+情感分类增加了独立的噪声文本标准化层。它将 `tbh`、`idk`、`cant`、`kinda` 等常见表达展开为完整形式，并对 `dificult`、`confusin`、`excelent` 等情感词执行保守的拼写纠错。重复拉长拼写会先在情感词集合内收缩；其他自动纠错要求候选唯一、词首前缀相同，并且最多只有一次漏字、多字或相邻字母换位。合法词形变化受到保护，短词和不规则拼写使用有限词级映射。标准化文本只送入情感分类，原文继续用于页面展示、关键词、主题和证据提取。
+
+情感分类主模型使用在项目三分类数据上微调的 `bert-base-multilingual-cased`。模型读取标准化后的情感文本，利用上下文表示输出 `positive`、`neutral` 和 `negative` 的概率。批量分析会把多条文本合并后一次送入模型，避免逐条调用 GPU。
 
 传统实验仍比较 Dummy、Naive Bayes、Logistic Regression 和 Linear SVM，其中 Logistic Regression 表现最好。它不再承担主分类任务，而是作为 BERT 加载或推理失败时的轻量回退，兼顾部署稳定性与可解释性。
 
@@ -111,6 +113,7 @@ python scripts\run_ablation_experiment.py --cases data\test_cases.csv --output-d
 | 文件 | 作用 |
 |---|---|
 | `preprocess.py` | 文本清洗、语言识别、分词 |
+| `sentiment_normalizer.py` | 缩写展开和受限情感词拼写纠错 |
 | `train_model.py` | 传统模型训练和指标输出 |
 | `bert_sentiment.py` | BERT 懒加载、设备选择和批量推理 |
 | `nlp_analyzer.py` | BERT、规则与回退模型编排 |

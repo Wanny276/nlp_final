@@ -2022,6 +2022,22 @@ def render_analysis_result(result: dict) -> None:
         """
     )
 
+    chunk_count = int(result.get("sentiment_chunk_count", 0) or 0)
+    token_count = int(result.get("sentiment_token_count", 0) or 0)
+    long_text_truncated = bool(result.get("long_text_truncated", False))
+    if chunk_count > 1 or long_text_truncated:
+        chunk_message = (
+            f"该评价包含 {token_count} 个模型 Token，"
+            f"已使用重叠窗口分为 {chunk_count} 段并综合各段概率。"
+        )
+        if long_text_truncated:
+            st.warning(
+                f"{chunk_message} 当前已达到最大分段数，"
+                "更后面的内容未进入 BERT，请缩短文本或提高 BERT_MAX_CHUNKS。"
+            )
+        else:
+            st.info(chunk_message)
+
     stat_a, stat_b, stat_c = st.columns(3)
     with stat_a:
         render_stat_card(
@@ -2100,6 +2116,18 @@ def render_analysis_result(result: dict) -> None:
                 st.info("当前评价没有命中预设课程维度。")
 
         with st.expander("查看文本预处理结果"):
+            sentiment_text = result.get("sentiment_text", "")
+            if sentiment_text and sentiment_text != result.get("text", ""):
+                st.caption("情感模型标准化输入")
+                st.code(sentiment_text, language="text")
+                replacements = result.get("sentiment_replacements", [])
+                if replacements:
+                    replacement_text = "；".join(
+                        f"{item.get('original', '')} → {item.get('replacement', '')}"
+                        for item in replacements
+                    )
+                    st.caption(f"标准化替换：{replacement_text}")
+            st.caption("TF-IDF 分词结果")
             st.code(result.get("processed_text") or "无", language="text")
 
     with tab_advice:
@@ -2208,6 +2236,7 @@ def result_rows(results: list[dict]) -> list[dict[str, object]]:
             "置信度": item["confidence"],
             "情感来源": SENTIMENT_SOURCE_LABELS.get(item.get("sentiment_source", ""), item.get("sentiment_source", "")),
             "运行设备": item.get("sentiment_device", ""),
+            "BERT分段数": item.get("sentiment_chunk_count", 0) or "",
             "主题": "、".join(item["topics"]),
             "关键词": "、".join(item["keywords"]),
         }
@@ -2312,6 +2341,7 @@ def build_test_case_results(
                     result.get("sentiment_source", ""),
                 ),
                 "运行设备": result.get("sentiment_device", ""),
+                "BERT分段数": result.get("sentiment_chunk_count", 0) or "",
                 "备注": row.get("note", ""),
                 "是否通过": "通过" if sentiment_passed and topic_passed else "需检查",
             }
