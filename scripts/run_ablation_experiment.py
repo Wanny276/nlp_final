@@ -144,7 +144,7 @@ def run_ablation(
         else None
     )
     bert_predictions = (
-        [label for label, _confidence, _device in bert_results]
+        [str(result[0]) for result in bert_results]
         if bert_results is not None
         else []
     )

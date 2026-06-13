@@ -18,6 +18,10 @@ cache_data_api._LOGGER.setLevel(logging.ERROR)
 from app import ablation_summary_rows, bert_summary_rows, build_test_case_results, parse_expected_topics
 from scripts.run_ablation_experiment import run_ablation
 from scripts.prepare_coursera_dataset import prepare_dataset
+from scripts.run_stress_test import (
+    grouped_metrics,
+    load_stress_cases,
+)
 from src.bert_sentiment import _split_token_ids
 from src.keyword_extractor import keywords_only
 from src.llm_client import LLMConfig, call_llm_json, generate_review_advice, local_summary
@@ -713,6 +717,55 @@ class CorePipelineTest(unittest.TestCase):
         self.assertEqual(result.returncode, 0, result.stderr)
         self.assertIn("rule-only:", result.stdout)
         self.assertIn("model-only: 跳过", result.stdout)
+
+    def test_stress_suite_has_expected_independent_structure(self):
+        cases = load_stress_cases("data/stress_test_cases.csv")
+
+        self.assertEqual(len(cases), 48)
+        self.assertEqual(cases["category"].nunique(), 8)
+        self.assertTrue((cases["category"].value_counts() == 6).all())
+        self.assertEqual(
+            set(cases["expected_sentiment"]),
+            {"negative", "neutral", "positive"},
+        )
+
+        business_cases = pd.read_csv("data/test_cases.csv")
+        stress_texts = set(cases["text"].str.strip().str.casefold())
+        business_texts = set(
+            business_cases["text"].astype(str).str.strip().str.casefold()
+        )
+        self.assertFalse(stress_texts & business_texts)
+
+    def test_stress_grouped_metrics_report_each_category(self):
+        cases = pd.DataFrame(
+            [
+                {
+                    "category": "spelling",
+                    "language": "en",
+                    "expected_sentiment": "positive",
+                },
+                {
+                    "category": "spelling",
+                    "language": "en",
+                    "expected_sentiment": "negative",
+                },
+                {
+                    "category": "negation",
+                    "language": "zh",
+                    "expected_sentiment": "neutral",
+                },
+            ]
+        )
+
+        metrics = grouped_metrics(
+            cases,
+            ["positive", "neutral", "neutral"],
+            "category",
+        )
+
+        self.assertEqual(metrics["spelling"]["support"], 2)
+        self.assertEqual(metrics["spelling"]["passed"], 1)
+        self.assertEqual(metrics["negation"]["passed"], 1)
 
     def test_app_formats_bert_and_ablation_metrics(self):
         bert_metrics = {

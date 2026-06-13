@@ -1,0 +1,85 @@
+﻿experiment,id,category,language,text,expected_sentiment,actual_sentiment
+rule-only,ST002,abbreviation,en,ngl the prof is gr8 and the labs are awsm,positive,neutral
+rule-only,ST003,abbreviation,en,"idk what week six was about tbh, the explanation was all over the place",negative,neutral
+rule-only,ST004,abbreviation,en,"the lecture was ok btw, nothing special but nothing bad either",neutral,negative
+rule-only,ST006,abbreviation,en,tbh this crs sux and the notes dont help,negative,neutral
+rule-only,ST007,spelling,en,The tutor was excelnt and the examples were helpfull,positive,neutral
+rule-only,ST008,spelling,en,"Amazn course, very practcal and well orgnized",positive,neutral
+rule-only,ST009,spelling,en,The setup is confuzing and the instructions are uncler,negative,neutral
+rule-only,ST010,spelling,en,The material is booring and some links are brokn,negative,neutral
+rule-only,ST019,sarcasm,en,"Wonderful, the assignment portal crashed again right before the deadline",negative,neutral
+rule-only,ST020,sarcasm,en,"Perfect, another three-hour setup guide that still does not work",negative,neutral
+rule-only,ST021,sarcasm,zh,真贴心，考试前一天才公布复习范围,negative,neutral
+rule-only,ST022,sarcasm,zh,太棒了，代码示例一个都运行不了,negative,neutral
+rule-only,ST023,sarcasm,en,Great job providing exactly zero examples for the hardest topic,negative,positive
+rule-only,ST024,sarcasm,zh,课程安排可真合理，三份大作业全挤在最后一周,negative,neutral
+rule-only,ST025,implicit_complaint,en,Most lectures consist of the instructor reading every line on the slides,negative,neutral
+rule-only,ST026,implicit_complaint,en,I spent the lab session repairing dependencies instead of learning the method,negative,neutral
+rule-only,ST027,implicit_complaint,zh,每次提问后都要等到下周才能得到一句回复,negative,neutral
+rule-only,ST028,implicit_complaint,zh,一节课有一半时间都在等老师把环境配置好,negative,neutral
+rule-only,ST029,implicit_complaint,en,The rubric appeared after everyone had already submitted the project,negative,neutral
+rule-only,ST030,implicit_complaint,zh,复习课结束了，我还是不知道考试到底考哪些内容,negative,neutral
+rule-only,ST034,code_switching,mixed,The teacher 只是在 read slides，几乎没有 explanation,negative,neutral
+rule-only,ST036,code_switching,mixed,The topic 不算 boring，但 pace 也没有特别 comfortable,neutral,negative
+rule-only,ST037,long_text,zh,这门课程从基础概念开始，老师先介绍文本表示、特征提取和分类任务，再通过多个案例演示完整的数据处理流程。课堂节奏稳定，例子与理论能够相互对应，实验说明也给出了清楚的步骤。每次作业完成后都能获得比较具体的反馈，我可以根据反馈修正代码和理解上的问题。后半学期虽然增加了神经网络和预训练模型等内容，但老师仍然安排了复习和答疑，最终项目也允许选择自己感兴趣的方向。整体来看，课程内容丰富、组织清楚，对实际能力提升很有帮助，我愿意推荐给其他同学。,positive,neutral
+rule-only,ST038,long_text,en,"The course begins with a careful introduction to text preprocessing, feature extraction, and evaluation. Each concept is followed by a small example, and the laboratory instructions explain both the goal and the expected output. During the middle of the semester we implement several classifiers and compare their errors instead of only reporting accuracy. The instructor answers questions promptly, provides useful feedback on every assignment, and connects the later Transformer material to the earlier foundations. The final project is challenging but manageable because the milestones are announced early. Overall the course is organized, practical, and genuinely helpful for learning NLP.",positive,neutral
+rule-only,ST047,mixed_sentiment,zh,实验很难配置，不过完成后确实学到了很多，整体还是值得推荐,positive,neutral
+rule-only,ST048,mixed_sentiment,en,"The examples are occasionally helpful, but the lectures are confusing, the deadlines are unreasonable, and I would not recommend the course",negative,neutral
+tfidf-only,ST004,abbreviation,en,"the lecture was ok btw, nothing special but nothing bad either",neutral,negative
+tfidf-only,ST006,abbreviation,en,tbh this crs sux and the notes dont help,negative,neutral
+tfidf-only,ST007,spelling,en,The tutor was excelnt and the examples were helpfull,positive,neutral
+tfidf-only,ST010,spelling,en,The material is booring and some links are brokn,negative,neutral
+tfidf-only,ST012,spelling,en,"The class was fne overall, not amazn and not terrble",neutral,negative
+tfidf-only,ST013,negation,en,The tutorials are not unhelpful; they actually saved me several times,positive,negative
+tfidf-only,ST016,negation,zh,实验说明并不简单，助教的解释也没有帮助,negative,positive
+tfidf-only,ST018,negation,zh,不能说课程很差，但也谈不上特别优秀,neutral,positive
+tfidf-only,ST019,sarcasm,en,"Wonderful, the assignment portal crashed again right before the deadline",negative,positive
+tfidf-only,ST022,sarcasm,zh,太棒了，代码示例一个都运行不了,negative,positive
+tfidf-only,ST023,sarcasm,en,Great job providing exactly zero examples for the hardest topic,negative,positive
+tfidf-only,ST027,implicit_complaint,zh,每次提问后都要等到下周才能得到一句回复,negative,positive
+tfidf-only,ST028,implicit_complaint,zh,一节课有一半时间都在等老师把环境配置好,negative,neutral
+tfidf-only,ST029,implicit_complaint,en,The rubric appeared after everyone had already submitted the project,negative,positive
+tfidf-only,ST030,implicit_complaint,zh,复习课结束了，我还是不知道考试到底考哪些内容,negative,positive
+tfidf-only,ST036,code_switching,mixed,The topic 不算 boring，但 pace 也没有特别 comfortable,neutral,negative
+tfidf-only,ST038,long_text,en,"The course begins with a careful introduction to text preprocessing, feature extraction, and evaluation. Each concept is followed by a small example, and the laboratory instructions explain both the goal and the expected output. During the middle of the semester we implement several classifiers and compare their errors instead of only reporting accuracy. The instructor answers questions promptly, provides useful feedback on every assignment, and connects the later Transformer material to the earlier foundations. The final project is challenging but manageable because the milestones are announced early. Overall the course is organized, practical, and genuinely helpful for learning NLP.",positive,neutral
+tfidf-only,ST041,long_text,zh,课程前半部分的基础内容讲得比较清楚，案例也能帮助理解文本分类流程。进入深度学习部分后，进度明显加快，有些模型只介绍了使用方法，没有充分解释原理。实验任务能够锻炼代码能力，但环境配置偶尔会出现问题，作业量在个别周也比较集中。老师会回答主要问题，不过反馈速度并不总是稳定。总体来说课程有实际价值，也存在需要改进的地方，我的体验既不是完全满意，也不是完全失望。,neutral,positive
+tfidf-only,ST043,mixed_sentiment,zh,讲义结构很清楚，但课堂讲解基本只是重复讲义内容,neutral,positive
+tfidf-only,ST045,mixed_sentiment,zh,老师反馈很及时，遗憾的是作业量大到影响其他课程,neutral,negative
+tfidf-only,ST046,mixed_sentiment,en,"The readings are outdated, although the discussions are engaging and useful",neutral,negative
+tfidf-only,ST047,mixed_sentiment,zh,实验很难配置，不过完成后确实学到了很多，整体还是值得推荐,positive,negative
+bert-only,ST002,abbreviation,en,ngl the prof is gr8 and the labs are awsm,positive,neutral
+bert-only,ST003,abbreviation,en,"idk what week six was about tbh, the explanation was all over the place",negative,neutral
+bert-only,ST004,abbreviation,en,"the lecture was ok btw, nothing special but nothing bad either",neutral,negative
+bert-only,ST006,abbreviation,en,tbh this crs sux and the notes dont help,negative,positive
+bert-only,ST009,spelling,en,The setup is confuzing and the instructions are uncler,negative,neutral
+bert-only,ST010,spelling,en,The material is booring and some links are brokn,negative,neutral
+bert-only,ST012,spelling,en,"The class was fne overall, not amazn and not terrble",neutral,negative
+bert-only,ST013,negation,en,The tutorials are not unhelpful; they actually saved me several times,positive,negative
+bert-only,ST014,negation,zh,这门课不能说没有价值，至少让我掌握了基本方法,positive,negative
+bert-only,ST017,negation,en,The course is neither especially good nor especially bad,neutral,negative
+bert-only,ST018,negation,zh,不能说课程很差，但也谈不上特别优秀,neutral,negative
+bert-only,ST019,sarcasm,en,"Wonderful, the assignment portal crashed again right before the deadline",negative,neutral
+bert-only,ST020,sarcasm,en,"Perfect, another three-hour setup guide that still does not work",negative,neutral
+bert-only,ST021,sarcasm,zh,真贴心，考试前一天才公布复习范围,negative,positive
+bert-only,ST023,sarcasm,en,Great job providing exactly zero examples for the hardest topic,negative,positive
+bert-only,ST024,sarcasm,zh,课程安排可真合理，三份大作业全挤在最后一周,negative,positive
+bert-only,ST027,implicit_complaint,zh,每次提问后都要等到下周才能得到一句回复,negative,neutral
+bert-only,ST028,implicit_complaint,zh,一节课有一半时间都在等老师把环境配置好,negative,neutral
+bert-only,ST029,implicit_complaint,en,The rubric appeared after everyone had already submitted the project,negative,neutral
+bert-only,ST038,long_text,en,"The course begins with a careful introduction to text preprocessing, feature extraction, and evaluation. Each concept is followed by a small example, and the laboratory instructions explain both the goal and the expected output. During the middle of the semester we implement several classifiers and compare their errors instead of only reporting accuracy. The instructor answers questions promptly, provides useful feedback on every assignment, and connects the later Transformer material to the earlier foundations. The final project is challenging but manageable because the milestones are announced early. Overall the course is organized, practical, and genuinely helpful for learning NLP.",positive,neutral
+bert-only,ST045,mixed_sentiment,zh,老师反馈很及时，遗憾的是作业量大到影响其他课程,neutral,positive
+bert-only,ST047,mixed_sentiment,zh,实验很难配置，不过完成后确实学到了很多，整体还是值得推荐,positive,neutral
+hybrid,ST004,abbreviation,en,"the lecture was ok btw, nothing special but nothing bad either",neutral,negative
+hybrid,ST012,spelling,en,"The class was fne overall, not amazn and not terrble",neutral,negative
+hybrid,ST017,negation,en,The course is neither especially good nor especially bad,neutral,negative
+hybrid,ST019,sarcasm,en,"Wonderful, the assignment portal crashed again right before the deadline",negative,neutral
+hybrid,ST020,sarcasm,en,"Perfect, another three-hour setup guide that still does not work",negative,neutral
+hybrid,ST021,sarcasm,zh,真贴心，考试前一天才公布复习范围,negative,positive
+hybrid,ST023,sarcasm,en,Great job providing exactly zero examples for the hardest topic,negative,positive
+hybrid,ST024,sarcasm,zh,课程安排可真合理，三份大作业全挤在最后一周,negative,neutral
+hybrid,ST027,implicit_complaint,zh,每次提问后都要等到下周才能得到一句回复,negative,neutral
+hybrid,ST028,implicit_complaint,zh,一节课有一半时间都在等老师把环境配置好,negative,neutral
+hybrid,ST029,implicit_complaint,en,The rubric appeared after everyone had already submitted the project,negative,neutral
+hybrid,ST038,long_text,en,"The course begins with a careful introduction to text preprocessing, feature extraction, and evaluation. Each concept is followed by a small example, and the laboratory instructions explain both the goal and the expected output. During the middle of the semester we implement several classifiers and compare their errors instead of only reporting accuracy. The instructor answers questions promptly, provides useful feedback on every assignment, and connects the later Transformer material to the earlier foundations. The final project is challenging but manageable because the milestones are announced early. Overall the course is organized, practical, and genuinely helpful for learning NLP.",positive,neutral
+hybrid,ST047,mixed_sentiment,zh,实验很难配置，不过完成后确实学到了很多，整体还是值得推荐,positive,neutral
+hybrid,ST048,mixed_sentiment,en,"The examples are occasionally helpful, but the lectures are confusing, the deadlines are unreasonable, and I would not recommend the course",negative,neutral
