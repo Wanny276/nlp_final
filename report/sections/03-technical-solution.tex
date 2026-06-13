@@ -1,0 +1,154 @@
+% 建议负责人：负责系统集成与工程架构的成员
+\section{技术方案}
+
+\subsection{技术选型与理由}
+
+\begin{table}[H]
+  \centering
+  \caption{主要技术选型}
+  \label{tab:technology-selection}
+  \small
+  \begin{tabularx}{\textwidth}{C{2.5cm} C{3.4cm} Y}
+    \toprule
+    层次 & 技术或工具 & 选型理由 \\
+    \midrule
+    开发语言 & Python 3.10+ &
+    NLP 与机器学习生态完整，便于整合数据处理、模型训练和前端应用 \\
+    Web 前端 & Streamlit &
+    能快速构建数据应用，原生支持表格、图表、文件上传、缓存和下载 \\
+    数据处理 & Pandas、NumPy &
+    适合 CSV 清洗、批量统计、训练数据划分和结果导出 \\
+    中文处理 & jieba &
+    部署轻量，适合课程领域词汇的基础分词和关键词统计 \\
+    传统模型 & scikit-learn &
+    提供 TF-IDF、Logistic Regression、Naive Bayes、Linear SVM 和评估指标 \\
+    深度模型 & PyTorch、Transformers &
+    支持 multilingual BERT 微调、GPU/CPU 切换、批量推理和模型保存 \\
+    建议生成 & ChatECNU API &
+    与聊天补全接口兼容，可将结构化分析结果转换为自然语言教学建议 \\
+    测试工具 & unittest &
+    Python 标准库自带，覆盖预处理、模型编排、降级路径和脚本输出 \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+\subsection{系统总体架构}
+
+系统采用分层结构，将页面交互、NLP 编排、模型推理、规则知识和外部服务分开。前端只调用统一
+分析接口，不直接依赖某一种模型；因此更换情感后端或关闭 LLM 不需要修改页面逻辑。
+
+\begin{figure}[H]
+  \centering
+  \resizebox{\textwidth}{!}{%
+  \begin{tikzpicture}[
+    font=\small,
+    module/.style={
+      draw=ReportBlue, rounded corners=2pt, fill=ReportLightBlue,
+      minimum height=10mm, align=center, inner xsep=4pt
+    },
+    layerlabel/.style={
+      draw=ReportBlue, rounded corners=2pt, fill=ReportBlue,
+      text=white, font=\bfseries, align=center,
+      minimum width=2.6cm, minimum height=13mm
+    },
+    arrow/.style={-{Latex[length=2.2mm]}, thick, draw=ReportBlue}
+  ]
+    \draw[draw=ReportLine, rounded corners=3pt, fill=ReportGray]
+      (0,4.4) rectangle (16.8,6.0);
+    \draw[draw=ReportLine, rounded corners=3pt, fill=white]
+      (0,2.2) rectangle (16.8,3.8);
+    \draw[draw=ReportLine, rounded corners=3pt, fill=ReportGray]
+      (0,0) rectangle (16.8,1.6);
+
+    \node[layerlabel] at (1.45,5.2) {交互层\\Streamlit};
+    \node[layerlabel] at (1.45,3.0) {NLP 服务层};
+    \node[layerlabel] at (1.45,0.8) {模型与\\资源层};
+
+    \node[module, text width=3.7cm] at (5.0,5.2) {单条评价分析};
+    \node[module, text width=3.7cm] at (9.3,5.2) {批量 CSV 分析};
+    \node[module, text width=3.7cm] at (13.6,5.2) {测试验证与系统信息};
+
+    \node[module, text width=2.8cm] at (4.35,3.0) {双语预处理\\与文本标准化};
+    \node[module, text width=2.8cm] at (7.95,3.0) {情感分析编排\\BERT + 规则};
+    \node[module, text width=2.8cm] at (11.55,3.0) {维度、关键词\\与相似评价};
+    \node[module, text width=2.8cm] at (15.15,3.0) {教学建议生成\\LLM + 模板};
+
+    \node[module, text width=2.8cm] at (4.35,0.8) {multilingual BERT\\Transformers};
+    \node[module, text width=2.8cm] at (7.95,0.8) {TF-IDF 分类器\\scikit-learn};
+    \node[module, text width=2.8cm] at (11.55,0.8) {情感规则与\\课程领域词典};
+    \node[module, text width=2.8cm] at (15.15,0.8) {ChatECNU API\\与本地兜底};
+
+    \draw[arrow] (9.3,4.4) -- (9.3,3.8);
+    \draw[arrow] (9.3,2.2) -- (9.3,1.6);
+  \end{tikzpicture}}
+  \caption{CourseInsight 系统总体架构}
+  \label{fig:system-architecture}
+\end{figure}
+
+\subsection{数据流设计}
+
+\begin{figure}[H]
+  \centering
+  \resizebox{\textwidth}{!}{%
+  \begin{tikzpicture}[
+    font=\small,
+    node distance=5mm,
+    flowstep/.style={
+      draw=ReportBlue, rounded corners=2pt, fill=white,
+      minimum width=2.35cm, minimum height=1.15cm,
+      align=center
+    },
+    arrow/.style={-{Latex[length=2mm]}, thick, draw=ReportBlue}
+  ]
+    \node[flowstep] (input) {文本或\\CSV 输入};
+    \node[flowstep, right=of input] (clean) {语言识别\\清洗与分词};
+    \node[flowstep, right=of clean] (normalize) {情感文本\\标准化};
+    \node[flowstep, right=of normalize] (classify) {BERT 分类\\与规则校正};
+    \node[flowstep, right=of classify] (extract) {维度、关键词\\证据与相似评价};
+    \node[flowstep, right=of extract] (output) {结构化结果\\与教学建议};
+
+    \draw[arrow] (input) -- (clean);
+    \draw[arrow] (clean) -- (normalize);
+    \draw[arrow] (normalize) -- (classify);
+    \draw[arrow] (classify) -- (extract);
+    \draw[arrow] (extract) -- (output);
+  \end{tikzpicture}}
+  \caption{系统核心数据流}
+  \label{fig:data-flow}
+\end{figure}
+
+系统对同一条评价保留两种文本表示：原始文本用于页面展示、课程维度、关键词和证据提取；标准化
+文本只用于情感分类。这样既能提高噪声文本的分类稳定性，又不会因为自动纠错而改变学生原话。
+
+\subsection{数据集与标签设计}
+
+训练数据共 9120 条，覆盖中英文课程评价。三个情感类别各 3040 条，保持完全均衡。
+数据以 Coursera 课程评论为主体，并补充高校课程场景的人工构造与标注样本，用于验证双语处理流程。
+
+\begin{table}[H]
+  \centering
+  \caption{训练数据构成}
+  \label{tab:dataset}
+  \small
+  \begin{tabularx}{0.88\textwidth}{L{4.1cm} C{2cm} C{2cm} Y}
+    \toprule
+    数据来源 & 数量 & 语言 & 主要用途 \\
+    \midrule
+    Coursera 课程评论 & 9000 & 英文 & 模型训练和主要量化评估 \\
+    人工课程评价 & 120 & 中文 & 双语流程验证和课堂演示 \\
+    \midrule
+    合计 & 9120 & 中英双语 & 正面、中性、负面各 3040 条 \\
+    \bottomrule
+  \end{tabularx}
+\end{table}
+
+标签定义为：正面表示主要认可或满意；负面表示主要抱怨或明确问题；中性不仅包含态度不明显的
+评价，也包含建议型评价和正负信息相对平衡的混合评价。该定义更符合教学反馈场景，因为“内容
+很好，但考试范围不清楚”不应被简单压缩为单一的正面或负面结论。
+
+\subsection{自动降级与运行稳定性}
+
+情感后端默认设置为 \code{auto}。系统优先加载本地 BERT 权重；若权重缺失、依赖不可用或推理
+失败，则回退到 TF-IDF Logistic Regression；如果传统模型文件也不可用，则使用规则模型。
+建议生成同样具有降级路径：ChatECNU 调用失败时，本地模板根据情感和课程维度生成总结、问题
+与建议。该设计保证了课堂演示中即使网络或 GPU 出现异常，系统仍能提供完整的基本结果。
