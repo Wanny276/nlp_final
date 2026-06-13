@@ -20,7 +20,7 @@
     "mixed": 6,
     "zh": 15
   },
-  "bert_model_path": "D:\\2026NLP\\NLP_Final\\outputs\\bert_model_final",
+  "bert_model_path": "D:\\Desktop\\Natural Language Processing\\Final\\nlp_final\\outputs\\bert_model_final",
   "experiments": {
     "rule-only": {
       "accuracy": 0.4583333333333333,

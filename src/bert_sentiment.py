@@ -60,7 +60,7 @@ class BertConfig:
         _load_project_env()
         return cls(
             model_path=_resolve_model_path(
-                os.getenv("BERT_MODEL_PATH", "outputs/bert_model")
+                os.getenv("BERT_MODEL_PATH", "outputs/bert_model_final")
             ),
             device=os.getenv("BERT_DEVICE", "auto").strip().lower() or "auto",
             batch_size=_positive_int("BERT_BATCH_SIZE", 32),

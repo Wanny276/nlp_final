@@ -8,6 +8,7 @@ import json
 import tempfile
 from pathlib import Path
 
+import altair as alt
 import pandas as pd
 import streamlit as st
 
@@ -72,12 +73,32 @@ RISK_LABELS = {
     "middle": ("中风险", "neutral"),
     "high": ("高风险", "negative"),
 }
+
+MODEL_NAME_LABELS = {
+    "LogisticRegression": "Logistic Regression",
+    "logistic_regression": "Logistic Regression",
+    "Logistic Regression": "Logistic Regression",
+    "NaiveBayes": "Naive Bayes",
+    "naive_bayes": "Naive Bayes",
+    "Naive Bayes": "Naive Bayes",
+    "LinearSVM": "Linear SVM",
+    "linear_svm": "Linear SVM",
+    "Linear SVM": "Linear SVM",
+    "SVM": "SVM",
+    "BERT": "BERT",
+}
 PAGE_OPTIONS = [
     "单条分析",
     "批量分析",
     "测试验证",
     "系统信息",
 ]
+NAV_LABELS = {
+    "单条分析": "📝 单条分析",
+    "批量分析": "📊 批量分析",
+    "测试验证": "✅ 测试验证",
+    "系统信息": "⚙️ 系统信息",
+}
 SAMPLE_REVIEWS = {
     "中文评价": "老师讲得很清楚，但是作业有点多，实验环境配置也比较麻烦。",
     "English review": (
@@ -169,6 +190,26 @@ ICON_SVGS = {
             <path d="M4 20V10m6 10V4m6 16v-7m4 7H2"/>
         </svg>
     """,
+    "smile": """
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="9"/>
+            <path d="M8 10h.01M16 10h.01"/>
+            <path d="M8.5 14.5c1.1 1.2 2.2 1.8 3.5 1.8s2.4-.6 3.5-1.8"/>
+        </svg>
+    """,
+    "meh": """
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="9"/>
+            <path d="M8 10h.01M16 10h.01"/>
+            <path d="M8.5 15h7"/>
+        </svg>
+    """,
+    "alert": """
+        <svg viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M12 3 2.5 20h19L12 3Z"/>
+            <path d="M12 9v5m0 3h.01"/>
+        </svg>
+    """,
     "spark": """
         <svg viewBox="0 0 24 24" aria-hidden="true">
             <path d="m12 3 1.6 4.4L18 9l-4.4 1.6L12 15l-1.6-4.4L6 9l4.4-1.6L12 3Z"/>
@@ -180,70 +221,87 @@ ICON_SVGS = {
 APP_STYLES = """
 <style>
 :root {
-    --ink: #0f172a;
-    --muted: #64748b;
+    --ink: #111827;
+    --muted: #667085;
+    --subtle: #8a94a6;
     --line: #e6eaf2;
+    --line-strong: #d8deea;
     --surface: #ffffff;
-    --canvas: #f7f9fc;
-    --primary: #5b6cf6;
-    --primary-soft: #eef2ff;
-    --positive: #22c55e;
-    --positive-soft: #eafbf2;
+    --surface-soft: #f8fafc;
+    --canvas: #f6f8fc;
+    --primary: #4f6bed;
+    --primary-hover: #4058d7;
+    --primary-soft: #eef3ff;
+    --primary-soft-2: #f5f7ff;
+    --positive: #16a34a;
+    --positive-soft: #ecfdf3;
     --neutral: #d97706;
-    --neutral-soft: #fff4e8;
-    --negative: #ef4444;
+    --neutral-soft: #fff7ed;
+    --negative: #dc2626;
     --negative-soft: #fef2f2;
+    --shadow-sm: 0 4px 16px rgba(16, 24, 40, 0.04);
+    --shadow-md: 0 12px 34px rgba(16, 24, 40, 0.07);
 }
 
-html, body, [class*="css"] {
+html,
+body,
+[class*="css"] {
     font-family: Inter, "Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif;
+    color: var(--ink);
     font-size: 16px;
+    letter-spacing: 0;
 }
 
 [data-testid="stMarkdownContainer"] p,
 [data-testid="stMarkdownContainer"] li {
     font-size: 1rem;
-    line-height: 1.65;
+    line-height: 1.72;
 }
 
 [data-testid="stCaptionContainer"] {
     color: var(--muted);
-    font-size: 0.88rem;
+    font-size: 0.9rem;
 }
 
 #MainMenu,
 footer,
-[data-testid="stToolbar"] {
-    visibility: hidden;
-}
-
-[data-testid="stHeader"],
+[data-testid="stToolbar"],
 [data-testid="stDecoration"] {
+    visibility: hidden;
     display: none;
 }
 
+[data-testid="stHeader"] {
+    height: 2.25rem;
+    background: transparent;
+    box-shadow: none;
+}
+
+[data-testid="stMarkdownContainer"] a[href^="#"] {
+    display: none !important;
+}
+
 [data-testid="stAppViewContainer"] {
-    background: var(--canvas);
+    background: radial-gradient(circle at 40% 0%, rgba(79, 107, 237, 0.08), transparent 26rem), var(--canvas);
     color: var(--ink);
 }
 
 [data-testid="stMainBlockContainer"] {
     max-width: 1240px;
-    padding-top: 1.35rem;
-    padding-bottom: 3rem;
+    padding: 1.35rem 1.65rem 3rem;
 }
 
 section[data-testid="stSidebar"] {
-    width: 225px !important;
-    min-width: 225px !important;
+    width: 224px !important;
+    min-width: 224px !important;
     background:
-        radial-gradient(circle at 18% 0%, rgba(91, 108, 246, 0.18), transparent 13rem),
-        linear-gradient(180deg, #111827 0%, #0f172a 100%);
-    border-right: 1px solid rgba(255,255,255,0.08);
+        radial-gradient(circle at 18% 0%, rgba(79, 107, 237, 0.22), transparent 12rem),
+        linear-gradient(180deg, #101828 0%, #111827 100%);
+    border-right: 1px solid rgba(255, 255, 255, 0.08);
 }
 
 section[data-testid="stSidebar"] > div {
-    padding: 1.5rem 1rem;
+    padding: 1.35rem 0.9rem;
 }
 
 section[data-testid="stSidebar"] * {
@@ -251,135 +309,39 @@ section[data-testid="stSidebar"] * {
 }
 
 section[data-testid="stSidebar"] [data-testid="stRadio"] > div {
-    gap: 0.45rem;
+    gap: 0.42rem;
 }
 
 section[data-testid="stSidebar"] [data-testid="stRadio"] label {
-    min-height: 2.45rem;
-    padding: 0.48rem 0.72rem;
+    min-height: 2.55rem;
+    padding: 0.52rem 0.72rem;
     border: 1px solid transparent;
-    border-radius: 0.85rem;
-    background: rgba(255,255,255,0.035);
-    transition: all 160ms ease;
+    border-radius: 0.82rem;
+    background: rgba(255, 255, 255, 0.035);
+    transition: background 160ms ease, border-color 160ms ease, transform 160ms ease;
 }
 
 section[data-testid="stSidebar"] [data-testid="stRadio"] label:hover {
-    background: rgba(255,255,255,0.09);
-    border-color: rgba(255,255,255,0.12);
+    background: rgba(255, 255, 255, 0.08);
+    border-color: rgba(255, 255, 255, 0.12);
     transform: translateX(2px);
 }
 
 section[data-testid="stSidebar"] [data-testid="stRadio"] label:has(input:checked) {
-    background: linear-gradient(135deg, rgba(91,108,246,0.96), rgba(74,92,219,0.92));
-    border-color: rgba(255,255,255,0.28);
-    box-shadow: 0 10px 24px rgba(49,46,129,0.24);
+    background: linear-gradient(135deg, rgba(79, 107, 237, 0.98), rgba(64, 88, 215, 0.96));
+    border-color: rgba(255, 255, 255, 0.28);
+    box-shadow: 0 10px 24px rgba(20, 34, 98, 0.26);
 }
 
 section[data-testid="stSidebar"] [data-testid="stRadio"] label p {
-    font-weight: 650;
-    font-size: 0.88rem;
-}
-
-[data-testid="stMetric"] {
-    background: rgba(255,255,255,0.9);
-    border: 1px solid var(--line);
-    border-radius: 1rem;
-    padding: 1rem 1.1rem;
-    box-shadow: 0 8px 26px rgba(23,32,51,0.05);
-}
-
-[data-testid="stMetricLabel"] {
-    color: var(--muted);
-}
-
-[data-testid="stMetricValue"] {
-    color: var(--ink);
-    font-weight: 750;
-}
-
-[data-testid="stForm"], [data-testid="stFileUploader"] {
-    border-radius: 1rem;
-}
-
-[data-testid="stTextArea"] textarea,
-[data-testid="stFileUploaderDropzone"] {
-    border-radius: 0.85rem;
-    border-color: #d7ddea;
-    background: rgba(255,255,255,0.9);
-}
-
-.stButton > button,
-[data-testid="stFormSubmitButton"] > button,
-.stDownloadButton > button {
-    min-height: 2.9rem;
-    border-radius: 0.75rem;
-    font-weight: 650;
-    transition: transform 150ms ease, box-shadow 150ms ease;
-}
-
-.stButton > button[kind="primary"],
-[data-testid="stFormSubmitButton"] > button[kind="primary"] {
-    border: 0;
-    background: linear-gradient(135deg, #6b7cff, #5b6cf6);
-    box-shadow: 0 9px 22px rgba(91,108,246,0.22);
-}
-
-.stButton > button:hover,
-[data-testid="stFormSubmitButton"] > button:hover,
-.stDownloadButton > button:hover {
-    transform: translateY(-1px);
-}
-
-[data-testid="stTabs"] [data-baseweb="tab-list"] {
-    gap: 0.4rem;
-    padding: 0.35rem;
-    border-bottom: 1px solid var(--line);
-    border-radius: 0.85rem;
-    background: #eef2f8;
-}
-
-[data-testid="stTabs"] [data-baseweb="tab"] {
-    height: 2.75rem;
-    padding: 0 1.08rem;
-    border-radius: 0.65rem;
-    color: var(--ink);
-    font-size: 1rem;
-    font-weight: 650;
-}
-
-[data-testid="stTabs"] [aria-selected="true"] {
-    color: var(--primary);
-    background: white;
-    box-shadow: 0 3px 12px rgba(15,23,42,0.08);
-}
-
-[data-testid="stTabs"] [data-baseweb="tab-highlight"] {
-    height: 3px !important;
-    border-radius: 999px;
-    background: var(--primary) !important;
-}
-
-[data-testid="stDataFrame"] {
-    border: 1px solid var(--line);
-    border-radius: 0.85rem;
-    overflow: hidden;
-    font-size: 0.95rem;
-}
-
-[data-testid="stDataFrame"] [role="columnheader"] {
-    background: #f3f4f6 !important;
-    color: var(--ink) !important;
-    font-weight: 700 !important;
-}
-
-[data-testid="stDataFrame"] [role="row"] {
-    min-height: 2.4rem;
+    font-size: 0.92rem;
+    font-weight: 670;
 }
 
 .brand-card {
-    padding: 0.35rem 0.4rem 1.1rem;
-    border-bottom: 1px solid rgba(255,255,255,0.1);
-    margin-bottom: 1.1rem;
+    margin-bottom: 1.05rem;
+    padding: 0.35rem 0.42rem 1.1rem;
+    border-bottom: 1px solid rgba(255, 255, 255, 0.1);
 }
 
 .brand-mark {
@@ -388,43 +350,41 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label p {
     justify-content: center;
     width: 2.35rem;
     height: 2.35rem;
-    margin-bottom: 0.7rem;
-    border-radius: 0.8rem;
-    background: linear-gradient(135deg, #8aa4f8, #5b6cf6);
-    color: white;
-    font-weight: 800;
-    letter-spacing: 0;
-    box-shadow: 0 10px 28px rgba(91,108,246,0.3);
+    margin-bottom: 0.72rem;
+    border-radius: 0.78rem;
+    background: linear-gradient(135deg, #8aa4ff, var(--primary));
+    color: #fff;
+    font-weight: 820;
+    box-shadow: 0 10px 26px rgba(79, 107, 237, 0.28);
 }
 
 .brand-title {
     margin: 0;
-    color: white;
-    font-size: 1.15rem;
-    font-weight: 760;
+    color: #fff;
+    font-size: 1.14rem;
+    font-weight: 780;
 }
 
 .brand-subtitle {
     margin: 0.35rem 0 0;
-    color: #aeb8d7;
-    font-size: 0.82rem;
+    color: #b5c1d8;
+    font-size: 0.84rem;
     line-height: 1.55;
 }
 
 .sidebar-status {
     margin-top: 1rem;
-    padding: 0.72rem;
-    border: 1px solid rgba(255,255,255,0.1);
-    border-radius: 0.85rem;
-    background: rgba(255,255,255,0.035);
-    opacity: 0.86;
+    padding: 0.78rem;
+    border: 1px solid rgba(255, 255, 255, 0.11);
+    border-radius: 0.86rem;
+    background: rgba(255, 255, 255, 0.04);
 }
 
 .sidebar-status-title {
-    margin-bottom: 0.65rem;
-    color: #aeb8d7;
+    margin-bottom: 0.62rem;
+    color: #b5c1d8;
     font-size: 0.74rem;
-    font-weight: 700;
+    font-weight: 750;
     letter-spacing: 0.08em;
     text-transform: uppercase;
 }
@@ -433,8 +393,17 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label p {
     display: flex;
     align-items: center;
     justify-content: space-between;
+    gap: 0.55rem;
     padding: 0.25rem 0;
-    font-size: 0.83rem;
+    font-size: 0.84rem;
+}
+
+.status-row > span:last-child {
+    max-width: 6.6rem;
+    overflow: hidden;
+    text-align: right;
+    text-overflow: ellipsis;
+    white-space: nowrap;
 }
 
 .status-dot {
@@ -444,18 +413,155 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label p {
     margin-right: 0.45rem;
     border-radius: 50%;
     background: #34d399;
-    box-shadow: 0 0 0 4px rgba(52,211,153,0.1);
+    box-shadow: 0 0 0 4px rgba(52, 211, 153, 0.12);
+}
+
+[data-testid="stMetric"],
+[data-testid="stVerticalBlockBorderWrapper"] {
+    border-color: var(--line) !important;
+    border-radius: 1rem !important;
+    background: rgba(255, 255, 255, 0.94) !important;
+    box-shadow: var(--shadow-sm);
+}
+
+[data-testid="stMetric"] {
+    padding: 1rem 1.1rem;
+}
+
+[data-testid="stMetricLabel"] {
+    color: var(--muted);
+}
+
+[data-testid="stMetricValue"] {
+    color: var(--ink);
+    font-weight: 760;
+}
+
+[data-testid="stTextArea"] textarea,
+[data-testid="stFileUploaderDropzone"],
+[data-baseweb="select"] > div {
+    border-radius: 0.85rem !important;
+    border-color: var(--line-strong) !important;
+    background: #fff !important;
+    font-size: 1rem !important;
+}
+
+.stButton > button,
+[data-testid="stFormSubmitButton"] > button,
+.stDownloadButton > button {
+    min-height: 2.85rem;
+    border-radius: 0.78rem;
+    font-weight: 680;
+    transition: transform 150ms ease, box-shadow 150ms ease, background 150ms ease;
+}
+
+.stButton > button[kind="primary"],
+[data-testid="stFormSubmitButton"] > button[kind="primary"] {
+    border: 0;
+    background: linear-gradient(135deg, #6684ff, var(--primary));
+    box-shadow: 0 10px 22px rgba(79, 107, 237, 0.22);
+}
+
+.stButton > button:hover,
+[data-testid="stFormSubmitButton"] > button:hover,
+.stDownloadButton > button:hover {
+    transform: translateY(-1px);
+}
+
+[data-testid="stTabs"] [data-baseweb="tab-list"] {
+    gap: 0.35rem;
+    padding: 0.34rem;
+    border-bottom: 1px solid var(--line);
+    border-radius: 0.9rem;
+    background: #eef2f8;
+}
+
+[data-testid="stTabs"] [data-baseweb="tab"] {
+    height: 2.72rem;
+    padding: 0 1.06rem;
+    border-radius: 0.68rem;
+    color: var(--muted);
+    font-size: 1rem;
+    font-weight: 680;
+}
+
+[data-testid="stTabs"] [aria-selected="true"] {
+    color: var(--primary);
+    background: #fff;
+    box-shadow: 0 4px 12px rgba(16, 24, 40, 0.08);
+}
+
+[data-testid="stTabs"] [data-baseweb="tab-highlight"] {
+    height: 0 !important;
+    background: transparent !important;
+}
+
+[data-testid="stDataFrame"] {
+    overflow: hidden;
+    border: 1px solid var(--line);
+    border-radius: 0.88rem;
+    font-size: 0.96rem;
+}
+
+[data-testid="stDataFrame"] [role="columnheader"] {
+    background: #f1f4f9 !important;
+    color: var(--ink) !important;
+    font-weight: 730 !important;
+}
+
+[data-testid="stDataFrame"] [role="row"] {
+    min-height: 2.45rem;
 }
 
 .page-hero {
     position: relative;
     overflow: hidden;
-    margin-bottom: 1.4rem;
-    padding: 1.75rem 2rem;
-    border: 1px solid rgba(79,70,229,0.12);
-    border-radius: 1.2rem;
-    background: rgba(255,255,255,0.9);
-    box-shadow: 0 16px 42px rgba(23,32,51,0.06);
+    margin-bottom: 1.35rem;
+    padding: 1.85rem 2rem;
+    border: 1px solid rgba(79, 107, 237, 0.12);
+    border-radius: 1.18rem;
+    background: rgba(255, 255, 255, 0.94);
+    box-shadow: var(--shadow-md);
+}
+
+.page-hero::after {
+    content: "";
+    position: absolute;
+    right: -5rem;
+    top: -6rem;
+    width: 16rem;
+    height: 16rem;
+    border-radius: 50%;
+    background: radial-gradient(circle, rgba(79, 107, 237, 0.17), transparent 68%);
+}
+
+.page-kicker {
+    margin-bottom: 0.45rem;
+    color: var(--primary);
+    font-size: 0.82rem;
+    font-weight: 780;
+    letter-spacing: 0.12em;
+    text-transform: uppercase;
+}
+
+.page-title {
+    position: relative;
+    z-index: 1;
+    margin: 0;
+    color: var(--ink);
+    font-size: clamp(2.05rem, 3vw, 2.65rem);
+    line-height: 1.18;
+    font-weight: 800;
+}
+
+.page-description {
+    position: relative;
+    z-index: 1;
+    max-width: 810px;
+    margin: 0.72rem 0 0;
+    color: var(--muted);
+    font-size: 1.06rem;
+    line-height: 1.72;
 }
 
 .workspace-header {
@@ -464,45 +570,37 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label p {
     justify-content: space-between;
     gap: 1rem;
     margin-bottom: 1rem;
-    padding-bottom: 1rem;
-    border-bottom: 1px solid var(--line);
+    padding: 1.15rem 1.25rem;
+    border: 1px solid var(--line);
+    border-radius: 1.05rem;
+    background: rgba(255, 255, 255, 0.94);
+    box-shadow: var(--shadow-sm);
 }
 
-.workspace-heading {
+.workspace-heading,
+.result-summary {
     display: flex;
     align-items: center;
     gap: 0.85rem;
 }
 
-.workspace-icon,
-.section-icon,
-.panel-icon,
-.compact-icon,
-.stat-icon {
+.workspace-icon {
     display: inline-flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
+    width: 2.65rem;
+    height: 2.65rem;
+    border: 1px solid #d7ddff;
+    border-radius: 0.86rem;
+    background: var(--primary-soft);
     color: var(--primary);
 }
 
-.workspace-icon {
-    width: 2.7rem;
-    height: 2.7rem;
-    border: 1px solid #d7d9ff;
-    border-radius: 0.85rem;
-    background: linear-gradient(145deg, #f6f5ff, var(--primary-soft));
-}
-
-.workspace-icon svg {
-    width: 1.35rem;
-    height: 1.35rem;
-}
-
 .workspace-icon svg,
-.section-icon svg,
-.panel-icon svg,
-.compact-icon svg,
+.result-icon svg,
+.empty-icon svg,
+.inline-notice svg,
 .stat-icon svg {
     fill: none;
     stroke: currentColor;
@@ -511,38 +609,43 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label p {
     stroke-linejoin: round;
 }
 
+.workspace-icon svg {
+    width: 1.32rem;
+    height: 1.32rem;
+}
+
 .workspace-title {
     margin: 0;
     color: var(--ink);
     font-size: 1.72rem;
     line-height: 1.25;
-    letter-spacing: 0;
+    font-weight: 780;
 }
 
 .workspace-description {
-    margin: 0.35rem 0 0;
+    margin: 0.36rem 0 0;
     color: var(--muted);
     font-size: 1rem;
-    line-height: 1.6;
+    line-height: 1.62;
 }
 
 .workspace-state {
     display: inline-flex;
     align-items: center;
     flex-shrink: 0;
-    padding: 0.38rem 0.65rem;
-    border: 1px solid #cfd5e2;
+    padding: 0.4rem 0.68rem;
+    border: 1px solid #d1d8e8;
     border-radius: 999px;
-    background: white;
+    background: #fff;
     color: #475467;
-    font-size: 0.82rem;
-    font-weight: 650;
+    font-size: 0.84rem;
+    font-weight: 680;
 }
 
 .process-strip {
     display: grid;
-    grid-template-columns: repeat(3, 1fr);
-    gap: 0.55rem;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 0.58rem;
     margin-bottom: 1rem;
 }
 
@@ -550,14 +653,14 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label p {
     display: flex;
     align-items: center;
     gap: 0.65rem;
-    padding: 0.7rem 0.8rem;
+    padding: 0.72rem 0.82rem;
     border: 1px solid var(--line);
-    border-radius: 0.75rem;
-    background: rgba(255,255,255,0.78);
+    border-radius: 0.78rem;
+    background: rgba(255, 255, 255, 0.82);
 }
 
 .process-item.active {
-    border-color: #c7c9ff;
+    border-color: #cfd8ff;
     background: var(--primary-soft);
 }
 
@@ -569,154 +672,124 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label p {
     height: 1.65rem;
     flex-shrink: 0;
     border-radius: 50%;
-    background: #e8ebf2;
+    background: #e6ebf3;
     color: #667085;
     font-size: 0.8rem;
-    font-weight: 760;
+    font-weight: 780;
 }
 
 .process-item.active .process-number {
     background: var(--primary);
-    color: white;
+    color: #fff;
 }
 
 .process-copy strong {
     display: block;
     color: var(--ink);
-    font-size: 0.8rem;
+    font-size: 0.84rem;
 }
 
 .process-copy span {
     display: block;
     margin-top: 0.08rem;
     color: var(--muted);
-    font-size: 0.78rem;
+    font-size: 0.8rem;
+}
+
+.panel-heading {
+    margin-bottom: 0.82rem;
 }
 
 .panel-title {
     margin: 0 0 0.2rem;
     color: var(--ink);
-    font-size: 1.12rem;
-    font-weight: 700;
+    font-size: 1.16rem;
+    font-weight: 740;
 }
 
 .panel-help {
-    margin: 0 0 0.8rem;
-    color: var(--muted);
-    font-size: 0.92rem;
-    line-height: 1.55;
-}
-
-.panel-heading {
-    display: flex;
-    align-items: flex-start;
-    gap: 0.65rem;
-    margin-bottom: 0.8rem;
-}
-
-.panel-heading .panel-title,
-.panel-heading .panel-help {
     margin: 0;
-}
-
-.panel-heading .panel-help {
-    margin-top: 0.18rem;
-}
-
-.panel-icon {
-    width: 2rem;
-    height: 2rem;
-    border-radius: 0.6rem;
-    background: var(--primary-soft);
-}
-
-.panel-icon svg {
-    width: 1rem;
-    height: 1rem;
+    color: var(--muted);
+    font-size: 0.94rem;
+    line-height: 1.6;
 }
 
 .compact-grid {
     display: grid;
     grid-template-columns: repeat(var(--compact-columns, 3), minmax(0, 1fr));
-    gap: 0.55rem;
-    margin: 0.7rem 0;
+    gap: 0.58rem;
+    margin: 0.72rem 0;
 }
 
 .compact-item {
-    display: flex;
-    align-items: center;
-    gap: 0.55rem;
     min-width: 0;
-    padding: 0.65rem 0.7rem;
+    padding: 0.72rem 0.78rem;
     border: 1px solid var(--line);
-    border-radius: 0.75rem;
-    background: rgba(255,255,255,0.82);
-}
-
-.compact-icon {
-    width: 1.9rem;
-    height: 1.9rem;
-    border-radius: 0.55rem;
-    background: var(--primary-soft);
-}
-
-.compact-icon svg {
-    width: 0.95rem;
-    height: 0.95rem;
-}
-
-.compact-copy {
-    min-width: 0;
+    border-radius: 0.8rem;
+    background: rgba(255, 255, 255, 0.85);
 }
 
 .compact-copy strong {
     display: block;
-    overflow: hidden;
     color: var(--ink);
-    font-size: 0.9rem;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    font-size: 0.94rem;
+    font-weight: 720;
 }
 
 .compact-copy span {
     display: block;
-    margin-top: 0.08rem;
-    overflow: hidden;
+    margin-top: 0.12rem;
     color: var(--muted);
-    font-size: 0.78rem;
-    text-overflow: ellipsis;
-    white-space: nowrap;
+    font-size: 0.82rem;
+    line-height: 1.45;
 }
 
 .inline-notice {
     display: flex;
     align-items: center;
-    gap: 0.7rem;
-    min-height: 2.9rem;
-    padding: 0.55rem 0.75rem;
-    border: 1px solid #d7d9ff;
-    border-radius: 0.75rem;
+    gap: 0.72rem;
+    min-height: 3rem;
+    margin: 0.7rem 0 0.85rem;
+    padding: 0.66rem 0.82rem;
+    border: 1px solid #d7ddff;
+    border-radius: 0.82rem;
     background: var(--primary-soft);
+}
+
+.inline-notice .compact-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 1.25rem;
+    height: 1.25rem;
+    color: var(--primary);
+}
+
+.inline-notice svg {
+    width: 1rem;
+    height: 1rem;
 }
 
 .inline-notice strong {
     display: block;
     color: var(--ink);
-    font-size: 0.92rem;
+    font-size: 0.94rem;
 }
 
-.inline-notice span {
+.inline-notice span span {
     display: block;
-    margin-top: 0.05rem;
+    margin-top: 0.08rem;
     color: var(--muted);
-    font-size: 0.8rem;
+    font-size: 0.84rem;
+    line-height: 1.5;
 }
 
 .empty-state {
-    padding: 2.5rem 1rem;
-    border: 1px dashed #cfd5e2;
-    border-radius: 0.9rem;
-    background: rgba(255,255,255,0.58);
+    padding: 2.6rem 1rem;
+    border: 1px dashed #cfd6e5;
+    border-radius: 0.95rem;
+    background: rgba(255, 255, 255, 0.65);
     text-align: center;
 }
 
@@ -724,10 +797,10 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label p {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 2.75rem;
-    height: 2.75rem;
+    width: 2.7rem;
+    height: 2.7rem;
     margin-bottom: 0.75rem;
-    border-radius: 0.9rem;
+    border-radius: 0.88rem;
     background: var(--primary-soft);
     color: var(--primary);
 }
@@ -735,111 +808,48 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label p {
 .empty-icon svg {
     width: 1.3rem;
     height: 1.3rem;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 1.8;
-    stroke-linecap: round;
-    stroke-linejoin: round;
 }
 
 .empty-state strong {
     display: block;
     color: var(--ink);
-    font-size: 1.05rem;
+    font-size: 1.08rem;
 }
 
 .empty-state span {
     display: block;
     max-width: 34rem;
-    margin: 0.4rem auto 0;
+    margin: 0.42rem auto 0;
     color: var(--muted);
-    font-size: 0.92rem;
-    line-height: 1.6;
-}
-
-.page-hero::after {
-    content: "";
-    position: absolute;
-    right: -5rem;
-    top: -6rem;
-    width: 16rem;
-    height: 16rem;
-    border-radius: 50%;
-    background: radial-gradient(circle, rgba(99,102,241,0.18), transparent 68%);
-}
-
-.page-kicker {
-    margin-bottom: 0.45rem;
-    color: var(--primary);
-    font-size: 0.82rem;
-    font-weight: 760;
-    letter-spacing: 0.12em;
-    text-transform: uppercase;
-}
-
-.page-title {
-    position: relative;
-    z-index: 1;
-    margin: 0;
-    color: var(--ink);
-    font-size: clamp(2rem, 3vw, 2.65rem);
-    line-height: 1.16;
-    letter-spacing: 0;
-}
-
-.page-description {
-    position: relative;
-    z-index: 1;
-    max-width: 780px;
-    margin: 0.7rem 0 0;
-    color: var(--muted);
-    font-size: 1.05rem;
-    line-height: 1.68;
+    font-size: 0.94rem;
+    line-height: 1.62;
 }
 
 .section-heading {
-    margin: 1.7rem 0 0.85rem;
-}
-
-.section-title-row {
-    display: flex;
-    align-items: center;
-    gap: 0.5rem;
-}
-
-.section-icon {
-    width: 1.65rem;
-    height: 1.65rem;
-    border-radius: 0.5rem;
-    background: var(--primary-soft);
-}
-
-.section-icon svg {
-    width: 0.9rem;
-    height: 0.9rem;
+    margin: 1.65rem 0 0.82rem;
 }
 
 .section-heading h3 {
     margin: 0;
     color: var(--ink);
-    font-size: 1.35rem;
-    font-weight: 700;
+    font-size: 1.34rem;
+    font-weight: 760;
 }
 
 .section-heading p {
-    margin: 0.3rem 0 0;
+    margin: 0.32rem 0 0;
     color: var(--muted);
     font-size: 0.96rem;
-    line-height: 1.55;
+    line-height: 1.58;
 }
 
 .stat-card {
-    min-height: 7.6rem;
+    min-height: 7.35rem;
     padding: 1rem 1.05rem;
     border: 1px solid var(--line);
     border-radius: 1rem;
-    background: rgba(255,255,255,0.93);
-    box-shadow: 0 8px 26px rgba(23,32,51,0.045);
+    background: rgba(255, 255, 255, 0.94);
+    box-shadow: var(--shadow-sm);
 }
 
 .stat-card-head {
@@ -850,55 +860,55 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label p {
 }
 
 .stat-icon {
-    width: 1.8rem;
-    height: 1.8rem;
-    border-radius: 0.55rem;
-    background: var(--primary-soft);
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    width: 1.28rem;
+    height: 1.28rem;
+    color: var(--primary);
 }
 
 .stat-icon svg {
-    width: 0.95rem;
-    height: 0.95rem;
+    width: 0.96rem;
+    height: 0.96rem;
 }
 
-.stat-card.positive .stat-icon { color: var(--positive); background: var(--positive-soft); }
-.stat-card.neutral .stat-icon { color: var(--neutral); background: var(--neutral-soft); }
-.stat-card.negative .stat-icon { color: var(--negative); background: var(--negative-soft); }
-
-.stat-card.primary { border-top: 3px solid var(--primary); }
 .stat-card.positive { border-top: 3px solid var(--positive); }
-.stat-card.neutral { border-top: 3px solid var(--neutral); }
 .stat-card.negative { border-top: 3px solid var(--negative); }
+.stat-card.positive .stat-icon { color: var(--positive); }
+.stat-card.neutral .stat-icon { color: var(--neutral); }
+.stat-card.negative .stat-icon { color: var(--negative); }
 
 .stat-label {
     color: var(--muted);
-    font-size: 0.9rem;
-    font-weight: 650;
+    font-size: 0.92rem;
+    font-weight: 680;
 }
 
 .stat-value {
-    margin-top: 0.3rem;
+    margin-top: 0.33rem;
     color: var(--ink);
-    font-size: 2rem;
-    font-weight: 780;
-    letter-spacing: 0;
+    font-size: 1.9rem;
+    font-weight: 800;
+    line-height: 1.22;
 }
 
 .stat-detail {
-    margin-top: 0.25rem;
-    color: #8992a6;
-    font-size: 0.86rem;
+    margin-top: 0.32rem;
+    color: var(--subtle);
+    font-size: 0.88rem;
     line-height: 1.5;
 }
 
 .feature-card {
     height: 100%;
-    min-height: 10.5rem;
-    padding: 1.2rem;
+    min-height: 10.25rem;
+    padding: 1.15rem;
     border: 1px solid var(--line);
     border-radius: 1rem;
-    background: rgba(255,255,255,0.92);
-    box-shadow: 0 8px 28px rgba(23,32,51,0.04);
+    background: rgba(255, 255, 255, 0.94);
+    box-shadow: var(--shadow-sm);
 }
 
 .feature-index {
@@ -907,15 +917,15 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label p {
     justify-content: center;
     width: 2rem;
     height: 2rem;
-    border-radius: 0.6rem;
+    border-radius: 0.62rem;
     background: var(--primary-soft);
     color: var(--primary);
     font-size: 0.84rem;
-    font-weight: 800;
+    font-weight: 820;
 }
 
 .feature-card h4 {
-    margin: 0.9rem 0 0.4rem;
+    margin: 0.9rem 0 0.42rem;
     color: var(--ink);
     font-size: 1.08rem;
 }
@@ -924,22 +934,22 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label p {
     margin: 0;
     color: var(--muted);
     font-size: 0.96rem;
-    line-height: 1.62;
+    line-height: 1.64;
 }
 
 .flow-row {
     display: grid;
-    grid-template-columns: repeat(6, 1fr);
+    grid-template-columns: repeat(6, minmax(0, 1fr));
     gap: 0.65rem;
 }
 
 .flow-step {
-    position: relative;
-    padding: 0.9rem 0.7rem;
+    padding: 0.92rem 0.7rem;
     border: 1px solid var(--line);
-    border-radius: 0.85rem;
-    background: white;
+    border-radius: 0.86rem;
+    background: #fff;
     text-align: center;
+    box-shadow: var(--shadow-sm);
 }
 
 .flow-step strong {
@@ -950,24 +960,36 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label p {
 
 .flow-step span {
     display: block;
-    margin-top: 0.2rem;
+    margin-top: 0.22rem;
     color: var(--muted);
     font-size: 0.8rem;
+    line-height: 1.45;
 }
 
 .result-hero {
-    margin: 1.1rem 0;
-    padding: 1.4rem 1.5rem;
+    margin: 1.1rem 0 0.65rem;
+    padding: 1.38rem 1.5rem;
     border: 1px solid var(--line);
     border-left-width: 5px;
-    border-radius: 1rem;
-    background: white;
-    box-shadow: 0 10px 30px rgba(23,32,51,0.055);
+    border-radius: 1.05rem;
+    background: #fff;
+    box-shadow: var(--shadow-md);
 }
 
-.result-hero.positive { border-left-color: var(--positive); background: linear-gradient(100deg, var(--positive-soft), white 58%); }
-.result-hero.neutral { border-left-color: var(--neutral); background: linear-gradient(100deg, var(--neutral-soft), white 58%); }
-.result-hero.negative { border-left-color: var(--negative); background: linear-gradient(100deg, var(--negative-soft), white 58%); }
+.result-hero.positive {
+    border-left-color: var(--positive);
+    background: linear-gradient(100deg, var(--positive-soft), #fff 60%);
+}
+
+.result-hero.neutral {
+    border-left-color: var(--neutral);
+    background: linear-gradient(100deg, var(--neutral-soft), #fff 60%);
+}
+
+.result-hero.negative {
+    border-left-color: var(--negative);
+    background: linear-gradient(100deg, var(--negative-soft), #fff 60%);
+}
 
 .result-topline {
     display: flex;
@@ -976,31 +998,20 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label p {
     gap: 1rem;
 }
 
-.result-summary {
-    display: flex;
-    align-items: center;
-    gap: 0.85rem;
-}
-
 .result-icon {
     display: inline-flex;
     align-items: center;
     justify-content: center;
-    width: 2.8rem;
-    height: 2.8rem;
     flex-shrink: 0;
-    border-radius: 0.9rem;
-    background: rgba(255,255,255,0.72);
+    width: 2.78rem;
+    height: 2.78rem;
+    border-radius: 0.92rem;
+    background: rgba(255, 255, 255, 0.74);
 }
 
 .result-icon svg {
-    width: 1.35rem;
-    height: 1.35rem;
-    fill: none;
-    stroke: currentColor;
-    stroke-width: 1.8;
-    stroke-linecap: round;
-    stroke-linejoin: round;
+    width: 1.36rem;
+    height: 1.36rem;
 }
 
 .result-hero.positive .result-icon { color: var(--positive); }
@@ -1009,12 +1020,12 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label p {
 
 .result-label {
     color: var(--ink);
-    font-size: 1.7rem;
-    font-weight: 780;
+    font-size: 1.72rem;
+    font-weight: 800;
 }
 
 .result-desc {
-    margin-top: 0.35rem;
+    margin-top: 0.34rem;
     color: var(--muted);
     font-size: 1rem;
     line-height: 1.62;
@@ -1027,8 +1038,8 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label p {
 
 .confidence-value {
     color: var(--ink);
-    font-size: 1.75rem;
-    font-weight: 780;
+    font-size: 1.72rem;
+    font-weight: 800;
 }
 
 .confidence-label {
@@ -1036,18 +1047,23 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label p {
     font-size: 0.86rem;
 }
 
-.progress-track {
-    height: 0.48rem;
-    margin-top: 0.55rem;
+.progress-track,
+.bar-track {
     overflow: hidden;
     border-radius: 999px;
-    background: rgba(100,116,139,0.15);
+    background: #edf1f7;
 }
 
-.progress-fill {
+.progress-track {
+    height: 0.5rem;
+    margin-top: 0.56rem;
+}
+
+.progress-fill,
+.bar-fill {
     height: 100%;
     border-radius: inherit;
-    background: linear-gradient(90deg, #8aa4f8, #5b6cf6);
+    background: linear-gradient(90deg, #8aa4ff, var(--primary));
 }
 
 .chip-row {
@@ -1060,90 +1076,93 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label p {
 .chip {
     display: inline-flex;
     align-items: center;
-    padding: 0.38rem 0.7rem;
-    border: 1px solid #dfe3ee;
+    padding: 0.4rem 0.72rem;
+    border: 1px solid #dfe4ee;
     border-radius: 999px;
-    background: white;
+    background: #fff;
     color: #475467;
-    font-size: 0.9rem;
-    font-weight: 620;
+    font-size: 0.92rem;
+    font-weight: 650;
 }
 
 .chip.primary {
-    border-color: #d7ddff;
+    border-color: #d6ddff;
     background: var(--primary-soft);
-    color: #4a5cdb;
+    color: var(--primary-hover);
 }
 
 .chip.positive {
-    border-color: #bdebd8;
+    border-color: #bfead0;
     background: var(--positive-soft);
     color: var(--positive);
 }
 
+.chip.neutral {
+    border-color: #fed7aa;
+    background: var(--neutral-soft);
+    color: var(--neutral);
+}
+
 .chip.negative {
-    border-color: #ffd0d4;
+    border-color: #fecaca;
     background: var(--negative-soft);
     color: var(--negative);
 }
 
-.quote-card {
-    padding: 1rem 1.1rem;
-    border: 1px solid var(--line);
-    border-radius: 0.9rem;
-    background: #fafbfe;
-    color: #475569;
-    font-size: 1rem;
-    line-height: 1.7;
-}
-
+.quote-card,
 .evidence-card,
 .advice-card,
-.similar-card {
-    margin-bottom: 0.75rem;
-    padding: 1rem 1.1rem;
+.similar-card,
+.summary-card {
+    margin-bottom: 0.76rem;
+    padding: 1rem 1.12rem;
     border: 1px solid var(--line);
-    border-radius: 0.9rem;
-    background: white;
+    border-radius: 0.92rem;
+    background: #fff;
+}
+
+.quote-card {
+    background: #fbfcff;
+    color: #475569;
+    font-size: 1rem;
+    line-height: 1.72;
 }
 
 .evidence-title,
 .advice-title {
     color: var(--ink);
-    font-weight: 730;
+    font-weight: 750;
     font-size: 1rem;
 }
 
 .evidence-text,
 .advice-text {
-    margin-top: 0.35rem;
+    margin-top: 0.36rem;
     color: #475569;
     font-size: 0.98rem;
-    line-height: 1.65;
+    line-height: 1.66;
 }
 
 .evidence-source {
     margin-top: 0.55rem;
-    color: #64748b;
+    color: var(--muted);
     font-size: 0.84rem;
 }
 
 .summary-card {
-    padding: 1.2rem 1.3rem;
-    border: 1px solid #d7ddff;
-    border-radius: 1rem;
-    background: linear-gradient(120deg, #f2f5ff, #ffffff);
+    border-color: #d6ddff;
+    background: linear-gradient(120deg, var(--primary-soft-2), #fff);
 }
 
 .summary-meta {
     display: flex;
     flex-wrap: wrap;
     gap: 0.45rem;
-    margin-bottom: 0.7rem;
+    margin-bottom: 0.72rem;
 }
 
 .summary-card p {
-    margin: 0;
+    margin: 0.15rem 0 0;
     color: #334155;
     font-size: 1.04rem;
     line-height: 1.68;
@@ -1151,12 +1170,13 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label p {
 
 .badge {
     display: inline-flex;
-    padding: 0.28rem 0.55rem;
+    align-items: center;
+    padding: 0.3rem 0.58rem;
     border-radius: 999px;
-    background: #eef2ff;
-    color: #4a5cdb;
+    background: var(--primary-soft);
+    color: var(--primary-hover);
     font-size: 0.82rem;
-    font-weight: 720;
+    font-weight: 740;
 }
 
 .badge.positive { background: var(--positive-soft); color: var(--positive); }
@@ -1173,107 +1193,57 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label p {
     display: flex;
     justify-content: space-between;
     gap: 1rem;
-    margin-bottom: 0.35rem;
+    margin-bottom: 0.36rem;
     color: #475569;
     font-size: 0.94rem;
-    font-weight: 650;
+    font-weight: 680;
 }
 
 .bar-track {
-    height: 0.65rem;
-    overflow: hidden;
-    border-radius: 999px;
-    background: #edf0f5;
+    height: 0.66rem;
 }
 
-.bar-fill {
-    height: 100%;
-    border-radius: inherit;
-    background: linear-gradient(90deg, #8aa4f8, #5b6cf6);
-}
-
-.bar-fill.positive { background: linear-gradient(90deg, #74df9b, #22c55e); }
-.bar-fill.neutral { background: linear-gradient(90deg, #ffca9d, #ffb082); }
-.bar-fill.negative { background: linear-gradient(90deg, #fb8b8b, #ef4444); }
+.bar-fill.positive { background: linear-gradient(90deg, #7adf9f, var(--positive)); }
+.bar-fill.neutral { background: linear-gradient(90deg, #fdba74, var(--neutral)); }
+.bar-fill.negative { background: linear-gradient(90deg, #fca5a5, var(--negative)); }
 
 .callout {
     padding: 0.95rem 1.05rem;
-    border: 1px solid #ffd5b5;
-    border-radius: 0.85rem;
-    background: #fff6ee;
+    border: 1px solid #fed7aa;
+    border-radius: 0.86rem;
+    background: var(--neutral-soft);
     color: #9a4a04;
     font-size: 0.96rem;
     line-height: 1.62;
 }
 
-.section-icon,
-.panel-icon,
-.compact-icon,
-.stat-icon {
-    background: transparent;
-    border-radius: 0;
-    box-shadow: none;
+.setting-summary {
+    margin-top: 0.7rem;
+    padding: 0.76rem 0.82rem;
+    border: 1px solid var(--line);
+    border-radius: 0.8rem;
+    background: var(--surface-soft);
+    color: var(--muted);
+    font-size: 0.92rem;
+    line-height: 1.56;
 }
 
-.section-icon,
-.stat-icon {
-    width: 1.35rem;
-    height: 1.35rem;
-}
-
-.panel-icon {
-    width: 1.55rem;
-    height: 1.55rem;
-}
-
-.compact-icon {
-    width: 1.25rem;
-    height: 1.25rem;
-}
-
-.section-icon svg,
-.panel-icon svg,
-.compact-icon svg,
-.stat-icon svg {
-    width: 0.95rem;
-    height: 0.95rem;
-    stroke-width: 1.9;
-}
-
-.stat-card {
-    border-top: 1px solid var(--line);
-    box-shadow: 0 6px 18px rgba(23,32,51,0.04);
-}
-
-.stat-card.primary,
-.stat-card.neutral {
-    border-top-color: var(--line);
-}
-
-.stat-card.positive {
-    border-top: 3px solid var(--positive);
-}
-
-.stat-card.negative {
-    border-top: 3px solid var(--negative);
-}
-
-.stat-card.positive .stat-icon { color: var(--positive); }
-.stat-card.neutral .stat-icon { color: var(--neutral); }
-.stat-card.negative .stat-icon { color: var(--negative); }
-
-.panel-heading {
-    gap: 0.5rem;
+.chart-title {
+    margin: 0 0 0.78rem;
+    color: var(--ink);
+    font-size: 1.06rem;
+    font-weight: 750;
 }
 
 @media (max-width: 900px) {
+    [data-testid="stMainBlockContainer"] { padding-left: 1rem; padding-right: 1rem; }
     .flow-row { grid-template-columns: repeat(2, 1fr); }
     .process-strip { grid-template-columns: 1fr; }
     .compact-grid { grid-template-columns: 1fr; }
     .workspace-header { flex-direction: column; }
     .result-topline { align-items: flex-start; flex-direction: column; }
     .confidence-box { text-align: left; width: 100%; }
-    section[data-testid="stSidebar"] { width: 225px !important; min-width: 225px !important; }
+    section[data-testid="stSidebar"] { width: 224px !important; min-width: 224px !important; }
 }
 </style>
 """
@@ -1924,7 +1894,7 @@ def batch_conclusion_card(
         return {
             "title": f"优先关注：{top_topic}",
             "detail": (
-                f"本批评价中负面反馈占比 {negative_rate:.1%}，主要集中在{top_topic}。"
+                f"本批评价中负面反馈占比 {negative_rate:.1%}，主要集中在“{top_topic}”。"
                 f"建议优先查看相关原文，并结合关键词“{top_keywords}”确认具体问题。"
             ),
             "tone": "negative",
@@ -1934,12 +1904,12 @@ def batch_conclusion_card(
             "title": f"重点复核：{top_topic}",
             "detail": (
                 f"本批评价以中性或混合反馈为主，占比 {neutral_rate:.1%}。"
-                f"建议先看{top_topic}下的原文证据，再决定是否调整课程安排。"
+                f"建议先查看“{top_topic}”维度下的原文证据，再决定是否调整课程安排。"
             ),
             "tone": "neutral",
         }
     return {
-        "title": f"{top_topic}反馈整体较稳定",
+        "title": f"“{top_topic}”反馈整体较稳定",
         "detail": (
             f"本批评价正面反馈占比 {positive_rate:.1%}。"
             f"建议保留已有做法，同时跟踪关键词“{top_keywords}”中的具体诉求。"
@@ -1983,6 +1953,24 @@ def display_device_label(device: object) -> str:
     if text.lower() == "auto":
         return "CPU"
     return text.upper()
+
+
+def display_model_name(name: object) -> str:
+    text = str(name or "").strip()
+    if not text:
+        return "待补充"
+    if text in MODEL_NAME_LABELS:
+        return MODEL_NAME_LABELS[text]
+    normalized = text.replace("-", "_").replace(" ", "_").lower()
+    if normalized in MODEL_NAME_LABELS:
+        return MODEL_NAME_LABELS[normalized]
+    if "logistic" in normalized:
+        return "Logistic Regression"
+    if "naive" in normalized or "bayes" in normalized:
+        return "Naive Bayes"
+    if "svm" in normalized:
+        return "Linear SVM"
+    return text.replace("_", " ").strip()
 
 
 def sentiment_source_label(source: object) -> str:
@@ -2095,17 +2083,12 @@ def render_section_heading(
     description: str = "",
     icon: str | None = None,
 ) -> None:
+    del icon
     detail = f"<p>{escaped(description)}</p>" if description else ""
-    title_icon = (
-        f'<span class="section-icon">{icon_svg(icon)}</span>'
-        if icon
-        else ""
-    )
     st.html(
         f"""
         <div class="section-heading">
             <div class="section-title-row">
-                {title_icon}
                 <h3>{escaped(title)}</h3>
             </div>
             {detail}
@@ -2153,10 +2136,10 @@ def render_feature_card(index: str, title: str, description: str) -> None:
 
 
 def render_panel_header(title: str, description: str, icon: str) -> None:
+    del icon
     st.html(
         f"""
         <div class="panel-heading">
-            <span class="panel-icon">{icon_svg(icon)}</span>
             <div>
                 <h3 class="panel-title">{escaped(title)}</h3>
                 <p class="panel-help">{escaped(description)}</p>
@@ -2173,14 +2156,13 @@ def render_compact_items(
     cards = "".join(
         f"""
         <div class="compact-item">
-            <span class="compact-icon">{icon_svg(icon)}</span>
             <span class="compact-copy">
                 <strong>{escaped(title)}</strong>
                 <span>{escaped(detail)}</span>
             </span>
         </div>
         """
-        for icon, title, detail in items
+        for _icon, title, detail in items
     )
     st.html(
         f'<div class="compact-grid" style="--compact-columns:{max(1, columns)}">{cards}</div>'
@@ -2256,9 +2238,9 @@ def render_analysis_result(result: dict) -> None:
     confidence_percent = max(0, min(100, round(confidence * 100)))
     confidence_ui = confidence_status(confidence, sentiment)
     sentiment_icon = {
-        "positive": "check",
-        "neutral": "chart",
-        "negative": "analysis",
+        "positive": "smile",
+        "neutral": "meh",
+        "negative": "alert",
     }.get(sentiment, "chart")
 
     st.html(
@@ -2300,7 +2282,7 @@ def render_analysis_result(result: dict) -> None:
         if long_text_truncated:
             st.warning(
                 f"{chunk_message} 当前已达到最大分段数，"
-                "更后面的内容未进入 BERT，请缩短文本或提高 BERT_MAX_CHUNKS。"
+                "更后面的内容未进入 BERT，请缩短文本或调整最大分段数配置。"
             )
         else:
             st.info(chunk_message)
@@ -2522,19 +2504,59 @@ def model_chart_frame(metrics: dict) -> pd.DataFrame:
     for name, values in metrics.get("results", {}).items():
         rows.append(
             {
-                "模型": name,
+                "模型": display_model_name(name),
                 "指标": "准确率 Accuracy",
                 "分数": float(values.get("accuracy", 0)),
             }
         )
         rows.append(
             {
-                "模型": name,
+                "模型": display_model_name(name),
                 "指标": "宏平均 F1 Macro-F1",
                 "分数": float(values.get("macro_f1", 0)),
             }
         )
     return pd.DataFrame(rows, columns=["模型", "指标", "分数"])
+
+
+def model_metric_chart(chart_frame: pd.DataFrame) -> alt.Chart:
+    if chart_frame.empty:
+        return alt.Chart(pd.DataFrame(columns=["模型", "指标", "分数"])).mark_bar()
+
+    model_order = (
+        chart_frame.groupby("模型")["分数"]
+        .mean()
+        .sort_values(ascending=False)
+        .index.tolist()
+    )
+    return (
+        alt.Chart(chart_frame)
+        .mark_bar(cornerRadiusEnd=3)
+        .encode(
+            y=alt.Y("模型:N", sort=model_order, title=None),
+            x=alt.X(
+                "分数:Q",
+                title="分数",
+                scale=alt.Scale(domain=[0, 1]),
+                axis=alt.Axis(format=".1f"),
+            ),
+            color=alt.Color(
+                "指标:N",
+                title="指标",
+                scale=alt.Scale(
+                    domain=["准确率 Accuracy", "宏平均 F1 Macro-F1"],
+                    range=["#4f6bed", "#8aa4ff"],
+                ),
+            ),
+            yOffset=alt.YOffset("指标:N"),
+            tooltip=[
+                alt.Tooltip("模型:N", title="模型"),
+                alt.Tooltip("指标:N", title="指标"),
+                alt.Tooltip("分数:Q", title="分数", format=".4f"),
+            ],
+        )
+        .properties(height=max(180, 36 * max(1, len(model_order))))
+    )
 
 
 def bert_summary_rows(metrics: dict) -> list[dict[str, object]]:
@@ -2662,6 +2684,7 @@ def render_shell() -> str:
     page = st.sidebar.radio(
         "功能导航",
         PAGE_OPTIONS,
+        format_func=lambda page_name: NAV_LABELS.get(page_name, page_name),
         label_visibility="collapsed",
     )
 
@@ -2873,13 +2896,12 @@ def render_single_review_page() -> None:
                 value=True,
                 help="调用 ChatECNU；接口异常时使用本地兜底。",
             )
-            render_compact_items(
-                [
-                    ("analysis", "情感识别", "自动"),
-                    ("topic", "课程问题维度", "自动"),
-                    ("keyword", "关键词", "自动"),
-                ],
-                columns=1,
+            st.html(
+                """
+                <div class="setting-summary">
+                    自动输出情感识别、课程问题维度和关键词提取结果。
+                </div>
+                """
             )
 
     if analyze_clicked:
@@ -3156,7 +3178,7 @@ def render_test_cases_page() -> None:
             "用于验证系统流程和典型分类逻辑",
             "check",
         )
-        st.caption("固定测试案例不等同于真实场景泛化性能；最终模型效果以独立测试集评估为准。")
+        st.caption("固定测试案例用于验证系统流程和典型分类逻辑，不等同于真实场景泛化性能；最终模型效果以独立测试集评估为准。")
 
     if output_df is None:
         output_df = st.session_state.get("test_case_results")
@@ -3244,7 +3266,7 @@ def render_tech_page() -> None:
     with metric_b:
         render_stat_card(
             "离线传统模型对比",
-            metrics.get("best_model", "待补充") if metrics else "待补充",
+            display_model_name(metrics.get("best_model", "待补充")) if metrics else "待补充",
             "用于对比和回退，不作为主模型叙事",
             "neutral",
             "chart",
@@ -3270,7 +3292,7 @@ def render_tech_page() -> None:
         render_section_heading("传统模型离线评估", icon="chart")
         rows = [
             {
-                "模型": name,
+                "模型": display_model_name(name),
                 "准确率 Accuracy": f"{values['accuracy']:.4f}",
                 "宏平均 F1 Macro-F1": f"{values['macro_f1']:.4f}",
             }
@@ -3278,23 +3300,17 @@ def render_tech_page() -> None:
         ]
         table_col, language_col = st.columns([1.15, 0.85])
         with table_col:
-            st.markdown("##### 分类器对比")
+            st.html('<h4 class="chart-title">分类器对比</h4>')
             chart_frame = model_chart_frame(metrics)
             if not chart_frame.empty:
-                st.bar_chart(
-                    chart_frame,
-                    x="模型",
-                    y="分数",
-                    color="指标",
-                    height=260,
-                )
+                st.altair_chart(model_metric_chart(chart_frame), width="stretch")
             st.dataframe(
                 pd.DataFrame(rows),
                 width="stretch",
                 hide_index=True,
             )
         with language_col:
-            st.markdown("##### 分语言评估")
+            st.html('<h4 class="chart-title">分语言评估</h4>')
             language_rows = language_metric_rows(metrics)
             if language_rows:
                 st.dataframe(

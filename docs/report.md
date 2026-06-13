@@ -85,9 +85,9 @@ BERT 在相同数据划分上的当前结果为：
 | 模型 | Accuracy | Macro-F1 |
 |---|---:|---:|
 | Logistic Regression | 0.6904 | 0.6906 |
-| multilingual BERT | 0.7548 | 0.7553 |
+| multilingual BERT | 0.7461 | 0.7457 |
 
-BERT 的 Accuracy 提高约 6.45 个百分点，Macro-F1 提高约 6.47 个百分点。训练脚本现已拆分训练集、验证集和测试集；下次重新训练时，验证集用于选择最佳 checkpoint，测试集只在训练结束后评估一次。
+BERT 的 Accuracy 提高约 5.57 个百分点，Macro-F1 提高约 5.51 个百分点。训练脚本现已拆分训练集、验证集和测试集；验证集用于选择最佳 checkpoint，测试集只在训练结束后评估一次。
 
 消融实验命令：
 
@@ -101,10 +101,10 @@ python scripts\run_ablation_experiment.py --cases data\test_cases.csv --output-d
 |---|---|---:|
 | rule-only | 只用规则情感词和转折判断 | 12/12 |
 | model-only | 只用 TF-IDF 模型 | 7/12 |
-| bert-only | 只用 BERT | 10/12 |
+| bert-only | 只用 BERT | 11/12 |
 | hybrid | BERT 预测、规则校正与自动回退 | 12/12 |
 
-这个结果说明，BERT 明显改善了纯 TF-IDF 在中文短句和上下文语义上的判断，但固定测试集中仍有混合评价需要规则校正。例如“内容不错，但是考试范围不明确”会由 BERT 的负面结果校正为中性。完整流程在 12 条业务用例上达到 12/12。
+这个结果说明，BERT 明显改善了纯 TF-IDF 在中文短句和上下文语义上的判断，但固定测试集中仍有个别混合评价需要规则校正。例如“内容不错，但是考试范围不明确”会由 BERT 的负面结果校正为中性。完整流程在 12 条业务用例上达到 12/12。
 
 ## 5. 系统实现
 

@@ -148,7 +148,7 @@ pip install -r requirements-bert.txt
 训练命令：
 
 ```bash
-python -m src.train_bert --data data/processed/bilingual_reviews_train.csv --model-name bert-base-multilingual-cased --output-dir outputs/bert_model --metrics-path outputs/bert_metrics.json
+python -m src.train_bert --data data/processed/bilingual_reviews_train.csv --model-name bert-base-multilingual-cased --output-dir outputs/bert_model_final --metrics-path outputs/bert_metrics.json
 ```
 
 如果只检查脚本和数据流，可以用小样本：
@@ -163,7 +163,7 @@ python -m src.train_bert --sample-per-label 5 --epochs 1
 
 ```text
 SENTIMENT_BACKEND=auto
-BERT_MODEL_PATH=outputs/bert_model
+BERT_MODEL_PATH=outputs/bert_model_final
 BERT_DEVICE=auto
 BERT_BATCH_SIZE=32
 BERT_MAX_LENGTH=160
@@ -186,7 +186,7 @@ goooood -> good
 
 缩写使用词级映射；重复拉长拼写会先在情感词集合内收缩。其他拼写纠错只面向情感词，要求唯一候选、相同前缀，并且最多只有一次漏字、多字或相邻字母换位。合法词形变化会被保护，`PyTorch`、`NumPy`、课程名等技术词不会参与自动纠错。原始评价仍用于页面展示、关键词、课程维度和证据提取。
 
-`outputs/bert_metrics.json` 可以提交用于展示；`outputs/bert_model/` 约 711 MB，受 GitHub 单文件限制，不直接提交，应在部署时单独下载或挂载。
+`outputs/bert_metrics.json` 可以提交用于展示；`outputs/bert_model_final/` 中的权重约 711 MB，受 GitHub 单文件限制，不直接提交，应在部署时单独下载或挂载。
 
 ## 大模型配置
 
@@ -215,5 +215,5 @@ LLM_TIMEOUT=20
 
 - `.env`
 - `data/raw/`
-- `outputs/bert_model/`
+- `outputs/bert_model_final/model.safetensors`
 - `__pycache__`、测试临时文件和编辑器缓存

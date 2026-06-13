@@ -44,7 +44,7 @@ pip install -r requirements-bert.txt
         \code{LLM_API_KEY}、\code{LLM_BASE_URL} 和 \code{LLM_MODEL}。不配置 API 也不会影响
         情感分析、课程维度和本地建议生成。
 
-  \item 确认 BERT 模型目录为 \code{outputs/bert_model}，或通过
+  \item 确认 BERT 模型目录为 \code{outputs/bert_model_final}，或通过
         \code{BERT_MODEL_PATH} 指定其他目录。若没有 BERT 权重，系统自动使用传统模型。
 
   \item 启动应用：
@@ -91,7 +91,7 @@ BERT 训练命令如下：
 python -m src.train_bert ^
   --data data/processed/bilingual_reviews_train.csv ^
   --model-name bert-base-multilingual-cased ^
-  --output-dir outputs/bert_model ^
+  --output-dir outputs/bert_model_final ^
   --metrics-path outputs/bert_metrics.json
 \end{verbatim}
 
@@ -166,7 +166,7 @@ python -m unittest discover -s tests
 
 \subsection{结果分析}
 
-固定案例中，TF-IDF 单独通过 7/12，BERT 单独通过 10/12，完整流程通过 12/12。BERT 改善了
+固定案例中，TF-IDF 单独通过 7/12，BERT 单独通过 11/12，完整流程通过 12/12。BERT 改善了
 英文上下文和中文短句的判断，规则校正进一步处理了“内容不错，但是考试范围不明确”等混合评价。
 
 48 条独立压力测试中，完整流程通过 34 条，Accuracy 为 0.7083，Macro-F1 为 0.7217。中英混合

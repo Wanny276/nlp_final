@@ -3,10 +3,18 @@
 from __future__ import annotations
 
 import re
+import warnings
 from pathlib import Path
 
 try:
-    import jieba
+    with warnings.catch_warnings():
+        warnings.filterwarnings(
+            "ignore",
+            message="pkg_resources is deprecated as an API.*",
+            category=UserWarning,
+            module=r"jieba\._compat",
+        )
+        import jieba
 except ImportError:  # pragma: no cover - 仅在依赖未安装时使用
     jieba = None
 
