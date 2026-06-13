@@ -15,7 +15,13 @@ import pandas as pd
 from sklearn.metrics import accuracy_score, classification_report, f1_score
 
 from src.cli_utils import ChineseArgumentParser
-from src.nlp_analyzer import analyze_review, load_model_if_available, rule_based_sentiment
+from src.nlp_analyzer import (
+    analyze_batch,
+    bert_based_sentiments,
+    configured_sentiment_backend,
+    load_model_if_available,
+    rule_based_sentiment,
+)
 from src.preprocess import load_stopwords, preprocess_text
 
 
@@ -128,10 +134,20 @@ def run_ablation(
 
     rule_predictions = [rule_based_sentiment(text)[0] for text in texts]
     hybrid_predictions = [
-        analyze_review(text, reference_reviews=texts, use_llm=False)["sentiment"]
-        for text in texts
+        result["sentiment"]
+        for result in analyze_batch(texts, use_llm=False)
     ]
     model_predictions, model_available = _model_only_predictions(texts, model_dir)
+    bert_results = (
+        bert_based_sentiments(texts)
+        if configured_sentiment_backend() in {"auto", "bert"}
+        else None
+    )
+    bert_predictions = (
+        [label for label, _confidence, _device in bert_results]
+        if bert_results is not None
+        else []
+    )
 
     experiments = {
         "rule-only": _evaluate_predictions(expected, rule_predictions),
@@ -149,6 +165,20 @@ def run_ablation(
                 "classification_report": {},
             }
         ),
+        "bert-only": (
+            _evaluate_predictions(expected, bert_predictions)
+            if bert_results is not None
+            else {
+                "status": STATUS_SKIPPED,
+                "reason": "BERT model or dependencies are unavailable",
+                "accuracy": 0.0,
+                "macro_f1": 0.0,
+                "passed": 0,
+                "failed": 0,
+                "skipped": len(expected),
+                "classification_report": {},
+            }
+        ),
         "hybrid": _evaluate_predictions(expected, hybrid_predictions),
     }
 
@@ -156,6 +186,8 @@ def run_ablation(
     errors.extend(_error_rows("rule-only", valid_cases, rule_predictions))
     if model_available:
         errors.extend(_error_rows("model-only", valid_cases, model_predictions))
+    if bert_results is not None:
+        errors.extend(_error_rows("bert-only", valid_cases, bert_predictions))
     errors.extend(_error_rows("hybrid", valid_cases, hybrid_predictions))
 
     metrics = {
@@ -166,14 +198,21 @@ def run_ablation(
 
     output_path = Path(output_dir)
     output_path.mkdir(parents=True, exist_ok=True)
-    (output_path / "ablation_metrics.json").write_text(
-        json.dumps(metrics, ensure_ascii=False, indent=2),
+    with (output_path / "ablation_metrics.json").open(
+        "w",
         encoding="utf-8",
-    )
+        newline="\n",
+    ) as metrics_file:
+        metrics_file.write(json.dumps(metrics, ensure_ascii=False, indent=2))
     pd.DataFrame(
         errors,
         columns=["实验版本", "编号", "评价文本", "预期情感", "实际情感"],
-    ).to_csv(output_path / "ablation_errors.csv", index=False, encoding="utf-8-sig")
+    ).to_csv(
+        output_path / "ablation_errors.csv",
+        index=False,
+        encoding="utf-8-sig",
+        lineterminator="\n",
+    )
     return metrics
 
 

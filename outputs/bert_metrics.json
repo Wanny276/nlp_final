@@ -1,0 +1,46 @@
+{
+  "model_name": "bert-base-multilingual-cased",
+  "accuracy": 0.7548245614035087,
+  "macro_f1": 0.7552901642915372,
+  "train_size": 6840,
+  "test_size": 2280,
+  "data_path": "data/processed/bilingual_reviews_train.csv",
+  "labels": [
+    "negative",
+    "neutral",
+    "positive"
+  ],
+  "classification_report": {
+    "negative": {
+      "precision": 0.7361809045226131,
+      "recall": 0.7710526315789473,
+      "f1-score": 0.7532133676092545,
+      "support": 760.0
+    },
+    "neutral": {
+      "precision": 0.6484687083888149,
+      "recall": 0.6407894736842106,
+      "f1-score": 0.6446062210456651,
+      "support": 760.0
+    },
+    "positive": {
+      "precision": 0.8840381991814461,
+      "recall": 0.8526315789473684,
+      "f1-score": 0.8680509042196919,
+      "support": 760.0
+    },
+    "accuracy": 0.7548245614035087,
+    "macro avg": {
+      "precision": 0.7562292706976246,
+      "recall": 0.7548245614035087,
+      "f1-score": 0.7552901642915372,
+      "support": 2280.0
+    },
+    "weighted avg": {
+      "precision": 0.7562292706976247,
+      "recall": 0.7548245614035087,
+      "f1-score": 0.7552901642915372,
+      "support": 2280.0
+    }
+  }
+}

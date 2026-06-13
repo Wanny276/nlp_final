@@ -53,11 +53,16 @@ def _load_optional_dependencies() -> dict[str, Any]:
 def sample_per_label(df: Any, per_label: int | None, seed: int) -> Any:
     if per_label is None or per_label <= 0:
         return df
-    return (
-        df.groupby("label", group_keys=False)
-        .apply(lambda group: group.sample(n=min(len(group), per_label), random_state=seed))
-        .reset_index(drop=True)
-    )
+    sampled_indexes: list[Any] = []
+    for _label, indexes in df.groupby("label").groups.items():
+        group = df.loc[indexes]
+        sampled_indexes.extend(
+            group.sample(
+                n=min(len(group), per_label),
+                random_state=seed,
+            ).index.tolist()
+        )
+    return df.loc[sampled_indexes].reset_index(drop=True)
 
 
 def load_training_frame(data_path: str | Path, per_label: int | None = None, seed: int = 42) -> Any:
@@ -68,7 +73,10 @@ def load_training_frame(data_path: str | Path, per_label: int | None = None, see
     if "text" not in df.columns or "label" not in df.columns:
         raise ValueError("训练数据必须包含 'text' 和 'label' 列")
 
-    df = df[["text", "label"]].dropna()
+    selected_columns = ["text", "label"]
+    if "language" in df.columns:
+        selected_columns.append("language")
+    df = df[selected_columns].dropna(subset=["text", "label"])
     df["text"] = df["text"].astype(str)
     df["label"] = df["label"].astype(str).str.strip()
     invalid = sorted(set(df["label"]) - set(LABELS))
@@ -107,6 +115,8 @@ def train_bert(
     learning_rate: float = 2e-5,
     seed: int = 42,
     per_label: int | None = None,
+    validation_size: float = 0.15,
+    test_size: float = 0.25,
 ) -> dict[str, Any]:
     """微调 BERT 并写入对比指标。"""
 
@@ -118,14 +128,28 @@ def train_bert(
     random.seed(seed)
     np.random.seed(seed)
     torch.manual_seed(seed)
+    if torch.cuda.is_available():
+        torch.cuda.manual_seed_all(seed)
 
     df = load_training_frame(data_path, per_label=per_label, seed=seed)
+    if validation_size <= 0 or test_size <= 0 or validation_size + test_size >= 1:
+        raise ValueError("validation_size and test_size must be positive and sum to less than 1")
+    if df["label"].value_counts().min() < 4:
+        raise ValueError("Each label needs at least 4 samples for train/validation/test splits")
+
     stratify = df["label"] if df["label"].value_counts().min() > 1 else None
-    train_df, test_df = train_test_split(
+    train_pool_df, test_df = train_test_split(
         df,
-        test_size=0.25,
+        test_size=test_size,
         random_state=seed,
         stratify=stratify,
+    )
+    validation_fraction = validation_size / (1 - test_size)
+    train_df, validation_df = train_test_split(
+        train_pool_df,
+        test_size=validation_fraction,
+        random_state=seed,
+        stratify=train_pool_df["label"],
     )
 
     tokenizer = deps["AutoTokenizer"].from_pretrained(model_name)
@@ -141,10 +165,24 @@ def train_bert(
         padding=True,
         max_length=max_length,
     )
+    validation_encodings = tokenizer(
+        validation_df["text"].tolist(),
+        truncation=True,
+        padding=True,
+        max_length=max_length,
+    )
     train_labels = [LABEL_TO_ID[label] for label in train_df["label"].tolist()]
+    validation_labels = [
+        LABEL_TO_ID[label] for label in validation_df["label"].tolist()
+    ]
     test_labels = [LABEL_TO_ID[label] for label in test_df["label"].tolist()]
 
     train_dataset = ReviewDataset(train_encodings, train_labels, torch)
+    validation_dataset = ReviewDataset(
+        validation_encodings,
+        validation_labels,
+        torch,
+    )
     test_dataset = ReviewDataset(test_encodings, test_labels, torch)
     model = deps["AutoModelForSequenceClassification"].from_pretrained(
         model_name,
@@ -178,12 +216,17 @@ def train_bert(
         greater_is_better=True,
         logging_steps=20,
         seed=seed,
+        fp16=torch.cuda.is_available(),
+        dataloader_pin_memory=torch.cuda.is_available(),
+        save_total_limit=1,
+        save_only_model=True,
+        report_to="none",
     )
     trainer = deps["Trainer"](
         model=model,
         args=args,
         train_dataset=train_dataset,
-        eval_dataset=test_dataset,
+        eval_dataset=validation_dataset,
         compute_metrics=compute_metrics,
     )
 
@@ -195,10 +238,17 @@ def train_bert(
 
     metrics = {
         "model_name": model_name,
+        "training_device": str(args.device),
         "accuracy": float(deps["accuracy_score"](y_true, y_pred)),
         "macro_f1": float(deps["f1_score"](y_true, y_pred, average="macro", zero_division=0)),
         "train_size": int(len(train_df)),
+        "validation_size": int(len(validation_df)),
         "test_size": int(len(test_df)),
+        "split": {
+            "validation_fraction": validation_size,
+            "test_fraction": test_size,
+            "seed": seed,
+        },
         "data_path": str(data_path),
         "labels": LABELS,
         "classification_report": deps["classification_report"](
@@ -209,6 +259,27 @@ def train_bert(
             output_dict=True,
         ),
     }
+    if "language" in test_df.columns:
+        language_metrics: dict[str, dict[str, float | int]] = {}
+        for language in sorted(test_df["language"].astype(str).unique()):
+            mask = test_df["language"].astype(str).eq(language).tolist()
+            language_true = [label for label, selected in zip(y_true, mask) if selected]
+            language_pred = [label for label, selected in zip(y_pred, mask) if selected]
+            language_metrics[language] = {
+                "accuracy": float(
+                    deps["accuracy_score"](language_true, language_pred)
+                ),
+                "macro_f1": float(
+                    deps["f1_score"](
+                        language_true,
+                        language_pred,
+                        average="macro",
+                        zero_division=0,
+                    )
+                ),
+                "support": len(language_true),
+            }
+        metrics["language_metrics"] = language_metrics
 
     output_path.mkdir(parents=True, exist_ok=True)
     trainer.save_model(str(output_path))
@@ -231,6 +302,8 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--learning-rate", type=float, default=2e-5)
     parser.add_argument("--seed", type=int, default=42)
     parser.add_argument("--sample-per-label", type=int, default=None)
+    parser.add_argument("--validation-size", type=float, default=0.15)
+    parser.add_argument("--test-size", type=float, default=0.25)
     return parser
 
 
@@ -248,6 +321,8 @@ def main() -> None:
         learning_rate=args.learning_rate,
         seed=args.seed,
         per_label=args.sample_per_label,
+        validation_size=args.validation_size,
+        test_size=args.test_size,
     )
     print(f"预训练模型={metrics['model_name']}")
     print(f"准确率={metrics['accuracy']:.4f}")

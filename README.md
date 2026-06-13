@@ -2,15 +2,15 @@
 
 CourseInsight 是一个自然语言处理课程项目，用来分析中文高校课程评价和英文在线课程评论。系统先做文本预处理、情感分类、课程维度识别、关键词提取和相似评论检索，再把结构化结果交给大模型生成课程反馈建议。大模型不可用时，系统会使用本地模板兜底，演示流程不会中断。
 
-项目主线仍然是轻量、可解释、能稳定运行的传统 NLP 流程。BERT 只作为深度语义模型对比实验，不替代当前系统。
+项目主线采用 BERT、规则校正和轻量模型回退的分层情感分析流程。BERT 负责主要语义分类，规则处理转折与混合评价，TF-IDF 模型和纯规则在深度模型不可用时保证系统继续运行。
 
 ## 项目功能
 
 - 单条评价分析：识别语言、情感、置信度、课程维度、关键词、相似评论，并生成反馈建议。
 - CSV 批量分析：支持常见评论字段，展示情感分布、主题分布、高频关键词和分析明细。
-- 模型训练与评估：比较 Dummy、Naive Bayes、Logistic Regression、Linear SVM，并保存最优传统模型。
-- 消融实验：比较 rule-only、model-only、hybrid，说明规则、模型和规则校正各自的作用。
-- BERT 对比实验：提供可选脚本，用 multilingual BERT 做深度学习对照，不接入实时预测主流程。
+- 模型训练与评估：微调 multilingual BERT，同时保留传统分类器作为轻量回退。
+- 消融实验：比较 rule-only、model-only、bert-only、hybrid，说明各层模型和规则校正的作用。
+- BERT 实时预测：优先使用微调后的 multilingual BERT，支持 GPU/CPU 自动选择和批量推理。
 
 ## 目录说明
 
@@ -115,20 +115,16 @@ outputs/reports/ablation_metrics.json
 outputs/reports/ablation_errors.csv
 ```
 
-## BERT 对比实验
+## BERT 主模型
 
-BERT 只作为可选实验支线。运行前需要准备一个已安装 `torch` 和 `transformers` 的 Python 环境，不建议把这些重依赖混进主系统的普通运行环境。
-
-示例做法是单独准备一个 BERT 实验环境：
+系统默认使用 `auto` 后端：本地 BERT 权重可用时优先运行 BERT；加载或推理失败时回退到 TF-IDF，最后回退到规则。使用 BERT 前需要安装深度学习依赖：
 
 ```bash
-python -m venv .bert-venv
-.bert-venv\Scripts\activate
 pip install -r requirements.txt
 pip install -r requirements-bert.txt
 ```
 
-然后运行：
+训练命令：
 
 ```bash
 python -m src.train_bert --data data/processed/bilingual_reviews_train.csv --model-name bert-base-multilingual-cased --output-dir outputs/bert_model --metrics-path outputs/bert_metrics.json
@@ -137,10 +133,24 @@ python -m src.train_bert --data data/processed/bilingual_reviews_train.csv --mod
 如果只检查脚本和数据流，可以用小样本：
 
 ```bash
-python -m src.train_bert --sample-per-label 2 --epochs 1
+python -m src.train_bert --sample-per-label 5 --epochs 1
 ```
 
-`outputs/bert_metrics.json` 可以提交用于展示；`outputs/bert_model/` 是模型权重目录，体积较大，不提交。
+训练流程固定拆分训练集、验证集和测试集。验证集用于选择最佳 checkpoint，测试集只在训练完成后评估一次。
+
+情感后端配置：
+
+```text
+SENTIMENT_BACKEND=auto
+BERT_MODEL_PATH=outputs/bert_model
+BERT_DEVICE=auto
+BERT_BATCH_SIZE=32
+BERT_MAX_LENGTH=160
+```
+
+`SENTIMENT_BACKEND` 可设置为 `auto`、`bert`、`tfidf` 或 `rule`。`BERT_DEVICE=auto` 会优先使用 CUDA，没有 GPU 时使用 CPU。批量分析会合并文本后一次推理，避免逐条调用 GPU。
+
+`outputs/bert_metrics.json` 可以提交用于展示；`outputs/bert_model/` 约 711 MB，受 GitHub 单文件限制，不直接提交，应在部署时单独下载或挂载。
 
 ## 大模型配置
 

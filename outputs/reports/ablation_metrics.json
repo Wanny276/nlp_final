@@ -84,6 +84,47 @@
         }
       }
     },
+    "bert-only": {
+      "status": "完成",
+      "accuracy": 0.8333333333333334,
+      "macro_f1": 0.8196969696969697,
+      "passed": 10,
+      "failed": 2,
+      "skipped": 0,
+      "classification_report": {
+        "negative": {
+          "precision": 0.8333333333333334,
+          "recall": 1.0,
+          "f1-score": 0.9090909090909091,
+          "support": 5.0
+        },
+        "neutral": {
+          "precision": 0.75,
+          "recall": 0.75,
+          "f1-score": 0.75,
+          "support": 4.0
+        },
+        "positive": {
+          "precision": 1.0,
+          "recall": 0.6666666666666666,
+          "f1-score": 0.8,
+          "support": 3.0
+        },
+        "accuracy": 0.8333333333333334,
+        "macro avg": {
+          "precision": 0.8611111111111112,
+          "recall": 0.8055555555555555,
+          "f1-score": 0.8196969696969697,
+          "support": 12.0
+        },
+        "weighted avg": {
+          "precision": 0.8472222222222223,
+          "recall": 0.8333333333333334,
+          "f1-score": 0.8287878787878787,
+          "support": 12.0
+        }
+      }
+    },
     "hybrid": {
       "status": "完成",
       "accuracy": 1.0,

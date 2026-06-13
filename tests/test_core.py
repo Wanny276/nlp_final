@@ -9,6 +9,8 @@ from unittest.mock import patch
 import pandas as pd
 from streamlit.runtime.caching import cache_data_api
 
+os.environ.setdefault("SENTIMENT_BACKEND", "tfidf")
+
 logging.getLogger("streamlit.runtime.caching.cache_data_api").setLevel(logging.ERROR)
 logging.getLogger("streamlit").setLevel(logging.ERROR)
 cache_data_api._LOGGER.setLevel(logging.ERROR)
@@ -18,10 +20,16 @@ from scripts.run_ablation_experiment import run_ablation
 from scripts.prepare_coursera_dataset import prepare_dataset
 from src.keyword_extractor import keywords_only
 from src.llm_client import LLMConfig, call_llm_json, generate_review_advice, local_summary
-from src.nlp_analyzer import analyze_review, sentiment_distribution
+from src.nlp_analyzer import (
+    analyze_batch,
+    analyze_review,
+    rule_based_sentiment,
+    sentiment_distribution,
+)
 from src.data_loader import label_from_rating, load_reviews_csv
 from src.preprocess import clean_text, detect_language, tokenize
 from src.similarity import cosine_similarity
+from src.train_bert import sample_per_label
 from src.train_model import train
 from src.topic_analyzer import detect_topic_evidence, detect_topics
 
@@ -74,15 +82,17 @@ class CorePipelineTest(unittest.TestCase):
         score = cosine_similarity("实验环境配置复杂", "实验配置步骤太麻烦")
         self.assertGreater(score, 0)
 
+    @patch("src.nlp_analyzer.bert_based_sentiment", return_value=None)
     @patch("src.nlp_analyzer.model_based_sentiment", return_value=None)
-    def test_analyze_review(self, _mock_model):
+    def test_analyze_review(self, _mock_model, _mock_bert):
         result = analyze_review("老师讲课很清楚，课堂互动很多", use_llm=False)
         self.assertEqual(result["sentiment"], "positive")
         self.assertIn("授课方式", result["topics"])
         self.assertEqual(result["topic_evidence"][0]["aspect"], "授课方式")
 
+    @patch("src.nlp_analyzer.bert_based_sentiment", return_value=None)
     @patch("src.nlp_analyzer.model_based_sentiment", return_value=None)
-    def test_analyze_english_review(self, _mock_model):
+    def test_analyze_english_review(self, _mock_model, _mock_bert):
         result = analyze_review(
             "The instructor explains concepts clearly but the assignments are too many",
             use_llm=False,
@@ -91,21 +101,156 @@ class CorePipelineTest(unittest.TestCase):
         self.assertEqual(result["sentiment"], "neutral")
         self.assertIn("作业任务", result["topics"])
 
+    @patch("src.nlp_analyzer.bert_based_sentiment", return_value=None)
     @patch("src.nlp_analyzer.model_based_sentiment", return_value=None)
-    def test_mixed_bilingual_review_is_neutral(self, _mock_model):
+    def test_mixed_bilingual_review_is_neutral(self, _mock_model, _mock_bert):
         result = analyze_review("老师讲解很 clear，但是 assignment 太多，deadline 有点紧。", use_llm=False)
         self.assertEqual(result["language"], "mixed")
         self.assertEqual(result["sentiment"], "neutral")
         self.assertEqual(len(result["topics"]), len(set(result["topics"])))
 
+    @patch("src.nlp_analyzer.bert_based_sentiment", return_value=None)
     @patch("src.nlp_analyzer.model_based_sentiment", return_value=("negative", 0.74))
-    def test_balanced_mixed_review_overrides_uncertain_model(self, _mock_model):
+    def test_balanced_mixed_review_overrides_uncertain_model(self, _mock_model, _mock_bert):
         result = analyze_review(
             "The instructor explains concepts clearly but the assignments are too many and the setup is confusing.",
             use_llm=False,
         )
         self.assertEqual(result["sentiment"], "neutral")
-        self.assertEqual(result["sentiment_source"], "hybrid")
+        self.assertEqual(result["sentiment_source"], "tfidf+rule")
+
+    @patch.dict(os.environ, {"SENTIMENT_BACKEND": "auto"})
+    @patch("src.nlp_analyzer.model_based_sentiment", return_value=("negative", 0.99))
+    @patch(
+        "src.nlp_analyzer.bert_based_sentiment",
+        return_value=("positive", 0.92, "cuda"),
+    )
+    def test_bert_is_preferred_over_tfidf(self, _mock_bert, mock_tfidf):
+        result = analyze_review("The instructor is clear and helpful", use_llm=False)
+
+        self.assertEqual(result["sentiment"], "positive")
+        self.assertEqual(result["sentiment_source"], "bert")
+        self.assertEqual(result["sentiment_device"], "cuda")
+        mock_tfidf.assert_not_called()
+
+    @patch.dict(os.environ, {"SENTIMENT_BACKEND": "auto"})
+    @patch(
+        "src.nlp_analyzer.bert_based_sentiment",
+        return_value=("negative", 0.85, "cuda"),
+    )
+    def test_bert_mixed_review_uses_rule_correction(self, _mock_bert):
+        result = analyze_review(
+            "The content is useful but the exam scope is unclear",
+            use_llm=False,
+        )
+
+        self.assertEqual(result["sentiment"], "neutral")
+        self.assertEqual(result["sentiment_source"], "bert+rule")
+
+    @patch.dict(os.environ, {"SENTIMENT_BACKEND": "auto"})
+    @patch(
+        "src.nlp_analyzer.bert_based_sentiment",
+        return_value=("neutral", 0.70, "cuda"),
+    )
+    def test_clear_negative_word_overrides_uncertain_neutral_bert(self, _mock_bert):
+        result = analyze_review("The course is hard", use_llm=False)
+
+        self.assertEqual(result["sentiment"], "negative")
+        self.assertEqual(result["sentiment_source"], "bert+rule")
+
+    def test_compositional_rules_handle_double_negation(self):
+        positive_cases = [
+            "The course is not bad",
+            "The explanation is not unclear",
+            "The course is not difficult",
+            "老师讲得不能说不好",
+            "课程并不是不值得学习",
+            "这个课程不能说没有收获",
+        ]
+        negative_cases = [
+            "The course is not useful",
+            "The explanation is not clear",
+            "课程不值得学习",
+        ]
+
+        for text in positive_cases:
+            with self.subTest(text=text):
+                self.assertEqual(rule_based_sentiment(text)[0], "positive")
+        for text in negative_cases:
+            with self.subTest(text=text):
+                self.assertEqual(rule_based_sentiment(text)[0], "negative")
+
+    @patch.dict(os.environ, {"SENTIMENT_BACKEND": "auto"})
+    @patch(
+        "src.nlp_analyzer.bert_based_sentiment",
+        return_value=("positive", 0.95, "cuda"),
+    )
+    def test_obvious_sarcasm_overrides_positive_bert(self, _mock_bert):
+        cases = [
+            "Great, another impossible assignment",
+            "Exactly what I needed: more homework",
+            "真棒，又多了一个根本做不完的作业",
+            "考试范围可真“明确”",
+        ]
+
+        for text in cases:
+            with self.subTest(text=text):
+                result = analyze_review(text, use_llm=False)
+                self.assertEqual(result["sentiment"], "negative")
+                self.assertEqual(result["sentiment_source"], "bert+rule")
+
+    @patch.dict(os.environ, {"SENTIMENT_BACKEND": "auto"})
+    @patch(
+        "src.nlp_analyzer.bert_based_sentiment",
+        return_value=("neutral", 0.80, "cuda"),
+    )
+    def test_implicit_complaint_overrides_neutral_bert(self, _mock_bert):
+        cases = [
+            "The teacher only reads the slides",
+            "I spent more time fixing the setup than learning",
+            "老师上课基本都在念PPT",
+            "一节课大部分时间都在处理环境问题",
+        ]
+
+        for text in cases:
+            with self.subTest(text=text):
+                result = analyze_review(text, use_llm=False)
+                self.assertEqual(result["sentiment"], "negative")
+                self.assertEqual(result["sentiment_source"], "bert+rule")
+
+    def test_suggestion_only_review_remains_neutral(self):
+        cases = [
+            "It would be better with fewer assignments",
+            "The deadline could have been more generous",
+            "希望老师能多讲一些例子",
+        ]
+
+        for text in cases:
+            with self.subTest(text=text):
+                self.assertEqual(rule_based_sentiment(text)[0], "neutral")
+
+    @patch.dict(os.environ, {"SENTIMENT_BACKEND": "auto"})
+    @patch("src.nlp_analyzer.bert_based_sentiments", return_value=None)
+    @patch(
+        "src.nlp_analyzer.model_based_sentiments",
+        return_value=[("positive", 0.9), ("negative", 0.9)],
+    )
+    def test_batch_falls_back_to_vectorized_tfidf(
+        self,
+        mock_tfidf,
+        _mock_bert,
+    ):
+        results = analyze_batch(
+            [
+                "The course is clear and useful",
+                "The setup is confusing and bad",
+            ],
+            use_llm=False,
+        )
+
+        self.assertEqual([item["sentiment"] for item in results], ["positive", "negative"])
+        self.assertEqual([item["sentiment_source"] for item in results], ["tfidf", "tfidf"])
+        mock_tfidf.assert_called_once()
 
     def test_sentiment_distribution(self):
         results = [
@@ -114,6 +259,22 @@ class CorePipelineTest(unittest.TestCase):
             {"sentiment": "positive"},
         ]
         self.assertEqual(sentiment_distribution(results)["positive"], 2)
+
+    def test_bert_sampling_preserves_label_column(self):
+        frame = pd.DataFrame(
+            {
+                "text": ["a", "b", "c", "d"],
+                "label": ["positive", "positive", "negative", "negative"],
+            }
+        )
+
+        sampled = sample_per_label(frame, per_label=1, seed=42)
+
+        self.assertEqual(set(sampled.columns), {"text", "label"})
+        self.assertEqual(
+            sampled["label"].value_counts().to_dict(),
+            {"negative": 1, "positive": 1},
+        )
 
     def test_local_llm_fallback(self):
         result = local_summary(
@@ -269,16 +430,16 @@ class CorePipelineTest(unittest.TestCase):
     def test_parse_expected_topics(self):
         self.assertEqual(parse_expected_topics("教学内容;考试安排；学习收获"), ["教学内容", "考试安排", "学习收获"])
 
-    @patch("app.analyze_review")
+    @patch("app.analyze_batch")
     def test_build_test_case_results(self, mock_analyze):
-        mock_analyze.return_value = {
+        mock_analyze.return_value = [{
             "language": "zh",
             "sentiment": "positive",
             "confidence": 0.91,
             "sentiment_source": "rule",
             "topics": ["授课方式", "教学内容"],
             "keywords": ["清楚", "内容"],
-        }
+        }]
         cases = pd.DataFrame(
             [
                 {

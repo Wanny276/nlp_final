@@ -7,3 +7,8 @@ font = "sans serif"
 
 [browser]
 gatherUsageStats = false
+
+[server]
+# Transformers exposes optional vision modules lazily. Disabling source watching
+# prevents Streamlit from importing those unrelated modules during path scans.
+fileWatcherType = "none"

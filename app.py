@@ -14,7 +14,13 @@ import streamlit as st
 from src.data_loader import load_reviews_csv, rows_to_texts
 from src.keyword_extractor import extract_keywords
 from src.llm_client import LLMConfig
-from src.nlp_analyzer import analyze_batch, analyze_review, sentiment_distribution, topic_distribution
+from src.nlp_analyzer import (
+    analyze_batch,
+    analyze_review,
+    sentiment_distribution,
+    sentiment_runtime_status,
+    topic_distribution,
+)
 from src.topic_analyzer import detect_topics
 
 
@@ -39,6 +45,10 @@ SENTIMENT_SOURCE_LABELS = {
     "model": "模型预测",
     "rule": "规则兜底",
     "hybrid": "规则校正",
+    "bert": "BERT 预测",
+    "bert+rule": "BERT + 规则校正",
+    "tfidf": "TF-IDF 回退",
+    "tfidf+rule": "TF-IDF + 规则校正",
 }
 SENTIMENT_UI = {
     "positive": {
@@ -1711,18 +1721,25 @@ def overview_statistics(
 @st.cache_data(show_spinner=False, max_entries=12)
 def analyze_texts_cached(
     texts: tuple[str, ...],
-    model_version: tuple[int, int],
+    model_version: tuple[int, ...],
 ) -> list[dict]:
     del model_version
     return analyze_batch(list(texts), use_llm=False)
 
 
-def current_model_version() -> tuple[int, int]:
+def current_model_version() -> tuple[int, ...]:
     model_path = Path("models/sentiment_model.pkl")
     vectorizer_path = Path("models/tfidf_vectorizer.pkl")
+    bert_root = Path(sentiment_runtime_status()["bert"]["model_path"])
+    bert_model_path = bert_root / "model.safetensors"
+    bert_config_path = bert_root / "config.json"
+    env_path = Path(".env")
     return (
         model_path.stat().st_mtime_ns if model_path.exists() else 0,
         vectorizer_path.stat().st_mtime_ns if vectorizer_path.exists() else 0,
+        bert_model_path.stat().st_mtime_ns if bert_model_path.exists() else 0,
+        bert_config_path.stat().st_mtime_ns if bert_config_path.exists() else 0,
+        env_path.stat().st_mtime_ns if env_path.exists() else 0,
     )
 
 
@@ -2020,7 +2037,7 @@ def render_analysis_result(result: dict) -> None:
                 result.get("sentiment_source", ""),
                 result.get("sentiment_source", ""),
             ),
-            "模型预测与规则校正协同",
+            f"模型预测与规则校正协同，运行设备 {result.get('sentiment_device', 'cpu')}",
             sentiment_ui["tone"],
             "model",
         )
@@ -2190,6 +2207,7 @@ def result_rows(results: list[dict]) -> list[dict[str, object]]:
             "情感": SENTIMENT_LABELS.get(item["sentiment"], item["sentiment"]),
             "置信度": item["confidence"],
             "情感来源": SENTIMENT_SOURCE_LABELS.get(item.get("sentiment_source", ""), item.get("sentiment_source", "")),
+            "运行设备": item.get("sentiment_device", ""),
             "主题": "、".join(item["topics"]),
             "关键词": "、".join(item["keywords"]),
         }
@@ -2263,12 +2281,13 @@ def build_test_case_results(
     """运行正式测试用例并返回适合报告展示的结果表。"""
 
     outputs: list[dict[str, object]] = []
-    for _, row in cases.iterrows():
-        result = analyze_review(
-            str(row.get("text", "")),
-            reference_reviews=reference_reviews,
-            use_llm=False,
-        )
+    texts = [str(value) for value in cases.get("text", pd.Series(dtype=str)).tolist()]
+    results = analyze_batch(
+        texts,
+        use_llm=False,
+        reference_reviews=reference_reviews,
+    )
+    for (_, row), result in zip(cases.iterrows(), results):
         expected_topics = parse_expected_topics(row.get("expected_topics", ""))
         actual_topics = result["topics"]
         expected_sentiment = str(row.get("expected_sentiment", "")).strip()
@@ -2292,6 +2311,7 @@ def build_test_case_results(
                     result.get("sentiment_source", ""),
                     result.get("sentiment_source", ""),
                 ),
+                "运行设备": result.get("sentiment_device", ""),
                 "备注": row.get("note", ""),
                 "是否通过": "通过" if sentiment_passed and topic_passed else "需检查",
             }
@@ -2323,8 +2343,13 @@ def render_shell() -> str:
         label_visibility="collapsed",
     )
 
-    model_ready = (Path("models/sentiment_model.pkl").exists()
-                   and Path("models/tfidf_vectorizer.pkl").exists())
+    sentiment_status = sentiment_runtime_status()
+    active_backend = sentiment_status["active_backend"]
+    model_state = {
+        "bert": "BERT 主模型",
+        "tfidf": "TF-IDF 回退",
+        "rule": "规则模式",
+    }.get(active_backend, active_backend)
     llm_ready = llm_is_configured(current_env_version())
     st.sidebar.html(
         f"""
@@ -2332,7 +2357,7 @@ def render_shell() -> str:
             <div class="sidebar-status-title">运行状态</div>
             <div class="status-row">
                 <span><span class="status-dot"></span>情感模型</span>
-                <span>{"已加载" if model_ready else "规则模式"}</span>
+                <span>{escaped(model_state)}</span>
             </div>
             <div class="status-row">
                 <span><span class="status-dot"></span>LLM 服务</span>
@@ -2362,6 +2387,7 @@ def render_overview_page() -> None:
     sentiments, topics = overview_statistics(overview_rows)
 
     metrics = load_model_metrics()
+    bert_metrics = load_bert_metrics()
 
     col_a, col_b, col_c, col_d = st.columns(4)
     with col_a:
@@ -2369,14 +2395,14 @@ def render_overview_page() -> None:
     with col_b:
         render_stat_card(
             "最佳模型",
-            metrics.get("best_model", "Logistic Regression"),
-            "4 种传统分类器对比选优",
+            bert_metrics.get("model_name", "BERT"),
+            "BERT 主模型，TF-IDF 自动回退",
             "positive",
         )
     with col_c:
         render_stat_card(
             "Macro-F1",
-            f"{metrics.get('macro_f1', 0):.3f}",
+            f"{bert_metrics.get('macro_f1', metrics.get('macro_f1', 0)):.3f}",
             "三分类整体均衡指标",
             "neutral",
         )
@@ -2393,7 +2419,7 @@ def render_overview_page() -> None:
         <div class="flow-row">
             <div class="flow-step"><strong>评价输入</strong><span>单条文本 / CSV</span></div>
             <div class="flow-step"><strong>双语预处理</strong><span>清洗、分词、停用词</span></div>
-            <div class="flow-step"><strong>情感分类</strong><span>TF-IDF + 传统模型</span></div>
+            <div class="flow-step"><strong>情感分类</strong><span>BERT + 规则校正 + 回退</span></div>
             <div class="flow-step"><strong>维度提取</strong><span>主题、关键词、证据</span></div>
             <div class="flow-step"><strong>相似检索</strong><span>余弦相似度</span></div>
             <div class="flow-step"><strong>建议生成</strong><span>LLM + 本地兜底</span></div>
@@ -2955,11 +2981,11 @@ def render_tech_page() -> None:
         st.info("尚未生成模型指标。运行训练命令后会显示模型对比结果。")
 
     bert_rows = bert_summary_rows(load_bert_metrics())
-    render_section_heading("BERT 对比实验", icon="model")
+    render_section_heading("BERT 主模型评估", icon="model")
     if bert_rows:
         st.dataframe(pd.DataFrame(bert_rows), width="stretch", hide_index=True)
     else:
-        st.info("尚未生成 BERT 指标。运行 BERT 对比实验后会显示结果。")
+        st.info("尚未生成 BERT 指标。运行 BERT 训练后会显示结果。")
 
     ablation_rows = ablation_summary_rows(load_ablation_metrics())
     render_section_heading("消融实验", icon="check")
