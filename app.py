@@ -31,9 +31,9 @@ BERT_METRICS = Path("outputs/bert_metrics.json")
 ABLATION_METRICS = Path("outputs/reports/ablation_metrics.json")
 
 SENTIMENT_LABELS = {
-    "positive": "正面 positive",
-    "neutral": "中性 neutral",
-    "negative": "负面 negative",
+    "positive": "正面",
+    "neutral": "中性 / 混合",
+    "negative": "负面",
 }
 LANGUAGE_LABELS = {
     "zh": "中文",
@@ -42,13 +42,13 @@ LANGUAGE_LABELS = {
     "unknown": "未知",
 }
 SENTIMENT_SOURCE_LABELS = {
-    "model": "模型预测",
+    "model": "传统模型预测",
     "rule": "规则兜底",
-    "hybrid": "规则校正",
-    "bert": "BERT 主模型",
-    "bert+rule": "BERT 主模型 + 规则校正",
+    "hybrid": "模型 + 规则校正",
+    "bert": "BERT 模型预测",
+    "bert+rule": "BERT 模型 + 规则校正",
     "tfidf": "TF-IDF 回退",
-    "tfidf+rule": "TF-IDF + 规则校正",
+    "tfidf+rule": "TF-IDF 模型 + 规则校正",
 }
 SENTIMENT_UI = {
     "positive": {
@@ -73,7 +73,7 @@ RISK_LABELS = {
     "high": ("高风险", "negative"),
 }
 PAGE_OPTIONS = [
-    "评价分析",
+    "单条分析",
     "批量分析",
     "测试验证",
     "系统信息",
@@ -180,27 +180,50 @@ ICON_SVGS = {
 APP_STYLES = """
 <style>
 :root {
-    --ink: #172033;
-    --muted: #667085;
-    --line: #e5e9f2;
+    --ink: #0f172a;
+    --muted: #64748b;
+    --line: #e6eaf2;
     --surface: #ffffff;
-    --canvas: #f5f7fb;
-    --primary: #4f46e5;
+    --canvas: #f7f9fc;
+    --primary: #5b6cf6;
     --primary-soft: #eef2ff;
-    --positive: #16855b;
-    --positive-soft: #eaf8f1;
-    --neutral: #b56b08;
-    --neutral-soft: #fff6df;
-    --negative: #c43d4b;
-    --negative-soft: #fff0f1;
+    --positive: #22c55e;
+    --positive-soft: #eafbf2;
+    --neutral: #d97706;
+    --neutral-soft: #fff4e8;
+    --negative: #ef4444;
+    --negative-soft: #fef2f2;
 }
 
 html, body, [class*="css"] {
-    font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+    font-family: Inter, "Microsoft YaHei", "PingFang SC", "Noto Sans SC", sans-serif;
+    font-size: 16px;
+}
+
+[data-testid="stMarkdownContainer"] p,
+[data-testid="stMarkdownContainer"] li {
+    font-size: 1rem;
+    line-height: 1.65;
+}
+
+[data-testid="stCaptionContainer"] {
+    color: var(--muted);
+    font-size: 0.88rem;
+}
+
+#MainMenu,
+footer,
+[data-testid="stToolbar"] {
+    visibility: hidden;
+}
+
+[data-testid="stHeader"],
+[data-testid="stDecoration"] {
+    display: none;
 }
 
 [data-testid="stAppViewContainer"] {
-    background: #f6f7fb;
+    background: var(--canvas);
     color: var(--ink);
 }
 
@@ -211,11 +234,11 @@ html, body, [class*="css"] {
 }
 
 section[data-testid="stSidebar"] {
-    width: 260px !important;
-    min-width: 260px !important;
+    width: 225px !important;
+    min-width: 225px !important;
     background:
-        radial-gradient(circle at 20% 0%, rgba(129, 140, 248, 0.18), transparent 14rem),
-        linear-gradient(180deg, #151d35 0%, #10162a 100%);
+        radial-gradient(circle at 18% 0%, rgba(91, 108, 246, 0.18), transparent 13rem),
+        linear-gradient(180deg, #111827 0%, #0f172a 100%);
     border-right: 1px solid rgba(255,255,255,0.08);
 }
 
@@ -232,8 +255,8 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] > div {
 }
 
 section[data-testid="stSidebar"] [data-testid="stRadio"] label {
-    min-height: 2.85rem;
-    padding: 0.62rem 0.8rem;
+    min-height: 2.45rem;
+    padding: 0.48rem 0.72rem;
     border: 1px solid transparent;
     border-radius: 0.85rem;
     background: rgba(255,255,255,0.035);
@@ -247,14 +270,14 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label:hover {
 }
 
 section[data-testid="stSidebar"] [data-testid="stRadio"] label:has(input:checked) {
-    background: linear-gradient(135deg, rgba(99,102,241,0.95), rgba(79,70,229,0.9));
+    background: linear-gradient(135deg, rgba(91,108,246,0.96), rgba(74,92,219,0.92));
     border-color: rgba(255,255,255,0.28);
-    box-shadow: 0 10px 30px rgba(49,46,129,0.32);
+    box-shadow: 0 10px 24px rgba(49,46,129,0.24);
 }
 
 section[data-testid="stSidebar"] [data-testid="stRadio"] label p {
     font-weight: 650;
-    font-size: 0.96rem;
+    font-size: 0.88rem;
 }
 
 [data-testid="stMetric"] {
@@ -297,8 +320,8 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label p {
 .stButton > button[kind="primary"],
 [data-testid="stFormSubmitButton"] > button[kind="primary"] {
     border: 0;
-    background: linear-gradient(135deg, #5b55ea, #4338ca);
-    box-shadow: 0 9px 22px rgba(79,70,229,0.22);
+    background: linear-gradient(135deg, #6b7cff, #5b6cf6);
+    box-shadow: 0 9px 22px rgba(91,108,246,0.22);
 }
 
 .stButton > button:hover,
@@ -310,25 +333,47 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label p {
 [data-testid="stTabs"] [data-baseweb="tab-list"] {
     gap: 0.4rem;
     padding: 0.35rem;
+    border-bottom: 1px solid var(--line);
     border-radius: 0.85rem;
-    background: #eef1f7;
+    background: #eef2f8;
 }
 
 [data-testid="stTabs"] [data-baseweb="tab"] {
-    height: 2.6rem;
-    padding: 0 1rem;
+    height: 2.75rem;
+    padding: 0 1.08rem;
     border-radius: 0.65rem;
+    color: var(--ink);
+    font-size: 1rem;
+    font-weight: 650;
 }
 
 [data-testid="stTabs"] [aria-selected="true"] {
+    color: var(--primary);
     background: white;
-    box-shadow: 0 3px 12px rgba(23,32,51,0.08);
+    box-shadow: 0 3px 12px rgba(15,23,42,0.08);
+}
+
+[data-testid="stTabs"] [data-baseweb="tab-highlight"] {
+    height: 3px !important;
+    border-radius: 999px;
+    background: var(--primary) !important;
 }
 
 [data-testid="stDataFrame"] {
     border: 1px solid var(--line);
     border-radius: 0.85rem;
     overflow: hidden;
+    font-size: 0.95rem;
+}
+
+[data-testid="stDataFrame"] [role="columnheader"] {
+    background: #f3f4f6 !important;
+    color: var(--ink) !important;
+    font-weight: 700 !important;
+}
+
+[data-testid="stDataFrame"] [role="row"] {
+    min-height: 2.4rem;
 }
 
 .brand-card {
@@ -345,11 +390,11 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label p {
     height: 2.35rem;
     margin-bottom: 0.7rem;
     border-radius: 0.8rem;
-    background: linear-gradient(135deg, #818cf8, #4f46e5);
+    background: linear-gradient(135deg, #8aa4f8, #5b6cf6);
     color: white;
     font-weight: 800;
-    letter-spacing: -0.04em;
-    box-shadow: 0 10px 30px rgba(79,70,229,0.35);
+    letter-spacing: 0;
+    box-shadow: 0 10px 28px rgba(91,108,246,0.3);
 }
 
 .brand-title {
@@ -367,11 +412,12 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label p {
 }
 
 .sidebar-status {
-    margin-top: 1.2rem;
-    padding: 0.9rem;
+    margin-top: 1rem;
+    padding: 0.72rem;
     border: 1px solid rgba(255,255,255,0.1);
     border-radius: 0.85rem;
-    background: rgba(255,255,255,0.045);
+    background: rgba(255,255,255,0.035);
+    opacity: 0.86;
 }
 
 .sidebar-status-title {
@@ -468,16 +514,16 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label p {
 .workspace-title {
     margin: 0;
     color: var(--ink);
-    font-size: 1.55rem;
+    font-size: 1.72rem;
     line-height: 1.25;
-    letter-spacing: -0.025em;
+    letter-spacing: 0;
 }
 
 .workspace-description {
     margin: 0.35rem 0 0;
     color: var(--muted);
-    font-size: 0.88rem;
-    line-height: 1.55;
+    font-size: 1rem;
+    line-height: 1.6;
 }
 
 .workspace-state {
@@ -489,7 +535,7 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label p {
     border-radius: 999px;
     background: white;
     color: #475467;
-    font-size: 0.75rem;
+    font-size: 0.82rem;
     font-weight: 650;
 }
 
@@ -525,7 +571,7 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label p {
     border-radius: 50%;
     background: #e8ebf2;
     color: #667085;
-    font-size: 0.72rem;
+    font-size: 0.8rem;
     font-weight: 760;
 }
 
@@ -544,19 +590,21 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label p {
     display: block;
     margin-top: 0.08rem;
     color: var(--muted);
-    font-size: 0.68rem;
+    font-size: 0.78rem;
 }
 
 .panel-title {
     margin: 0 0 0.2rem;
     color: var(--ink);
-    font-size: 1rem;
+    font-size: 1.12rem;
+    font-weight: 700;
 }
 
 .panel-help {
     margin: 0 0 0.8rem;
     color: var(--muted);
-    font-size: 0.8rem;
+    font-size: 0.92rem;
+    line-height: 1.55;
 }
 
 .panel-heading {
@@ -625,7 +673,7 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label p {
     display: block;
     overflow: hidden;
     color: var(--ink);
-    font-size: 0.78rem;
+    font-size: 0.9rem;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
@@ -635,7 +683,7 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label p {
     margin-top: 0.08rem;
     overflow: hidden;
     color: var(--muted);
-    font-size: 0.68rem;
+    font-size: 0.78rem;
     text-overflow: ellipsis;
     white-space: nowrap;
 }
@@ -654,14 +702,14 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label p {
 .inline-notice strong {
     display: block;
     color: var(--ink);
-    font-size: 0.78rem;
+    font-size: 0.92rem;
 }
 
 .inline-notice span {
     display: block;
     margin-top: 0.05rem;
     color: var(--muted);
-    font-size: 0.68rem;
+    font-size: 0.8rem;
 }
 
 .empty-state {
@@ -697,7 +745,7 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label p {
 .empty-state strong {
     display: block;
     color: var(--ink);
-    font-size: 0.95rem;
+    font-size: 1.05rem;
 }
 
 .empty-state span {
@@ -705,7 +753,7 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label p {
     max-width: 34rem;
     margin: 0.4rem auto 0;
     color: var(--muted);
-    font-size: 0.8rem;
+    font-size: 0.92rem;
     line-height: 1.6;
 }
 
@@ -723,7 +771,7 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label p {
 .page-kicker {
     margin-bottom: 0.45rem;
     color: var(--primary);
-    font-size: 0.76rem;
+    font-size: 0.82rem;
     font-weight: 760;
     letter-spacing: 0.12em;
     text-transform: uppercase;
@@ -734,9 +782,9 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label p {
     z-index: 1;
     margin: 0;
     color: var(--ink);
-    font-size: clamp(1.8rem, 3vw, 2.65rem);
+    font-size: clamp(2rem, 3vw, 2.65rem);
     line-height: 1.16;
-    letter-spacing: -0.035em;
+    letter-spacing: 0;
 }
 
 .page-description {
@@ -745,8 +793,8 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label p {
     max-width: 780px;
     margin: 0.7rem 0 0;
     color: var(--muted);
-    font-size: 1rem;
-    line-height: 1.75;
+    font-size: 1.05rem;
+    line-height: 1.68;
 }
 
 .section-heading {
@@ -774,13 +822,15 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label p {
 .section-heading h3 {
     margin: 0;
     color: var(--ink);
-    font-size: 1.15rem;
+    font-size: 1.35rem;
+    font-weight: 700;
 }
 
 .section-heading p {
     margin: 0.3rem 0 0;
     color: var(--muted);
-    font-size: 0.88rem;
+    font-size: 0.96rem;
+    line-height: 1.55;
 }
 
 .stat-card {
@@ -822,22 +872,23 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label p {
 
 .stat-label {
     color: var(--muted);
-    font-size: 0.8rem;
+    font-size: 0.9rem;
     font-weight: 650;
 }
 
 .stat-value {
     margin-top: 0.3rem;
     color: var(--ink);
-    font-size: 1.75rem;
+    font-size: 2rem;
     font-weight: 780;
-    letter-spacing: -0.035em;
+    letter-spacing: 0;
 }
 
 .stat-detail {
     margin-top: 0.25rem;
     color: #8992a6;
-    font-size: 0.77rem;
+    font-size: 0.86rem;
+    line-height: 1.5;
 }
 
 .feature-card {
@@ -859,21 +910,21 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label p {
     border-radius: 0.6rem;
     background: var(--primary-soft);
     color: var(--primary);
-    font-size: 0.78rem;
+    font-size: 0.84rem;
     font-weight: 800;
 }
 
 .feature-card h4 {
     margin: 0.9rem 0 0.4rem;
     color: var(--ink);
-    font-size: 1rem;
+    font-size: 1.08rem;
 }
 
 .feature-card p {
     margin: 0;
     color: var(--muted);
-    font-size: 0.86rem;
-    line-height: 1.65;
+    font-size: 0.96rem;
+    line-height: 1.62;
 }
 
 .flow-row {
@@ -894,14 +945,14 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label p {
 .flow-step strong {
     display: block;
     color: var(--ink);
-    font-size: 0.82rem;
+    font-size: 0.94rem;
 }
 
 .flow-step span {
     display: block;
     margin-top: 0.2rem;
     color: var(--muted);
-    font-size: 0.7rem;
+    font-size: 0.8rem;
 }
 
 .result-hero {
@@ -958,14 +1009,15 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label p {
 
 .result-label {
     color: var(--ink);
-    font-size: 1.45rem;
+    font-size: 1.7rem;
     font-weight: 780;
 }
 
 .result-desc {
     margin-top: 0.35rem;
     color: var(--muted);
-    line-height: 1.6;
+    font-size: 1rem;
+    line-height: 1.62;
 }
 
 .confidence-box {
@@ -975,13 +1027,13 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label p {
 
 .confidence-value {
     color: var(--ink);
-    font-size: 1.5rem;
+    font-size: 1.75rem;
     font-weight: 780;
 }
 
 .confidence-label {
     color: var(--muted);
-    font-size: 0.75rem;
+    font-size: 0.86rem;
 }
 
 .progress-track {
@@ -995,7 +1047,7 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label p {
 .progress-fill {
     height: 100%;
     border-radius: inherit;
-    background: linear-gradient(90deg, #818cf8, #4f46e5);
+    background: linear-gradient(90deg, #8aa4f8, #5b6cf6);
 }
 
 .chip-row {
@@ -1013,14 +1065,14 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label p {
     border-radius: 999px;
     background: white;
     color: #475467;
-    font-size: 0.79rem;
+    font-size: 0.9rem;
     font-weight: 620;
 }
 
 .chip.primary {
-    border-color: #cfd3ff;
+    border-color: #d7ddff;
     background: var(--primary-soft);
-    color: #4338ca;
+    color: #4a5cdb;
 }
 
 .chip.positive {
@@ -1040,7 +1092,8 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label p {
     border: 1px solid var(--line);
     border-radius: 0.9rem;
     background: #fafbfe;
-    color: #475467;
+    color: #475569;
+    font-size: 1rem;
     line-height: 1.7;
 }
 
@@ -1058,26 +1111,28 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label p {
 .advice-title {
     color: var(--ink);
     font-weight: 730;
+    font-size: 1rem;
 }
 
 .evidence-text,
 .advice-text {
     margin-top: 0.35rem;
-    color: #475467;
+    color: #475569;
+    font-size: 0.98rem;
     line-height: 1.65;
 }
 
 .evidence-source {
     margin-top: 0.55rem;
-    color: #8992a6;
-    font-size: 0.78rem;
+    color: #64748b;
+    font-size: 0.84rem;
 }
 
 .summary-card {
     padding: 1.2rem 1.3rem;
-    border: 1px solid #d7d9ff;
+    border: 1px solid #d7ddff;
     border-radius: 1rem;
-    background: linear-gradient(120deg, #f3f1ff, #ffffff);
+    background: linear-gradient(120deg, #f2f5ff, #ffffff);
 }
 
 .summary-meta {
@@ -1089,9 +1144,9 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label p {
 
 .summary-card p {
     margin: 0;
-    color: #344054;
-    font-size: 1rem;
-    line-height: 1.75;
+    color: #334155;
+    font-size: 1.04rem;
+    line-height: 1.68;
 }
 
 .badge {
@@ -1099,8 +1154,8 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label p {
     padding: 0.28rem 0.55rem;
     border-radius: 999px;
     background: #eef2ff;
-    color: #4338ca;
-    font-size: 0.72rem;
+    color: #4a5cdb;
+    font-size: 0.82rem;
     font-weight: 720;
 }
 
@@ -1119,8 +1174,8 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label p {
     justify-content: space-between;
     gap: 1rem;
     margin-bottom: 0.35rem;
-    color: #475467;
-    font-size: 0.82rem;
+    color: #475569;
+    font-size: 0.94rem;
     font-weight: 650;
 }
 
@@ -1134,21 +1189,81 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label p {
 .bar-fill {
     height: 100%;
     border-radius: inherit;
-    background: linear-gradient(90deg, #818cf8, #4f46e5);
+    background: linear-gradient(90deg, #8aa4f8, #5b6cf6);
 }
 
-.bar-fill.positive { background: linear-gradient(90deg, #55c69a, #16855b); }
-.bar-fill.neutral { background: linear-gradient(90deg, #f1b94c, #b56b08); }
-.bar-fill.negative { background: linear-gradient(90deg, #ef7b86, #c43d4b); }
+.bar-fill.positive { background: linear-gradient(90deg, #74df9b, #22c55e); }
+.bar-fill.neutral { background: linear-gradient(90deg, #ffca9d, #ffb082); }
+.bar-fill.negative { background: linear-gradient(90deg, #fb8b8b, #ef4444); }
 
 .callout {
     padding: 0.95rem 1.05rem;
-    border: 1px solid #f0d8a7;
+    border: 1px solid #ffd5b5;
     border-radius: 0.85rem;
-    background: #fff9ea;
-    color: #7a4d06;
-    font-size: 0.86rem;
-    line-height: 1.65;
+    background: #fff6ee;
+    color: #9a4a04;
+    font-size: 0.96rem;
+    line-height: 1.62;
+}
+
+.section-icon,
+.panel-icon,
+.compact-icon,
+.stat-icon {
+    background: transparent;
+    border-radius: 0;
+    box-shadow: none;
+}
+
+.section-icon,
+.stat-icon {
+    width: 1.35rem;
+    height: 1.35rem;
+}
+
+.panel-icon {
+    width: 1.55rem;
+    height: 1.55rem;
+}
+
+.compact-icon {
+    width: 1.25rem;
+    height: 1.25rem;
+}
+
+.section-icon svg,
+.panel-icon svg,
+.compact-icon svg,
+.stat-icon svg {
+    width: 0.95rem;
+    height: 0.95rem;
+    stroke-width: 1.9;
+}
+
+.stat-card {
+    border-top: 1px solid var(--line);
+    box-shadow: 0 6px 18px rgba(23,32,51,0.04);
+}
+
+.stat-card.primary,
+.stat-card.neutral {
+    border-top-color: var(--line);
+}
+
+.stat-card.positive {
+    border-top: 3px solid var(--positive);
+}
+
+.stat-card.negative {
+    border-top: 3px solid var(--negative);
+}
+
+.stat-card.positive .stat-icon { color: var(--positive); }
+.stat-card.neutral .stat-icon { color: var(--neutral); }
+.stat-card.negative .stat-icon { color: var(--negative); }
+
+.panel-heading {
+    gap: 0.5rem;
 }
 
 @media (max-width: 900px) {
@@ -1158,7 +1273,7 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label p {
     .workspace-header { flex-direction: column; }
     .result-topline { align-items: flex-start; flex-direction: column; }
     .confidence-box { text-align: left; width: 100%; }
-    section[data-testid="stSidebar"] { width: 250px !important; min-width: 250px !important; }
+    section[data-testid="stSidebar"] { width: 225px !important; min-width: 225px !important; }
 }
 </style>
 """
@@ -1758,17 +1873,17 @@ def confidence_status(confidence: float, sentiment: str) -> dict[str, str]:
     confidence = max(0.0, min(1.0, float(confidence)))
     if confidence < 0.45:
         level = "较低"
-        label = "置信度较低"
+        label = "分类置信度较低"
         detail = "建议结合问题归因与原文证据查看，不把单一标签当作最终结论。"
         tone = "negative"
     elif confidence < 0.7:
         level = "中等"
-        label = "置信度中等"
-        detail = "可以作为初步判断，建议同时查看课程维度和证据片段。"
+        label = "分类置信度中等"
+        detail = "可以作为初步判断，建议同时查看课程问题维度和证据片段。"
         tone = "neutral"
     else:
         level = "较高"
-        label = "置信度较高"
+        label = "分类置信度较高"
         detail = "模型倾向比较明确，仍建议在教学决策前回看原文。"
         tone = "positive"
 
@@ -1802,12 +1917,12 @@ def batch_conclusion_card(
     positive_rate = sentiments.get("positive", 0) / total
     neutral_rate = sentiments.get("neutral", 0) / total
     negative_rate = sentiments.get("negative", 0) / total
-    top_topic = next(iter(topics), "未识别课程维度")
+    top_topic = next(iter(topics), "未识别课程问题维度")
     top_keywords = "、".join(list(keywords)[:3]) if keywords else "暂无高频关键词"
 
     if negative_rate >= 0.25 and negative_rate >= positive_rate:
         return {
-            "title": f"优先关注{top_topic}",
+            "title": f"优先关注：{top_topic}",
             "detail": (
                 f"本批评价中负面反馈占比 {negative_rate:.1%}，主要集中在{top_topic}。"
                 f"建议优先查看相关原文，并结合关键词“{top_keywords}”确认具体问题。"
@@ -1816,7 +1931,7 @@ def batch_conclusion_card(
         }
     if neutral_rate >= positive_rate and neutral_rate >= negative_rate:
         return {
-            "title": f"重点复核{top_topic}",
+            "title": f"重点复核：{top_topic}",
             "detail": (
                 f"本批评价以中性或混合反馈为主，占比 {neutral_rate:.1%}。"
                 f"建议先看{top_topic}下的原文证据，再决定是否调整课程安排。"
@@ -1846,11 +1961,33 @@ def bert_metric_status(metrics: dict) -> dict[str, str]:
         "label": "阶段性 BERT Macro-F1",
         "value": f"{float(metrics.get('macro_f1', 0)):.3f}",
         "detail": (
-            f"基于当前 {metrics.get('test_size', 0)} 条测试样本的阶段性评估，"
+            f"基于当前 {count_with_unit(metrics.get('test_size', 0), '条测试样本')}的阶段性评估，"
             "最终训练后更新。"
         ),
         "tone": "neutral",
     }
+
+
+def count_with_unit(value: object, unit: str) -> str:
+    try:
+        number = int(value)
+    except (TypeError, ValueError):
+        return f"{value} {unit}".strip()
+    return f"{number:,} {unit}"
+
+
+def display_device_label(device: object) -> str:
+    text = str(device or "").strip()
+    if not text:
+        return "未知"
+    if text.lower() == "auto":
+        return "CPU"
+    return text.upper()
+
+
+def sentiment_source_label(source: object) -> str:
+    text = str(source or "").strip()
+    return SENTIMENT_SOURCE_LABELS.get(text, text)
 
 
 def language_metric_rows(metrics: dict) -> list[dict[str, object]]:
@@ -1862,17 +1999,17 @@ def language_metric_rows(metrics: dict) -> list[dict[str, object]]:
         rows.append(
             {
                 "语言": LANGUAGE_LABELS.get(language, "总体" if language == "overall" else language),
-                "Accuracy": (
+                "准确率 Accuracy": (
                     f"{values.get('accuracy', 0):.4f}"
                     if values.get("accuracy") is not None
                     else "-"
                 ),
-                "Macro-F1": (
+                "宏平均 F1 Macro-F1": (
                     f"{values.get('macro_f1', 0):.4f}"
                     if values.get("macro_f1") is not None
                     else "-"
                 ),
-                "样本": support,
+                "样本数": count_with_unit(support, "条"),
             }
         )
     return rows
@@ -2178,19 +2315,16 @@ def render_analysis_result(result: dict) -> None:
         )
     with stat_b:
         render_stat_card(
-            "判定来源",
-            SENTIMENT_SOURCE_LABELS.get(
-                result.get("sentiment_source", ""),
-                result.get("sentiment_source", ""),
-            ),
-            f"模型预测与规则校正协同，运行设备 {result.get('sentiment_device', 'cpu')}",
+            "分析方法",
+            sentiment_source_label(result.get("sentiment_source", "")),
+            f"模型预测与规则校正协同完成判定，当前运行环境：{display_device_label(result.get('sentiment_device', 'cpu'))}。",
             sentiment_ui["tone"],
             "model",
         )
     with stat_c:
         render_stat_card(
-            "课程维度",
-            len(result.get("topics", [])),
+            "课程问题维度",
+            count_with_unit(len(result.get("topics", [])), "个"),
             "从评价中识别出的关注方面",
             icon="topic",
         )
@@ -2208,7 +2342,7 @@ def render_analysis_result(result: dict) -> None:
         left, right = st.columns([1, 1])
         with left:
             render_section_heading(
-                "课程维度",
+                "课程问题维度",
                 "将评价映射到可处理的教学环节。",
                 "topic",
             )
@@ -2222,7 +2356,7 @@ def render_analysis_result(result: dict) -> None:
             render_chips([str(item) for item in result.get("keywords", [])])
 
         render_section_heading(
-            "课程维度证据",
+            "原文证据",
             "命中词与对应原文。",
             "topic",
         )
@@ -2233,19 +2367,19 @@ def render_analysis_result(result: dict) -> None:
                 st.html(
                     f"""
                     <div class="evidence-card">
-                        <div class="evidence-title">{escaped(item.get("aspect", "课程维度"))}</div>
+                        <div class="evidence-title">{escaped(item.get("aspect", "课程问题维度"))}</div>
                         <div class="evidence-text">{escaped(item.get("evidence", ""))}</div>
                         <div class="evidence-source">命中关键词：{escaped(keywords)}</div>
                     </div>
                     """
                 )
         else:
-            st.info("当前评价没有命中预设课程维度。")
+            st.info("当前评价没有命中预设课程问题维度。")
 
-        with st.expander("开发者视图：预处理与分词"):
+        with st.expander("开发者视图：文本标准化与关键词候选"):
             sentiment_text = result.get("sentiment_text", "")
             if sentiment_text and sentiment_text != result.get("text", ""):
-                st.caption("情感模型标准化输入")
+                st.caption("模型输入文本")
                 st.code(sentiment_text, language="text")
                 replacements = result.get("sentiment_replacements", [])
                 if replacements:
@@ -2254,7 +2388,7 @@ def render_analysis_result(result: dict) -> None:
                         for item in replacements
                     )
                     st.caption(f"标准化替换：{replacement_text}")
-            st.caption("TF-IDF 分词结果")
+            st.caption("TF-IDF 关键词候选结果")
             st.code(result.get("processed_text") or "无", language="text")
 
     with tab_advice:
@@ -2263,7 +2397,7 @@ def render_analysis_result(result: dict) -> None:
             st.info("本次分析未启用总结建议。打开“生成总结建议”后重新分析即可查看。")
         else:
             source = str(advice.get("source", "local_fallback"))
-            source_label = "ChatECNU API" if source == "llm_api" else "本地兜底"
+            source_label = "来源：ChatECNU API" if source == "llm_api" else "来源：本地兜底"
             risk_label, risk_tone = RISK_LABELS.get(
                 str(advice.get("risk_level", "middle")),
                 RISK_LABELS["middle"],
@@ -2273,7 +2407,7 @@ def render_analysis_result(result: dict) -> None:
                 <div class="summary-card">
                     <div class="summary-meta">
                         <span class="badge">{escaped(source_label)}</span>
-                        <span class="badge {escaped(risk_tone)}">{escaped(risk_label)}</span>
+                        <span class="badge {escaped(risk_tone)}">风险等级：{escaped(risk_label)}</span>
                     </div>
                     <p>{escaped(advice.get("summary", "暂无总结"))}</p>
                 </div>
@@ -2283,7 +2417,7 @@ def render_analysis_result(result: dict) -> None:
             problems = advice.get("problems") or []
             render_section_heading(
                 "需要关注的问题",
-                "问题与课程维度及原文证据对应",
+                "问题与课程问题维度及原文证据对应。",
                 "analysis",
             )
             if problems:
@@ -2302,7 +2436,7 @@ def render_analysis_result(result: dict) -> None:
 
             render_section_heading(
                 "可执行改进建议",
-                "面向教师或课程管理者的下一步行动",
+                "面向教师或课程管理者的下一步行动。",
                 "spark",
             )
             for suggestion in advice.get("suggestions") or []:
@@ -2316,7 +2450,7 @@ def render_analysis_result(result: dict) -> None:
                     """
                 )
 
-            with st.expander("开发者视图：结构化 JSON"):
+            with st.expander("开发者视图：结构化分析结果"):
                 st.json(advice)
 
     with tab_similar:
@@ -2354,21 +2488,53 @@ def rows_to_frame(rows: list[dict[str, str]]) -> pd.DataFrame:
     return pd.DataFrame(rows)
 
 
+def sentiment_chip_label(sentiment: object) -> str:
+    return {
+        "positive": "正面",
+        "neutral": "中性 / 混合",
+        "negative": "负面",
+    }.get(str(sentiment), str(sentiment))
+
+
 def result_rows(results: list[dict]) -> list[dict[str, object]]:
     return [
         {
             "评价文本": item["text"],
             "语言": LANGUAGE_LABELS.get(item["language"], item["language"]),
-            "情感": SENTIMENT_LABELS.get(item["sentiment"], item["sentiment"]),
-            "置信度": item["confidence"],
-            "情感来源": SENTIMENT_SOURCE_LABELS.get(item.get("sentiment_source", ""), item.get("sentiment_source", "")),
-            "运行设备": item.get("sentiment_device", ""),
-            "BERT分段数": item.get("sentiment_chunk_count", 0) or "",
-            "主题": "、".join(item["topics"]),
+            "情感": sentiment_chip_label(item["sentiment"]),
+            "分类置信度": item["confidence"],
+            "分析方法": sentiment_source_label(item.get("sentiment_source", "")),
+            "运行环境": display_device_label(item.get("sentiment_device", "")),
+            "BERT 分段数": item.get("sentiment_chunk_count", 0) or "",
+            "课程问题维度": "、".join(item["topics"]),
             "关键词": "、".join(item["keywords"]),
         }
         for item in results
     ]
+
+
+def limited_result_rows(results: list[dict], limit: int = 10) -> pd.DataFrame:
+    return pd.DataFrame(result_rows(results[: max(0, limit)]))
+
+
+def model_chart_frame(metrics: dict) -> pd.DataFrame:
+    rows: list[dict[str, object]] = []
+    for name, values in metrics.get("results", {}).items():
+        rows.append(
+            {
+                "模型": name,
+                "指标": "准确率 Accuracy",
+                "分数": float(values.get("accuracy", 0)),
+            }
+        )
+        rows.append(
+            {
+                "模型": name,
+                "指标": "宏平均 F1 Macro-F1",
+                "分数": float(values.get("macro_f1", 0)),
+            }
+        )
+    return pd.DataFrame(rows, columns=["模型", "指标", "分数"])
 
 
 def bert_summary_rows(metrics: dict) -> list[dict[str, object]]:
@@ -2378,9 +2544,9 @@ def bert_summary_rows(metrics: dict) -> list[dict[str, object]]:
         {
             "模型": "BERT",
             "预训练模型": metrics.get("model_name", "未知"),
-            "Accuracy": f"{metrics.get('accuracy', 0):.4f}",
-            "Macro-F1": f"{metrics.get('macro_f1', 0):.4f}",
-            "测试样本": metrics.get("test_size", 0),
+            "准确率 Accuracy": f"{metrics.get('accuracy', 0):.4f}",
+            "宏平均 F1 Macro-F1": f"{metrics.get('macro_f1', 0):.4f}",
+            "测试样本": count_with_unit(metrics.get("test_size", 0), "条"),
             "状态": "阶段性评估",
             "说明": "最终训练完成后更新",
         }
@@ -2401,12 +2567,12 @@ def ablation_summary_rows(metrics: dict) -> list[dict[str, object]]:
             {
                 "实验版本": name,
                 "状态": status,
-                "Accuracy": (
+                "准确率 Accuracy": (
                     f"{values.get('accuracy', 0):.4f}"
                     if values.get("accuracy") is not None
                     else "-"
                 ),
-                "Macro-F1": (
+                "宏平均 F1 Macro-F1": (
                     f"{values.get('macro_f1', 0):.4f}"
                     if values.get("macro_f1") is not None
                     else "-"
@@ -2457,20 +2623,17 @@ def build_test_case_results(
                 "编号": row.get("id", ""),
                 "评价文本": row.get("text", ""),
                 "语言": LANGUAGE_LABELS.get(result["language"], result["language"]),
-                "预期情感": expected_sentiment,
-                "实际情感": result["sentiment"],
+                "预期情感": sentiment_chip_label(expected_sentiment) if expected_sentiment else "",
+                "实际情感": sentiment_chip_label(result["sentiment"]),
                 "情感是否通过": "通过" if sentiment_passed else "需检查",
                 "预期主题": "、".join(expected_topics),
                 "实际主题": "、".join(actual_topics),
                 "主题是否通过": "通过" if topic_passed else "需检查",
                 "关键词": "、".join(result["keywords"]),
-                "置信度": result["confidence"],
-                "情感来源": SENTIMENT_SOURCE_LABELS.get(
-                    result.get("sentiment_source", ""),
-                    result.get("sentiment_source", ""),
-                ),
-                "运行设备": result.get("sentiment_device", ""),
-                "BERT分段数": result.get("sentiment_chunk_count", 0) or "",
+                "分类置信度": result["confidence"],
+                "分析方法": sentiment_source_label(result.get("sentiment_source", "")),
+                "运行环境": display_device_label(result.get("sentiment_device", "")),
+                "BERT 分段数": result.get("sentiment_chunk_count", 0) or "",
                 "备注": row.get("note", ""),
                 "是否通过": "通过" if sentiment_passed and topic_passed else "需检查",
             }
@@ -2509,18 +2672,27 @@ def render_shell() -> str:
         "tfidf": "TF-IDF 回退",
         "rule": "规则模式",
     }.get(active_backend, active_backend)
+    runtime_device = (
+        sentiment_status.get("bert", {}).get("device", "cpu")
+        if active_backend == "bert"
+        else "cpu"
+    )
     llm_ready = llm_is_configured(current_env_version())
     st.sidebar.html(
         f"""
         <div class="sidebar-status">
             <div class="sidebar-status-title">运行状态</div>
             <div class="status-row">
-                <span><span class="status-dot"></span>情感模型</span>
+                <span><span class="status-dot"></span>情感模型：</span>
                 <span>{escaped(model_state)}</span>
             </div>
             <div class="status-row">
-                <span><span class="status-dot"></span>LLM 服务</span>
+                <span><span class="status-dot"></span>LLM 服务：</span>
                 <span>{"已配置" if llm_ready else "本地兜底"}</span>
+            </div>
+            <div class="status-row">
+                <span><span class="status-dot"></span>运行环境：</span>
+                <span>{escaped(display_device_label(runtime_device))}</span>
             </div>
         </div>
         """
@@ -2533,7 +2705,7 @@ def render_overview_page() -> None:
     render_page_intro(
         "课程反馈分析系统",
         "面向教师与课程管理者的课程评价智能分析系统",
-        "系统支持情感识别、课程维度归因、问题提取与改进建议生成，"
+        "系统支持情感识别、课程问题维度归因、问题提取与改进建议生成，"
         "用于把分散的学生反馈整理成可复核的改进线索。",
     )
 
@@ -2554,7 +2726,7 @@ def render_overview_page() -> None:
     with col_b:
         render_stat_card(
             "当前部署方案",
-            "BERT + 规则校正",
+            "BERT 模型 + 规则校正",
             "TF-IDF 和规则用于回退",
             "positive",
             "model",
@@ -2569,7 +2741,7 @@ def render_overview_page() -> None:
         )
     with col_d:
         test_count = len(load_test_cases())
-        render_stat_card("正式测试案例", test_count, "覆盖中英文本与混合情感")
+        render_stat_card("正式测试案例", count_with_unit(test_count, "个"), "覆盖中英文本与混合情感")
 
     render_section_heading(
         "系统数据流",
@@ -2580,8 +2752,8 @@ def render_overview_page() -> None:
         <div class="flow-row">
             <div class="flow-step"><strong>评价输入</strong><span>单条文本 / CSV</span></div>
             <div class="flow-step"><strong>双语预处理</strong><span>清洗、分词、停用词</span></div>
-            <div class="flow-step"><strong>情感分类</strong><span>BERT + 规则校正 + 回退</span></div>
-            <div class="flow-step"><strong>维度提取</strong><span>主题、关键词、证据</span></div>
+            <div class="flow-step"><strong>情感分类</strong><span>BERT 模型 + 规则校正 + 回退</span></div>
+            <div class="flow-step"><strong>维度提取</strong><span>课程问题维度、关键词、证据</span></div>
             <div class="flow-step"><strong>相似检索</strong><span>余弦相似度</span></div>
             <div class="flow-step"><strong>建议生成</strong><span>LLM + 本地兜底</span></div>
         </div>
@@ -2603,12 +2775,12 @@ def render_overview_page() -> None:
         render_feature_card(
             "02",
             "可解释情感分类",
-            "单条分析使用 BERT 与规则校正，并明确展示置信度和判定来源。",
+            "单条分析使用 BERT 模型与规则校正，并展示分类置信度和分析方法。",
         )
     with col_3:
         render_feature_card(
             "03",
-            "课程维度证据",
+            "原文证据",
             "识别教学内容、授课方式、作业、考试、实验与学习收获，并绑定原文。",
         )
     with col_4:
@@ -2634,7 +2806,7 @@ def render_overview_page() -> None:
             )
     with chart_right:
         with st.container(border=True):
-            st.markdown("##### 课程维度分布")
+            st.markdown("##### 课程问题维度分布")
             render_distribution_bars(dict(list(topics.items())[:6]))
 
     with st.expander("查看项目内置样本数据"):
@@ -2644,7 +2816,7 @@ def render_overview_page() -> None:
 def render_single_review_page() -> None:
     result = st.session_state.get("single_result")
     render_workspace_header(
-        "评价分析",
+        "单条分析",
         "输入学生反馈，识别情感与课程问题，并生成改进建议。",
         "分析完成" if result else "等待输入",
         "analysis",
@@ -2704,7 +2876,7 @@ def render_single_review_page() -> None:
             render_compact_items(
                 [
                     ("analysis", "情感识别", "自动"),
-                    ("topic", "课程维度", "自动"),
+                    ("topic", "课程问题维度", "自动"),
                     ("keyword", "关键词", "自动"),
                 ],
                 columns=1,
@@ -2758,7 +2930,7 @@ def render_batch_page() -> None:
     render_process_strip(
         [
             ("导入数据", "上传 CSV 或使用样本"),
-            ("执行分析", "计算情感与课程维度"),
+            ("执行分析", "计算情感与课程问题维度"),
             ("导出结果", "查看明细并下载"),
         ],
         3 if batch_has_result else 1,
@@ -2810,7 +2982,7 @@ def render_batch_page() -> None:
     )
 
     source_col, action_col = st.columns([2, 1])
-    source_col.caption(f"当前数据：{source_name} · {len(texts)} 条有效评价")
+    source_col.caption(f"当前数据：{source_name}，共 {count_with_unit(len(texts), '条有效评价')}")
     analyze_clicked = action_col.button(
         "重新分析当前数据" if has_current_results else "开始批量分析",
         type="primary",
@@ -2855,7 +3027,7 @@ def render_batch_page() -> None:
 
     metric_a, metric_b, metric_c, metric_d = st.columns(4)
     with metric_a:
-        render_stat_card("有效评价", total, f"来源：{source_name}", icon="data")
+        render_stat_card("有效评价", count_with_unit(total, "条"), f"来源：{source_name}", icon="data")
     with metric_b:
         render_stat_card(
             "正面占比",
@@ -2874,7 +3046,7 @@ def render_batch_page() -> None:
         )
     with metric_d:
         render_stat_card(
-            "首要课程维度",
+            "高频问题维度",
             top_topic,
             "出现频率最高的主题",
             "neutral",
@@ -2910,7 +3082,7 @@ def render_batch_page() -> None:
             )
     with chart_b:
         with st.container(border=True):
-            st.markdown("##### 课程维度分布")
+            st.markdown("##### 课程问题维度分布")
             render_distribution_bars(dict(list(topics.items())[:8]))
 
     render_section_heading("高频关键词", icon="keyword")
@@ -2929,18 +3101,20 @@ def render_batch_page() -> None:
 
     render_section_heading(
         "分析明细",
-        "可筛查具体评价并导出结果。",
+        "默认展示前 10 条，完整结果可下载 CSV。",
         "data",
     )
     results_df = pd.DataFrame(result_rows(results))
+    visible_results_df = limited_result_rows(results)
+    st.caption(f"当前展示 {len(visible_results_df)} / {len(results_df)} 条评价明细。")
     st.dataframe(
-        results_df,
+        visible_results_df,
         width="stretch",
         hide_index=True,
         column_config={
             "评价文本": st.column_config.TextColumn("评价文本", width="large"),
-            "置信度": st.column_config.ProgressColumn(
-                "置信度",
+            "分类置信度": st.column_config.ProgressColumn(
+                "分类置信度",
                 min_value=0,
                 max_value=1,
                 format="%.2f",
@@ -2959,7 +3133,7 @@ def render_test_cases_page() -> None:
     output_df = st.session_state.get("test_case_results")
     render_workspace_header(
         "测试验证",
-        "运行固定测试案例，检查情感分类和课程维度识别是否符合预期。",
+        "运行固定测试案例，检查情感分类和课程问题维度识别是否符合预期。",
         "验证完成" if output_df is not None else "等待执行",
         "check",
     )
@@ -3031,8 +3205,8 @@ def render_test_cases_page() -> None:
         hide_index=True,
         column_config={
             "评价文本": st.column_config.TextColumn("评价文本", width="large"),
-            "置信度": st.column_config.ProgressColumn(
-                "置信度",
+            "分类置信度": st.column_config.ProgressColumn(
+                "分类置信度",
                 min_value=0,
                 max_value=1,
                 format="%.2f",
@@ -3062,7 +3236,7 @@ def render_tech_page() -> None:
     with metric_a:
         render_stat_card(
             "当前部署模型",
-            "BERT + 规则校正",
+            "BERT 模型 + 规则校正",
             "失败时回退到 TF-IDF 或规则",
             "positive",
             "model",
@@ -3097,14 +3271,23 @@ def render_tech_page() -> None:
         rows = [
             {
                 "模型": name,
-                "准确率": f"{values['accuracy']:.4f}",
-                "宏平均F1": f"{values['macro_f1']:.4f}",
+                "准确率 Accuracy": f"{values['accuracy']:.4f}",
+                "宏平均 F1 Macro-F1": f"{values['macro_f1']:.4f}",
             }
             for name, values in metrics.get("results", {}).items()
         ]
         table_col, language_col = st.columns([1.15, 0.85])
         with table_col:
             st.markdown("##### 分类器对比")
+            chart_frame = model_chart_frame(metrics)
+            if not chart_frame.empty:
+                st.bar_chart(
+                    chart_frame,
+                    x="模型",
+                    y="分数",
+                    color="指标",
+                    height=260,
+                )
             st.dataframe(
                 pd.DataFrame(rows),
                 width="stretch",
@@ -3165,9 +3348,9 @@ def render_tech_page() -> None:
         render_compact_items(
             [
                 ("data", "数据读取", "CSV 字段兼容"),
-                ("text", "文本预处理", "双语清洗与分词"),
+                ("text", "文本标准化", "双语清洗与分词"),
                 ("model", "情感模型", "模型预测与校正"),
-                ("topic", "课程维度", "主题与证据识别"),
+                ("topic", "课程问题维度", "主题与证据识别"),
                 ("spark", "LLM 建议", "API 与本地兜底"),
             ],
             columns=3,
@@ -3186,7 +3369,7 @@ def render_tech_page() -> None:
 
 def main() -> None:
     page = render_shell()
-    if page == "评价分析":
+    if page == "单条分析":
         render_single_review_page()
     elif page == "批量分析":
         render_batch_page()

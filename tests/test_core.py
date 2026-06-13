@@ -22,8 +22,14 @@ from app import (
     bert_summary_rows,
     build_test_case_results,
     confidence_status,
+    count_with_unit,
+    display_device_label,
     language_metric_rows,
+    limited_result_rows,
+    model_chart_frame,
     parse_expected_topics,
+    sentiment_chip_label,
+    sentiment_source_label,
 )
 from scripts.run_ablation_experiment import run_ablation
 from scripts.prepare_coursera_dataset import prepare_dataset
@@ -628,7 +634,15 @@ class CorePipelineTest(unittest.TestCase):
 
         self.assertEqual(status["label"], "阶段性 BERT Macro-F1")
         self.assertEqual(status["value"], "0.755")
+        self.assertIn("2,280 条测试样本", status["detail"])
         self.assertIn("最终训练", status["detail"])
+
+    def test_ui_copy_helpers_normalize_terms_and_units(self):
+        self.assertEqual(display_device_label("cpu"), "CPU")
+        self.assertEqual(display_device_label("cuda"), "CUDA")
+        self.assertEqual(sentiment_source_label("bert"), "BERT 模型预测")
+        self.assertEqual(sentiment_source_label("bert+rule"), "BERT 模型 + 规则校正")
+        self.assertEqual(count_with_unit(2280, "条测试样本"), "2,280 条测试样本")
 
     def test_language_metric_rows_uses_support_and_skips_empty_rows(self):
         rows = language_metric_rows(
@@ -640,7 +654,57 @@ class CorePipelineTest(unittest.TestCase):
             }
         )
 
-        self.assertEqual(rows, [{"语言": "中文", "Accuracy": "0.5000", "Macro-F1": "0.4900", "样本": 26}])
+        self.assertEqual(
+            rows,
+            [{
+                "语言": "中文",
+                "准确率 Accuracy": "0.5000",
+                "宏平均 F1 Macro-F1": "0.4900",
+                "样本数": "26 条",
+            }],
+        )
+
+    def test_limited_result_rows_defaults_to_ten_items(self):
+        results = [
+            {
+                "text": f"评价 {index}",
+                "language": "zh",
+                "sentiment": "positive" if index % 2 else "negative",
+                "confidence": 0.8,
+                "sentiment_source": "bert",
+                "sentiment_device": "cpu",
+                "sentiment_chunk_count": 1,
+                "topics": ["教学内容"],
+                "keywords": ["清楚"],
+            }
+            for index in range(12)
+        ]
+
+        frame = limited_result_rows(results)
+
+        self.assertEqual(len(frame), 10)
+        self.assertEqual(frame.iloc[0]["评价文本"], "评价 0")
+        self.assertEqual(set(frame["情感"]).issubset({"正面", "负面"}), True)
+
+    def test_model_chart_frame_flattens_metric_results(self):
+        frame = model_chart_frame(
+            {
+                "results": {
+                    "Logistic Regression": {"accuracy": 0.69, "macro_f1": 0.68},
+                    "Linear SVM": {"accuracy": 0.67, "macro_f1": 0.66},
+                }
+            }
+        )
+
+        self.assertEqual(list(frame.columns), ["模型", "指标", "分数"])
+        self.assertEqual(len(frame), 4)
+        self.assertIn("宏平均 F1 Macro-F1", set(frame["指标"]))
+
+    def test_sentiment_chip_label_uses_chinese_labels(self):
+        self.assertEqual(sentiment_chip_label("positive"), "正面")
+        self.assertEqual(sentiment_chip_label("neutral"), "中性 / 混合")
+        self.assertEqual(sentiment_chip_label("negative"), "负面")
+        self.assertEqual(sentiment_chip_label("custom"), "custom")
 
     @patch("app.analyze_batch")
     def test_build_test_case_results(self, mock_analyze):
@@ -667,7 +731,8 @@ class CorePipelineTest(unittest.TestCase):
         results = build_test_case_results(cases)
 
         self.assertEqual(results.loc[0, "是否通过"], "通过")
-        self.assertEqual(results.loc[0, "情感来源"], "规则兜底")
+        self.assertEqual(results.loc[0, "分析方法"], "规则兜底")
+        self.assertEqual(results.loc[0, "实际情感"], "正面")
         self.assertEqual(results.loc[0, "关键词"], "清楚、内容")
 
     def test_train_model_writes_detailed_metrics(self):
@@ -788,6 +853,7 @@ class CorePipelineTest(unittest.TestCase):
         self.assertEqual(bert_rows[0]["模型"], "BERT")
         self.assertEqual(bert_rows[0]["预训练模型"], "bert-base-multilingual-cased")
         self.assertEqual(bert_rows[0]["状态"], "阶段性评估")
+        self.assertEqual(bert_rows[0]["测试样本"], "20 条")
         self.assertEqual(ablation_rows[0]["实验版本"], "rule-only")
         self.assertEqual(ablation_rows[1]["状态"], "跳过")
 
