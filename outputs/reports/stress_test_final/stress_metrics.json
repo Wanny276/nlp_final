@@ -1,0 +1,510 @@
+{
+  "data_size": 48,
+  "categories": {
+    "abbreviation": 6,
+    "code_switching": 6,
+    "implicit_complaint": 6,
+    "long_text": 6,
+    "mixed_sentiment": 6,
+    "negation": 6,
+    "sarcasm": 6,
+    "spelling": 6
+  },
+  "label_distribution": {
+    "negative": 23,
+    "neutral": 14,
+    "positive": 11
+  },
+  "language_distribution": {
+    "en": 27,
+    "mixed": 6,
+    "zh": 15
+  },
+  "bert_model_path": "D:\\2026NLP\\NLP_Final\\outputs\\bert_model_final",
+  "experiments": {
+    "rule-only": {
+      "accuracy": 0.4583333333333333,
+      "macro_f1": 0.4704548486061091,
+      "passed": 22,
+      "failed": 26,
+      "classification_report": {
+        "negative": {
+          "precision": 0.7142857142857143,
+          "recall": 0.21739130434782608,
+          "f1-score": 0.3333333333333333,
+          "support": 23.0
+        },
+        "neutral": {
+          "precision": 0.34285714285714286,
+          "recall": 0.8571428571428571,
+          "f1-score": 0.4897959183673469,
+          "support": 14.0
+        },
+        "positive": {
+          "precision": 0.8333333333333334,
+          "recall": 0.45454545454545453,
+          "f1-score": 0.5882352941176471,
+          "support": 11.0
+        },
+        "accuracy": 0.4583333333333333,
+        "macro avg": {
+          "precision": 0.6301587301587301,
+          "recall": 0.5096932053453792,
+          "f1-score": 0.4704548486061091,
+          "support": 48.0
+        },
+        "weighted avg": {
+          "precision": 0.6332341269841271,
+          "recall": 0.4583333333333333,
+          "f1-score": 0.43738328664799253,
+          "support": 48.0
+        }
+      },
+      "status": "完成",
+      "by_category": {
+        "abbreviation": {
+          "support": 6,
+          "accuracy": 0.3333333333333333,
+          "macro_f1": 0.3333333333333333,
+          "passed": 2,
+          "failed": 4
+        },
+        "code_switching": {
+          "support": 6,
+          "accuracy": 0.6666666666666666,
+          "macro_f1": 0.6666666666666666,
+          "passed": 4,
+          "failed": 2
+        },
+        "implicit_complaint": {
+          "support": 6,
+          "accuracy": 0.0,
+          "macro_f1": 0.0,
+          "passed": 0,
+          "failed": 6
+        },
+        "long_text": {
+          "support": 6,
+          "accuracy": 0.6666666666666666,
+          "macro_f1": 0.5555555555555555,
+          "passed": 4,
+          "failed": 2
+        },
+        "mixed_sentiment": {
+          "support": 6,
+          "accuracy": 0.6666666666666666,
+          "macro_f1": 0.26666666666666666,
+          "passed": 4,
+          "failed": 2
+        },
+        "negation": {
+          "support": 6,
+          "accuracy": 1.0,
+          "macro_f1": 1.0,
+          "passed": 6,
+          "failed": 0
+        },
+        "sarcasm": {
+          "support": 6,
+          "accuracy": 0.0,
+          "macro_f1": 0.0,
+          "passed": 0,
+          "failed": 6
+        },
+        "spelling": {
+          "support": 6,
+          "accuracy": 0.3333333333333333,
+          "macro_f1": 0.16666666666666666,
+          "passed": 2,
+          "failed": 4
+        }
+      },
+      "by_language": {
+        "en": {
+          "support": 27,
+          "accuracy": 0.4074074074074074,
+          "macro_f1": 0.39240102171136654,
+          "passed": 11,
+          "failed": 16
+        },
+        "mixed": {
+          "support": 6,
+          "accuracy": 0.6666666666666666,
+          "macro_f1": 0.6666666666666666,
+          "passed": 4,
+          "failed": 2
+        },
+        "zh": {
+          "support": 15,
+          "accuracy": 0.4666666666666667,
+          "macro_f1": 0.4666666666666666,
+          "passed": 7,
+          "failed": 8
+        }
+      }
+    },
+    "tfidf-only": {
+      "accuracy": 0.5416666666666666,
+      "macro_f1": 0.5282170542635659,
+      "passed": 26,
+      "failed": 22,
+      "classification_report": {
+        "negative": {
+          "precision": 0.65,
+          "recall": 0.5652173913043478,
+          "f1-score": 0.6046511627906976,
+          "support": 23.0
+        },
+        "neutral": {
+          "precision": 0.5454545454545454,
+          "recall": 0.42857142857142855,
+          "f1-score": 0.48,
+          "support": 14.0
+        },
+        "positive": {
+          "precision": 0.4117647058823529,
+          "recall": 0.6363636363636364,
+          "f1-score": 0.5,
+          "support": 11.0
+        },
+        "accuracy": 0.5416666666666666,
+        "macro avg": {
+          "precision": 0.5357397504456327,
+          "recall": 0.5433841520798043,
+          "f1-score": 0.5282170542635659,
+          "support": 48.0
+        },
+        "weighted avg": {
+          "precision": 0.5649119875222817,
+          "recall": 0.5416666666666666,
+          "f1-score": 0.544312015503876,
+          "support": 48.0
+        }
+      },
+      "status": "完成",
+      "by_category": {
+        "abbreviation": {
+          "support": 6,
+          "accuracy": 0.6666666666666666,
+          "macro_f1": 0.6666666666666666,
+          "passed": 4,
+          "failed": 2
+        },
+        "code_switching": {
+          "support": 6,
+          "accuracy": 0.8333333333333334,
+          "macro_f1": 0.8222222222222223,
+          "passed": 5,
+          "failed": 1
+        },
+        "implicit_complaint": {
+          "support": 6,
+          "accuracy": 0.3333333333333333,
+          "macro_f1": 0.16666666666666666,
+          "passed": 2,
+          "failed": 4
+        },
+        "long_text": {
+          "support": 6,
+          "accuracy": 0.6666666666666666,
+          "macro_f1": 0.6666666666666666,
+          "passed": 4,
+          "failed": 2
+        },
+        "mixed_sentiment": {
+          "support": 6,
+          "accuracy": 0.3333333333333333,
+          "macro_f1": 0.26666666666666666,
+          "passed": 2,
+          "failed": 4
+        },
+        "negation": {
+          "support": 6,
+          "accuracy": 0.5,
+          "macro_f1": 0.5222222222222221,
+          "passed": 3,
+          "failed": 3
+        },
+        "sarcasm": {
+          "support": 6,
+          "accuracy": 0.5,
+          "macro_f1": 0.2222222222222222,
+          "passed": 3,
+          "failed": 3
+        },
+        "spelling": {
+          "support": 6,
+          "accuracy": 0.5,
+          "macro_f1": 0.5222222222222223,
+          "passed": 3,
+          "failed": 3
+        }
+      },
+      "by_language": {
+        "en": {
+          "support": 27,
+          "accuracy": 0.5925925925925926,
+          "macro_f1": 0.576078431372549,
+          "passed": 16,
+          "failed": 11
+        },
+        "mixed": {
+          "support": 6,
+          "accuracy": 0.8333333333333334,
+          "macro_f1": 0.8222222222222223,
+          "passed": 5,
+          "failed": 1
+        },
+        "zh": {
+          "support": 15,
+          "accuracy": 0.3333333333333333,
+          "macro_f1": 0.26495726495726496,
+          "passed": 5,
+          "failed": 10
+        }
+      }
+    },
+    "bert-only": {
+      "accuracy": 0.5416666666666666,
+      "macro_f1": 0.5416221033868093,
+      "passed": 26,
+      "failed": 22,
+      "classification_report": {
+        "negative": {
+          "precision": 0.6470588235294118,
+          "recall": 0.4782608695652174,
+          "f1-score": 0.55,
+          "support": 23.0
+        },
+        "neutral": {
+          "precision": 0.45,
+          "recall": 0.6428571428571429,
+          "f1-score": 0.5294117647058824,
+          "support": 14.0
+        },
+        "positive": {
+          "precision": 0.5454545454545454,
+          "recall": 0.5454545454545454,
+          "f1-score": 0.5454545454545454,
+          "support": 11.0
+        },
+        "accuracy": 0.5416666666666666,
+        "macro avg": {
+          "precision": 0.5475044563279857,
+          "recall": 0.5555241859589686,
+          "f1-score": 0.5416221033868093,
+          "support": 48.0
+        },
+        "weighted avg": {
+          "precision": 0.5662990196078431,
+          "recall": 0.5416666666666666,
+          "f1-score": 0.542953431372549,
+          "support": 48.0
+        }
+      },
+      "status": "完成",
+      "by_category": {
+        "abbreviation": {
+          "support": 6,
+          "accuracy": 0.3333333333333333,
+          "macro_f1": 0.3,
+          "passed": 2,
+          "failed": 4
+        },
+        "code_switching": {
+          "support": 6,
+          "accuracy": 1.0,
+          "macro_f1": 1.0,
+          "passed": 6,
+          "failed": 0
+        },
+        "implicit_complaint": {
+          "support": 6,
+          "accuracy": 0.5,
+          "macro_f1": 0.2222222222222222,
+          "passed": 3,
+          "failed": 3
+        },
+        "long_text": {
+          "support": 6,
+          "accuracy": 0.8333333333333334,
+          "macro_f1": 0.8222222222222223,
+          "passed": 5,
+          "failed": 1
+        },
+        "mixed_sentiment": {
+          "support": 6,
+          "accuracy": 0.6666666666666666,
+          "macro_f1": 0.5833333333333334,
+          "passed": 4,
+          "failed": 2
+        },
+        "negation": {
+          "support": 6,
+          "accuracy": 0.3333333333333333,
+          "macro_f1": 0.16666666666666666,
+          "passed": 2,
+          "failed": 4
+        },
+        "sarcasm": {
+          "support": 6,
+          "accuracy": 0.16666666666666666,
+          "macro_f1": 0.09523809523809523,
+          "passed": 1,
+          "failed": 5
+        },
+        "spelling": {
+          "support": 6,
+          "accuracy": 0.5,
+          "macro_f1": 0.4666666666666666,
+          "passed": 3,
+          "failed": 3
+        }
+      },
+      "by_language": {
+        "en": {
+          "support": 27,
+          "accuracy": 0.48148148148148145,
+          "macro_f1": 0.49206349206349204,
+          "passed": 13,
+          "failed": 14
+        },
+        "mixed": {
+          "support": 6,
+          "accuracy": 1.0,
+          "macro_f1": 1.0,
+          "passed": 6,
+          "failed": 0
+        },
+        "zh": {
+          "support": 15,
+          "accuracy": 0.4666666666666667,
+          "macro_f1": 0.4338624338624338,
+          "passed": 7,
+          "failed": 8
+        }
+      }
+    },
+    "hybrid": {
+      "accuracy": 0.7083333333333334,
+      "macro_f1": 0.72174688057041,
+      "passed": 34,
+      "failed": 14,
+      "classification_report": {
+        "negative": {
+          "precision": 0.8235294117647058,
+          "recall": 0.6086956521739131,
+          "f1-score": 0.7,
+          "support": 23.0
+        },
+        "neutral": {
+          "precision": 0.55,
+          "recall": 0.7857142857142857,
+          "f1-score": 0.6470588235294118,
+          "support": 14.0
+        },
+        "positive": {
+          "precision": 0.8181818181818182,
+          "recall": 0.8181818181818182,
+          "f1-score": 0.8181818181818182,
+          "support": 11.0
+        },
+        "accuracy": 0.7083333333333334,
+        "macro avg": {
+          "precision": 0.7305704099821747,
+          "recall": 0.7375305853566724,
+          "f1-score": 0.72174688057041,
+          "support": 48.0
+        },
+        "weighted avg": {
+          "precision": 0.7425245098039216,
+          "recall": 0.7083333333333334,
+          "f1-score": 0.711642156862745,
+          "support": 48.0
+        }
+      },
+      "status": "完成",
+      "by_category": {
+        "abbreviation": {
+          "support": 6,
+          "accuracy": 0.8333333333333334,
+          "macro_f1": 0.8222222222222223,
+          "passed": 5,
+          "failed": 1
+        },
+        "code_switching": {
+          "support": 6,
+          "accuracy": 1.0,
+          "macro_f1": 1.0,
+          "passed": 6,
+          "failed": 0
+        },
+        "implicit_complaint": {
+          "support": 6,
+          "accuracy": 0.5,
+          "macro_f1": 0.2222222222222222,
+          "passed": 3,
+          "failed": 3
+        },
+        "long_text": {
+          "support": 6,
+          "accuracy": 0.8333333333333334,
+          "macro_f1": 0.8222222222222223,
+          "passed": 5,
+          "failed": 1
+        },
+        "mixed_sentiment": {
+          "support": 6,
+          "accuracy": 0.6666666666666666,
+          "macro_f1": 0.26666666666666666,
+          "passed": 4,
+          "failed": 2
+        },
+        "negation": {
+          "support": 6,
+          "accuracy": 0.8333333333333334,
+          "macro_f1": 0.8222222222222223,
+          "passed": 5,
+          "failed": 1
+        },
+        "sarcasm": {
+          "support": 6,
+          "accuracy": 0.16666666666666666,
+          "macro_f1": 0.09523809523809523,
+          "passed": 1,
+          "failed": 5
+        },
+        "spelling": {
+          "support": 6,
+          "accuracy": 0.8333333333333334,
+          "macro_f1": 0.8222222222222223,
+          "passed": 5,
+          "failed": 1
+        }
+      },
+      "by_language": {
+        "en": {
+          "support": 27,
+          "accuracy": 0.6666666666666666,
+          "macro_f1": 0.6851851851851852,
+          "passed": 18,
+          "failed": 9
+        },
+        "mixed": {
+          "support": 6,
+          "accuracy": 1.0,
+          "macro_f1": 1.0,
+          "passed": 6,
+          "failed": 0
+        },
+        "zh": {
+          "support": 15,
+          "accuracy": 0.6666666666666666,
+          "macro_f1": 0.6666666666666666,
+          "passed": 10,
+          "failed": 5
+        }
+      }
+    }
+  }
+}

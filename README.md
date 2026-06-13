@@ -116,6 +116,26 @@ outputs/reports/ablation_metrics.json
 outputs/reports/ablation_errors.csv
 ```
 
+## 独立压力测试
+
+`data/stress_test_cases.csv` 与训练数据、原有 12 条业务案例分开维护，共 48 条，覆盖缩写、拼写错误、否定结构、讽刺、隐含抱怨、中英混合、长文本和正负混合评价。该文件只用于最终评估，不参与模型训练和规则调试。
+
+运行最终模型压力测试：
+
+```bash
+python scripts\run_stress_test.py --cases data\stress_test_cases.csv --output-dir outputs\reports\stress_test_final --model-dir models
+```
+
+输出文件：
+
+```text
+outputs/reports/stress_test_final/stress_metrics.json
+outputs/reports/stress_test_final/stress_predictions.csv
+outputs/reports/stress_test_final/stress_errors.csv
+```
+
+指标文件包含 rule-only、TF-IDF-only、BERT-only 和 hybrid 的总体 Accuracy、Macro-F1、各压力类别指标与各语言指标。正式引用结果前，应由未参与规则开发的队友复核 `expected_sentiment`，并且不要根据这份压力集反复调整规则后继续把它称为独立测试集。
+
 ## BERT 主模型
 
 系统默认使用 `auto` 后端：本地 BERT 权重可用时优先运行 BERT；加载或推理失败时回退到 TF-IDF，最后回退到规则。使用 BERT 前需要安装深度学习依赖：

@@ -1,0 +1,54 @@
+% 建议负责人：负责模型、算法与实验的成员
+\subsection{实验结果可视化}
+
+为避免只依赖表格陈述实验结论，本节使用训练数据、模型评估文件和训练日志生成可复现图表。所有图片均由
+\code{scripts/generate_report_charts.py} 自动生成，数据来源与前文表格一致。
+
+训练数据的三个情感类别各有 3040 条样本，并按照 60\%、15\% 和 25\% 划分训练集、验证集和独立测试集。
+这一基础信息已在表~\ref{tab:dataset} 和表~\ref{tab:bert-training} 中给出，不再单独使用简单图表重复展示。
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.94\textwidth]{figures/model_performance.png}
+  \caption{传统模型与 multilingual BERT 性能对比}
+  \label{fig:model-performance}
+\end{figure}
+
+图~\ref{fig:model-performance} 将传统基线和最终 BERT 模型置于同一坐标系中。multilingual BERT 的 Accuracy 为 0.7461，
+Macro-F1 为 0.7457，分别比最佳传统模型 Logistic Regression 提高约 5.57 和 5.51 个百分点，说明上下文表示对课程评价中的
+转折、否定和混合态度具有实际价值。
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.96\textwidth]{figures/bert_training_curve.png}
+  \caption{multilingual BERT 微调过程}
+  \label{fig:bert-training-curve}
+\end{figure}
+
+图~\ref{fig:bert-training-curve} 显示，训练损失在两个 Epoch 内总体下降；验证集 Accuracy 从 0.7003 提升至 0.7230，
+Macro-F1 从 0.7039 提升至 0.7225。第二轮仍有稳定增益，但验证损失未同步明显下降，因此当前训练轮数保持为 2，以控制过拟合风险
+和训练成本。
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.94\textwidth]{figures/ablation_results.png}
+  \caption{固定业务案例消融实验结果}
+  \label{fig:ablation-visualization}
+\end{figure}
+
+为验证各模块的实际作用，项目分别运行纯规则、TF-IDF、BERT 和完整混合流程。图~\ref{fig:ablation-visualization} 显示，
+TF-IDF 单模块通过 7/12，BERT 单模块通过 10/12，而完整流程通过 12/12。纯规则同样在这组固定案例上达到满分，是因为案例中
+包含较多规则能够直接覆盖的典型表达；因此项目进一步使用未参与规则开发的独立压力测试检验泛化能力，而不把固定案例满分直接解释为
+规则模型性能更强。
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{figures/stress_test_results.png}
+  \caption{独立压力测试总体结果与分类别准确率}
+  \label{fig:stress-test-visualization}
+\end{figure}
+
+图~\ref{fig:stress-test-visualization} 表明，混合流程在 48 条独立压力测试上的 Accuracy 和 Macro-F1 均明显高于三个单独模块。
+它在中英混合类别达到 100\%，在缩写、拼写、否定和长文本类别达到 83.3\%，说明文本标准化、规则校正与分段推理产生了互补效果。
+相较 BERT 单模块，完整流程的 Accuracy 从 54.2\% 提升至 70.8\%，Macro-F1 从 54.2\% 提升至 72.2\%，验证了多模块协同
+并非简单堆叠，而是对噪声、否定、中英混合和长文本等复杂输入产生了稳定增益。

@@ -17,6 +17,8 @@ env/
 # 大文件或外部数据
 data/raw/
 outputs/bert_model/
+outputs/bert_model_final/**/model.safetensors
+outputs/bert_model_final_runtime.zip
 
 # 测试生成的临时产物
 outputs/reports/test_*

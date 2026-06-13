@@ -1,0 +1,59 @@
+\clearpage
+% 建议负责人：负责前端与交互设计的成员
+\section{界面展示}
+
+\subsection{界面设计理念}
+
+CourseInsight 使用 Streamlit 构建宽屏数据应用，整体设计强调“先看结论，再看证据，最后执行
+操作”。侧边栏固定显示功能导航、当前情感模型后端和 LLM 服务状态，避免用户在不同页面间切换
+时失去运行环境信息。页面主体采用卡片、指标和分区布局，把长文本分析拆解为可快速浏览的结构。
+
+界面设计遵循以下原则：
+
+\begin{itemize}
+  \item \textbf{任务导向：}导航只保留评价分析、批量分析、测试验证和系统信息四个主要入口；
+  \item \textbf{状态可见：}显示 BERT、TF-IDF 或规则模式，以及 LLM 是否使用本地兜底；
+  \item \textbf{结论分层：}先展示情感、置信度和风险，再展示课程维度、证据、相似评价和建议；
+  \item \textbf{降低输入成本：}内置中文、英文和中英混合示例，批量页面支持常见 CSV 字段；
+  \item \textbf{支持演示：}测试页面可以一键运行固定案例，系统信息页面集中展示模型指标。
+\end{itemize}
+
+\subsection{评价分析页面}
+
+评价分析页面左侧为文本输入区，右侧为示例选择和建议生成开关。完成分析后，页面展示语言、情感
+标签、置信度和模型来源，并继续给出课程维度、关键词、原文证据、相似评价和教学改进建议。
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.78\textwidth]{ui-single.png}
+  \caption{单条评价分析页面及中性混合反馈结果}
+  \label{fig:ui-single}
+\end{figure}
+
+\clearpage
+\subsection{批量分析页面}
+
+批量分析页面支持上传 CSV 或使用内置样本。分析后首先展示有效评价数量、正面占比、负面占比和
+首要课程维度，再展示情感分布、课程维度分布、高频关键词和逐条结果。分析明细可直接下载为 CSV，
+便于后续人工复核和归档。
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{ui-batch.png}
+  \caption{批量评价分析页面及整体统计结果}
+  \label{fig:ui-batch}
+\end{figure}
+
+\clearpage
+\subsection{测试验证与系统信息页面}
+
+测试验证页面用于一键运行 12 条固定案例，并显示通过数量、失败数量和逐条对比。系统信息页面
+展示传统模型、BERT、分语言指标、混淆矩阵和消融实验，使演示中的模型结论能够与保存的实验文件
+一致。
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=\textwidth]{ui-test.png}
+  \caption{固定案例测试验证页面及运行结果}
+  \label{fig:ui-test}
+\end{figure}

@@ -1,0 +1,27 @@
+\documentclass[UTF8,12pt,a4paper,fontset=windows]{ctexart}
+
+\usepackage{report}
+\input{info}
+
+\begin{document}
+
+\makecover
+
+\clearpage
+\tableofcontents
+\clearpage
+
+% 每个板块均为独立文件，组员只编辑自己负责的章节。
+\input{sections/01-background}
+\input{sections/02-functions}
+\input{sections/03-technical-solution}
+\input{sections/04-algorithms}
+\input{sections/04a-experiment-visualization}
+\input{sections/05-innovation}
+\input{sections/06-interface}
+\input{sections/07-deployment-and-testing}
+\input{sections/08-summary}
+\input{sections/09-contributions}
+\input{sections/10-references}
+
+\end{document}

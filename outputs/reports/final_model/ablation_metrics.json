@@ -1,0 +1,170 @@
+{
+  "data_size": 12,
+  "model_dir": "models",
+  "experiments": {
+    "rule-only": {
+      "status": "完成",
+      "accuracy": 1.0,
+      "macro_f1": 1.0,
+      "passed": 12,
+      "failed": 0,
+      "skipped": 0,
+      "classification_report": {
+        "negative": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 5.0
+        },
+        "neutral": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 4.0
+        },
+        "positive": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 3.0
+        },
+        "accuracy": 1.0,
+        "macro avg": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 12.0
+        },
+        "weighted avg": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 12.0
+        }
+      }
+    },
+    "model-only": {
+      "status": "完成",
+      "accuracy": 0.5833333333333334,
+      "macro_f1": 0.5424242424242425,
+      "passed": 7,
+      "failed": 5,
+      "skipped": 0,
+      "classification_report": {
+        "negative": {
+          "precision": 0.6666666666666666,
+          "recall": 0.8,
+          "f1-score": 0.7272727272727273,
+          "support": 5.0
+        },
+        "neutral": {
+          "precision": 1.0,
+          "recall": 0.25,
+          "f1-score": 0.4,
+          "support": 4.0
+        },
+        "positive": {
+          "precision": 0.4,
+          "recall": 0.6666666666666666,
+          "f1-score": 0.5,
+          "support": 3.0
+        },
+        "accuracy": 0.5833333333333334,
+        "macro avg": {
+          "precision": 0.6888888888888888,
+          "recall": 0.5722222222222223,
+          "f1-score": 0.5424242424242425,
+          "support": 12.0
+        },
+        "weighted avg": {
+          "precision": 0.7111111111111111,
+          "recall": 0.5833333333333334,
+          "f1-score": 0.5613636363636364,
+          "support": 12.0
+        }
+      }
+    },
+    "bert-only": {
+      "status": "完成",
+      "accuracy": 0.9166666666666666,
+      "macro_f1": 0.9220779220779219,
+      "passed": 11,
+      "failed": 1,
+      "skipped": 0,
+      "classification_report": {
+        "negative": {
+          "precision": 0.8333333333333334,
+          "recall": 1.0,
+          "f1-score": 0.9090909090909091,
+          "support": 5.0
+        },
+        "neutral": {
+          "precision": 1.0,
+          "recall": 0.75,
+          "f1-score": 0.8571428571428571,
+          "support": 4.0
+        },
+        "positive": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 3.0
+        },
+        "accuracy": 0.9166666666666666,
+        "macro avg": {
+          "precision": 0.9444444444444445,
+          "recall": 0.9166666666666666,
+          "f1-score": 0.9220779220779219,
+          "support": 12.0
+        },
+        "weighted avg": {
+          "precision": 0.9305555555555557,
+          "recall": 0.9166666666666666,
+          "f1-score": 0.9145021645021645,
+          "support": 12.0
+        }
+      }
+    },
+    "hybrid": {
+      "status": "完成",
+      "accuracy": 1.0,
+      "macro_f1": 1.0,
+      "passed": 12,
+      "failed": 0,
+      "skipped": 0,
+      "classification_report": {
+        "negative": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 5.0
+        },
+        "neutral": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 4.0
+        },
+        "positive": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 3.0
+        },
+        "accuracy": 1.0,
+        "macro avg": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 12.0
+        },
+        "weighted avg": {
+          "precision": 1.0,
+          "recall": 1.0,
+          "f1-score": 1.0,
+          "support": 12.0
+        }
+      }
+    }
+  }
+}

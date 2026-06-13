@@ -1,0 +1,181 @@
+\NeedsTeXFormat{LaTeX2e}
+\ProvidesPackage{report}[2026/06/13 CourseInsight final report style]
+
+\RequirePackage[
+  a4paper,
+  top=2.54cm,
+  bottom=2.54cm,
+  left=3.175cm,
+  right=3.175cm,
+  headheight=0pt,
+  headsep=0pt,
+  footskip=1.75cm
+]{geometry}
+\RequirePackage{fontspec}
+\RequirePackage{setspace}
+\RequirePackage{xcolor}
+\RequirePackage{graphicx}
+\RequirePackage{float}
+\RequirePackage{booktabs}
+\RequirePackage{longtable}
+\RequirePackage{tabularx}
+\RequirePackage{array}
+\RequirePackage{multirow}
+\RequirePackage{amsmath}
+\RequirePackage{amssymb}
+\RequirePackage{caption}
+\RequirePackage{subcaption}
+\RequirePackage{tocloft}
+\RequirePackage{enumitem}
+\RequirePackage{tikz}
+\RequirePackage[hidelinks,hypertexnames=false]{hyperref}
+
+\usetikzlibrary{arrows.meta,positioning,fit,calc,shapes.geometric}
+
+\definecolor{ReportBlue}{HTML}{315B7D}
+\definecolor{ReportLightBlue}{HTML}{EAF2F8}
+\definecolor{ReportGray}{HTML}{F3F5F7}
+\definecolor{ReportLine}{HTML}{AAB7C4}
+
+\setmainfont{Times New Roman}
+\setCJKmainfont{SimSun}[AutoFakeBold=2.5]
+\setCJKfamilyfont{zhsong}{SimSun}[AutoFakeBold=2.5]
+\setCJKsansfont{Microsoft YaHei}[AutoFakeBold=2.5]
+\setCJKmonofont{FangSong}
+
+\AtBeginDocument{%
+  \songti
+  \zihao{-4}
+  \onehalfspacing
+  \setlength{\parindent}{0pt}
+  \setlength{\parskip}{0pt}
+  \pagestyle{empty}
+}
+
+\makeatletter
+\let\ps@plain\ps@empty
+\makeatother
+
+\ctexset{
+  section = {
+    format = \songti\bfseries\zihao{3},
+    name = {},
+    number = \arabic{section},
+    aftername = \quad,
+    beforeskip = 24pt,
+    afterskip = 8pt
+  },
+  subsection = {
+    format = \songti\bfseries\zihao{-3},
+    name = {},
+    number = \thesection.\arabic{subsection},
+    aftername = \quad,
+    beforeskip = 12pt,
+    afterskip = 6pt
+  },
+  subsubsection = {
+    format = \songti\bfseries\zihao{4},
+    name = {},
+    number = \thesubsection.\arabic{subsubsection},
+    aftername = \quad,
+    beforeskip = 8pt,
+    afterskip = 4pt
+  }
+}
+
+\setcounter{secnumdepth}{3}
+\setcounter{tocdepth}{3}
+
+\renewcommand{\contentsname}{目录}
+\renewcommand{\cfttoctitlefont}{\songti\mdseries\zihao{3}}
+\renewcommand{\cftaftertoctitle}{}
+\setlength{\cftbeforetoctitleskip}{24pt}
+\setlength{\cftaftertoctitleskip}{12pt}
+\renewcommand{\cftsecfont}{\songti\zihao{-4}}
+\renewcommand{\cftsubsecfont}{\songti\zihao{-4}}
+\renewcommand{\cftsubsubsecfont}{\songti\zihao{-4}}
+\renewcommand{\cftsecpagefont}{\songti\zihao{-4}}
+\renewcommand{\cftsubsecpagefont}{\songti\zihao{-4}}
+\renewcommand{\cftsubsubsecpagefont}{\songti\zihao{-4}}
+\renewcommand{\cftsecleader}{\cftdotfill{\cftdotsep}}
+\renewcommand{\cftsubsecleader}{\cftdotfill{\cftdotsep}}
+\renewcommand{\cftsubsubsecleader}{\cftdotfill{\cftdotsep}}
+\setlength{\cftbeforesecskip}{3pt}
+\setlength{\cftbeforesubsecskip}{1pt}
+\setlength{\cftbeforesubsubsecskip}{1pt}
+\cftsetindents{section}{0em}{2.8em}
+\cftsetindents{subsection}{2em}{3.6em}
+\cftsetindents{subsubsection}{4em}{4.5em}
+
+\DeclareCaptionFont{reportsong}{\songti}
+\captionsetup{
+  font={reportsong,small},
+  labelsep=space,
+  justification=centering,
+  skip=6pt
+}
+\renewcommand{\figurename}{图}
+\renewcommand{\tablename}{表}
+
+\setlist[itemize]{
+  leftmargin=2em,
+  itemsep=2pt,
+  parsep=0pt,
+  topsep=3pt
+}
+\setlist[enumerate]{
+  leftmargin=2.2em,
+  itemsep=2pt,
+  parsep=0pt,
+  topsep=3pt
+}
+
+\setlength{\tabcolsep}{6pt}
+\renewcommand{\arraystretch}{1.28}
+\newcolumntype{Y}{>{\raggedright\arraybackslash}X}
+\newcolumntype{C}[1]{>{\centering\arraybackslash}p{#1}}
+\newcolumntype{L}[1]{>{\raggedright\arraybackslash}p{#1}}
+
+\graphicspath{{figures/}}
+
+\newcommand{\placeholder}[1]{\textcolor{red}{【#1】}}
+\newcommand{\code}[1]{\nolinkurl{#1}}
+\newcommand{\metric}[1]{\textbf{#1}}
+
+\newcommand{\interfaceplaceholder}[2]{%
+  \begin{figure}[H]
+    \centering
+    \fcolorbox{ReportLine}{ReportGray}{%
+      \begin{minipage}[c][4.2cm][c]{0.88\textwidth}
+        \centering
+        {\sffamily\bfseries\zihao{3} #1\par}
+        \vspace{0.8em}
+        {\sffamily\zihao{5}\color{ReportBlue}
+        请在系统运行后替换为对应页面的高清截图\par}
+      \end{minipage}}
+    \caption{#1}
+    \label{#2}
+  \end{figure}
+}
+
+\newcommand{\makecover}{%
+  \begin{titlepage}
+    \thispagestyle{empty}
+    \centering
+    \vspace*{0.2cm}
+    {\songti\bfseries\fontsize{36pt}{54pt}\selectfont 华东师范大学\par}
+    \vspace{1.55cm}
+    {\songti\bfseries\fontsize{24pt}{36pt}\selectfont 《自然语言处理》\par}
+    \vspace{1.15cm}
+    {\songti\bfseries\fontsize{24pt}{36pt}\selectfont 期末报告\par}
+    \vspace{1.55cm}
+    {\songti\bfseries\fontsize{22pt}{33pt}\selectfont 标题：\ReportTitle\par}
+    \vspace{1.65cm}
+    {\songti\bfseries\fontsize{16pt}{24pt}\selectfont 小组成员：\par}
+    \vspace{0.65cm}
+    {\songti\bfseries\fontsize{16pt}{25pt}\selectfont \ReportMembers\par}
+    \vfill
+    {\songti\bfseries\fontsize{14pt}{21pt}\selectfont \ReportDate\par}
+    \vspace*{0.65cm}
+  \end{titlepage}
+}
