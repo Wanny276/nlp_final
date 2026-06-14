@@ -7,29 +7,9 @@
 负责主要上下文语义判断；规则模块处理课程场景中可明确描述的转折、否定、建议和混合评价；传统
 模型和纯规则用于自动回退。不同方法承担各自适合的任务，而不是简单投票。
 
-12 条固定业务案例的消融结果见表~\ref{tab:ablation-results}。这些案例包含中英文评价、建议型
-表达和正负混合句，主要用于验证系统功能，不等同于独立泛化测试。
-
-\begin{table}[H]
-  \centering
-  \caption{固定业务案例消融实验}
-  \label{tab:ablation-results}
-  \small
-  \begin{tabularx}{0.92\textwidth}{L{3cm} Y C{2cm} C{2cm}}
-    \toprule
-    实验版本 & 方法说明 & 通过数 & Macro-F1 \\
-    \midrule
-    rule-only & 只使用情感词、否定和转折规则 & 12/12 & 1.0000 \\
-    model-only & 只使用 TF-IDF Logistic Regression & 7/12 & 0.5424 \\
-    bert-only & 只使用微调后的 multilingual BERT & 10/12 & 0.8197 \\
-    hybrid & BERT、规则校正和自动回退 & \textbf{12/12} & \textbf{1.0000} \\
-    \bottomrule
-  \end{tabularx}
-\end{table}
-
-纯规则在这 12 条固定案例上取得满分，是因为案例集中包含较多规则能够直接覆盖的典型表达，不能
-据此认为规则模型具有更强泛化能力。为避免这一结论误导，项目另外维护了未用于规则开发的 48 条
-压力测试。
+12 条固定业务案例的消融结果见图~\ref{fig:ablation-visualization}。这些案例主要用于验证课堂演示
+流程，不等同于独立泛化测试。纯规则取得满分，是因为案例集中包含较多规则能够直接覆盖的典型
+表达；因此项目另外使用未参与规则开发的 48 条压力测试评估复杂输入下的鲁棒性。
 
 \subsection{创新性设计二：仅对情感通道进行保守纠错}
 
