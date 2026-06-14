@@ -32,6 +32,8 @@ ABLATION_METRICS = Path("outputs/reports/ablation_metrics.json")
 CONFUSION_MATRIX_CHART = Path("outputs/charts/confusion_matrix.png")
 BERT_CONFUSION_MATRIX_CHART = Path("outputs/charts/bert_confusion_matrix.png")
 APP_LOGO = "🎓"
+BRAND_NAME = "CourseInsight"
+BRAND_SUBTITLE = "面向课程评论的多语言智能分析系统"
 
 PAGE_OPTIONS = [
     "🏠 首页概览",
@@ -183,7 +185,7 @@ section[data-testid="stSidebar"] div {
 }
 
 .sidebar-brand {
-    padding: 0.25rem 0.35rem 1.05rem;
+    padding: 0.35rem 0.95rem 1.05rem;
     margin-bottom: 1rem;
     border-bottom: 1px solid rgba(255, 255, 255, 0.12);
 }
@@ -226,6 +228,147 @@ section[data-testid="stSidebar"] div {
     color: rgba(255, 255, 255, 0.56);
     font-size: 13px;
     line-height: 1.5;
+}
+
+.brand-block {
+    display: flex;
+    align-items: center;
+    gap: 0.8rem;
+    min-width: 0;
+}
+
+.brand-text {
+    min-width: 0;
+}
+
+.brand-title {
+    margin: 0;
+    font-weight: 800;
+    line-height: 1.12;
+    letter-spacing: 0.01em;
+}
+
+.brand-subtitle {
+    margin-top: 0.25rem;
+    line-height: 1.35;
+    font-weight: 600;
+}
+
+.brand-sidebar {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.55rem;
+    text-align: left;
+}
+
+.brand-sidebar .brand-text {
+    width: 100%;
+    text-align: left;
+}
+
+.brand-sidebar .brand-title {
+    color: #FFFFFF;
+    font-size: 20px;
+}
+
+.brand-sidebar .brand-subtitle {
+    max-width: 190px;
+    margin-left: 0;
+    margin-right: 0;
+    color: rgba(255, 255, 255, 0.76);
+    font-size: 11.5px;
+}
+
+.brand-hero {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.7rem;
+    text-align: left;
+}
+
+.brand-hero .brand-text {
+    width: 100%;
+    text-align: left;
+}
+
+.brand-hero .brand-title {
+    color: var(--text-main);
+    font-size: 32px;
+}
+
+.brand-hero .brand-subtitle {
+    color: var(--text-muted);
+    font-size: 15px;
+}
+
+.ci-logo {
+    --logo-size: 48px;
+    position: relative;
+    flex: 0 0 var(--logo-size);
+    width: var(--logo-size);
+    height: var(--logo-size);
+}
+
+.brand-sidebar .ci-logo {
+    --logo-size: 46px;
+}
+
+.brand-hero .ci-logo {
+    --logo-size: 58px;
+}
+
+.ci-logo-box {
+    position: absolute;
+    inset: 0;
+    overflow: hidden;
+    border: 1px solid rgba(205, 189, 255, 0.42);
+    border-radius: 24%;
+    background: rgba(255, 255, 255, 0.10);
+    box-shadow: none;
+    box-sizing: border-box;
+}
+
+.brand-hero .ci-logo-box {
+    border-color: rgba(86, 54, 211, 0.18);
+    background: linear-gradient(135deg, #FFFFFF 0%, #F5F2FF 100%);
+    box-shadow: 0 8px 18px rgba(86, 54, 211, 0.08);
+}
+
+.ci-logo-box::after,
+.ci-logo-box::before {
+    display: none;
+}
+
+.ci-monogram {
+    position: absolute;
+    inset: 0;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: calc(var(--logo-size) * 0.015);
+    padding-right: calc(var(--logo-size) * 0.02);
+    box-sizing: border-box;
+    font-family: "Arial Black", "Arial", "Microsoft YaHei", sans-serif;
+    font-size: calc(var(--logo-size) * 0.48);
+    font-weight: 900;
+    line-height: 1;
+    letter-spacing: calc(var(--logo-size) * -0.055);
+    transform: translateY(-1%);
+    user-select: none;
+}
+
+.ci-monogram span {
+    display: inline-block;
+    color: #5636D3 !important;
+}
+
+.ci-monogram-c {
+    color: inherit !important;
+}
+
+.ci-monogram-i {
+    color: inherit !important;
+    margin-left: calc(var(--logo-size) * 0.02);
 }
 
 section[data-testid="stSidebar"] div[role="radiogroup"] label[data-baseweb="radio"] > div:first-child,
@@ -358,7 +501,7 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] div[role="radiogroup"] 
 
 .hero-copy {
     max-width: 720px;
-    margin: 0.75rem 0 0;
+    margin: 0.8rem 0 0;
     color: var(--text-muted);
     font-size: 14px;
     line-height: 1.72;
@@ -613,7 +756,72 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] div[role="radiogroup"] 
 }
 
 .advice-card {
+    position: relative;
+    padding-top: 52px;
+}
+
+.advice-card {
     min-height: 202px;
+}
+
+.advice-card > .badge-row {
+    position: absolute;
+    top: 28px;
+    right: 28px;
+    margin: 0;
+}
+
+.advice-card > .badge-row .ui-badge {
+    font-size: 12px;
+    min-height: 20px;
+    padding: 0.08rem 0.42rem;
+}
+
+.advice-summary-card {
+    display: flex;
+    align-items: flex-start;
+    gap: 14px;
+    margin-bottom: 18px;
+    padding: 18px 20px;
+    border: 1px solid rgba(86, 54, 211, 0.18);
+    border-left: 4px solid var(--primary);
+    border-radius: var(--radius-card);
+    background: linear-gradient(135deg, #FFFFFF 0%, #F6F3FF 100%);
+    box-shadow: 0 8px 20px rgba(8, 12, 53, 0.06);
+}
+
+.advice-summary-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    flex: 0 0 32px;
+    width: 32px;
+    height: 32px;
+    border-radius: 10px;
+    background: var(--primary-soft);
+    color: var(--primary);
+    font-size: 16px;
+    font-weight: 800;
+}
+
+.advice-summary-content {
+    min-width: 0;
+}
+
+.advice-summary-meta {
+    margin-bottom: 6px;
+    color: var(--primary);
+    font-size: 13px;
+    font-weight: 800;
+    line-height: 1.35;
+}
+
+.advice-summary-card p {
+    margin: 0;
+    color: var(--text-main);
+    font-size: 15px;
+    line-height: 1.75;
+    font-weight: 500;
 }
 
 .advice-highlight {
@@ -653,14 +861,14 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] div[role="radiogroup"] 
 .ui-badge {
     display: inline-flex;
     align-items: center;
-    min-height: 24px;
-    padding: 0.16rem 0.55rem;
+    min-height: 20px;
+    padding: 0.08rem 0.42rem;
     border: 1px solid var(--border);
     border-radius: 999px;
     background: var(--card-bg);
     color: var(--text-muted);
-    font-size: 13px;
-    line-height: 1.4;
+    font-size: 12px;
+    line-height: 1.25;
     font-weight: 600;
 }
 
@@ -1014,6 +1222,22 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] div[role="radiogroup"] 
     .hero-card {
         grid-template-columns: 1fr;
     }
+
+    .brand-hero .ci-logo {
+        --logo-size: 50px;
+    }
+
+    .brand-hero .brand-title {
+        font-size: 26px;
+    }
+
+    .brand-hero .brand-subtitle {
+        font-size: 14px;
+    }
+
+    .hero-copy {
+        margin-left: 0;
+    }
 }
 </style>
 """
@@ -1027,6 +1251,26 @@ def escaped(value: object) -> str:
 
 def inject_css() -> None:
     st.html(APP_CSS)
+
+
+def courseinsight_logo_html() -> str:
+    return """
+    <div class="ci-logo" aria-hidden="true">
+        <div class="ci-logo-box"></div>
+        <div class="ci-monogram"><span class="ci-monogram-c">C</span><span class="ci-monogram-i">I</span></div>
+    </div>
+    """
+
+def courseinsight_brand_html(variant: str) -> str:
+    return f'''
+    <div class="brand-block brand-{escaped(variant)}">
+        {courseinsight_logo_html()}
+        <div class="brand-text">
+            <div class="brand-title">{escaped(BRAND_NAME)}</div>
+            <div class="brand-subtitle">{escaped(BRAND_SUBTITLE)}</div>
+        </div>
+    </div>
+    '''
 
 
 @st.cache_resource(show_spinner=False)
@@ -1225,7 +1469,7 @@ def render_hero() -> None:
         f"""
         <section class="hero-card">
             <div>
-                <h1 class="hero-title"><span class="hero-logo">{escaped(APP_LOGO)}</span>面向课程评论的多语言智能分析系统</h1>
+                {courseinsight_brand_html("hero")}
                 <p class="hero-copy">
                     面向课程评价文本，提供情感倾向识别、关键词抽取、问题维度定位与教学改进建议生成。
                 </p>
@@ -1327,16 +1571,13 @@ def render_shell() -> str:
     inject_css()
 
     st.sidebar.html(
-    """
-    <div class="sidebar-brand">
-        <div class="sidebar-brand-title">
-            <span>CourseInsight</span>
-            <span class="sidebar-brand-subtitle">面向课程评论的多语言智能分析系统</span>
+        f"""
+        <div class="sidebar-brand">
+            {courseinsight_brand_html("sidebar")}
         </div>
-    </div>
-    """
+        """
     )
-    page = st.sidebar.radio("页面导航", PAGE_OPTIONS, label_visibility="collapsed")
+    page = st.sidebar.radio(" ", PAGE_OPTIONS, label_visibility="collapsed")
     st.sidebar.html('<div class="sidebar-version">CourseInsight v2.0</div>')
     return page
 
@@ -1636,15 +1877,14 @@ def render_single_result(result: dict[str, Any]) -> None:
 
     render_section_title("教学改进建议")
     if isinstance(advice, dict):
-        risk_label = risk_status_text(advice.get("risk_level"))
-        risk_class = risk_badge_class(advice.get("risk_level"))
         st.html(
             f"""
-            <div class="analysis-summary-card advice-highlight">
-                <div class="badge-row">
-                    <span class="ui-badge accent">{escaped(advice_source_label(advice))}</span>
+            <div class="advice-summary-card">
+                <div class="advice-summary-icon">✦</div>
+                <div class="advice-summary-content">
+                    <div class="advice-summary-meta">大模型建议摘要</div>
+                    <p>{escaped(advice.get("summary", "本次建议未生成总结。"))}</p>
                 </div>
-                <p>{escaped(advice.get("summary", "本次建议未生成总结。"))}</p>
             </div>
             """
         )
@@ -1658,8 +1898,12 @@ def render_single_result(result: dict[str, Any]) -> None:
     else:
         st.html(
             """
-            <div class="analysis-summary-card advice-highlight">
-                <p>本次未启用建议生成。开启“生成改进建议”后，系统将结合评价内容给出可复核的教学建议。</p>
+            <div class="advice-summary-card">
+                <div class="advice-summary-icon">i</div>
+                <div class="advice-summary-content">
+                    <div class="advice-summary-meta">建议生成未启用</div>
+                    <p>开启“生成改进建议”后，系统将结合评价内容给出可复核的教学建议。</p>
+                </div>
             </div>
             """
         )
@@ -1766,12 +2010,26 @@ def sentiment_chart(sentiments: dict[str, int]) -> alt.Chart:
 def bar_chart(frame: pd.DataFrame, x_col: str, y_col: str, color: str = CHART_COLORS["primary"]) -> alt.Chart:
     if frame.empty:
         return alt.Chart(pd.DataFrame({x_col: [], y_col: []})).mark_bar()
+
+    frame = frame.copy()
+    frame[y_col] = pd.to_numeric(frame[y_col], errors="coerce").fillna(0)
+
+    if color == CHART_COLORS["accent"]:
+        color_range = ["#EFE8FF", "#B89AF8", CHART_COLORS["accent"]]
+    else:
+        color_range = ["#EFE8FF", "#9C7AF1", CHART_COLORS["primary"]]
+
     return (
         alt.Chart(frame)
-        .mark_bar(cornerRadiusEnd=4, color=color)
+        .mark_bar(cornerRadiusEnd=4)
         .encode(
             y=alt.Y(f"{x_col}:N", sort="-x", title=None),
             x=alt.X(f"{y_col}:Q", title=None),
+            color=alt.Color(
+                f"{y_col}:Q",
+                scale=alt.Scale(range=color_range),
+                legend=None,
+            ),
             tooltip=[alt.Tooltip(f"{x_col}:N"), alt.Tooltip(f"{y_col}:Q")],
         )
         .properties(height=max(220, 30 * len(frame)))
@@ -1996,7 +2254,7 @@ def render_batch_results(rows: list[dict[str, str]], results: list[dict[str, Any
                     width="stretch",
                     column_config={
                         "评价文本": st.column_config.TextColumn("评价文本", width="large"),
-                        "置信度": st.column_config.ProgressColumn("置信度", min_value=0, max_value=1, format="%.2f"),
+                        "置信度": st.column_config.NumberColumn("置信度", format="%.2f"),
                     },
                 )
 
@@ -2009,7 +2267,7 @@ def render_batch_results(rows: list[dict[str, str]], results: list[dict[str, Any
             width="stretch",
             column_config={
                 "评价文本": st.column_config.TextColumn("评价文本", width="large"),
-                "置信度": st.column_config.ProgressColumn("置信度", min_value=0, max_value=1, format="%.2f"),
+                "置信度": st.column_config.NumberColumn("置信度", format="%.2f"),
             },
         )
         st.download_button(
@@ -2173,6 +2431,49 @@ def confusion_matrix_frame(metrics: dict[str, Any]) -> pd.DataFrame:
     return pd.DataFrame(matrix, index=readable_labels, columns=readable_labels)
 
 
+def confusion_matrix_chart(matrix_frame: pd.DataFrame) -> alt.Chart:
+    if matrix_frame.empty:
+        return alt.Chart(pd.DataFrame(columns=["真实类别", "预测类别", "数量"])).mark_rect()
+
+    display_frame = matrix_frame.reset_index().rename(columns={"index": "真实类别"})
+    long_frame = display_frame.melt(
+        id_vars="真实类别",
+        var_name="预测类别",
+        value_name="数量",
+    )
+    long_frame["数量"] = pd.to_numeric(long_frame["数量"], errors="coerce").fillna(0)
+    label_order = list(matrix_frame.index)
+    max_value = float(long_frame["数量"].max()) if not long_frame.empty else 0.0
+    text_threshold = max_value * 0.58
+
+    base = alt.Chart(long_frame).encode(
+        x=alt.X("预测类别:N", title="预测类别", sort=list(matrix_frame.columns)),
+        y=alt.Y("真实类别:N", title="真实类别", sort=label_order),
+    )
+    heatmap = base.mark_rect(cornerRadius=6).encode(
+        color=alt.Color(
+            "数量:Q",
+            scale=alt.Scale(range=["#F7F4FF", "#B89AF8", CHART_COLORS["primary"]]),
+            legend=alt.Legend(title="数量"),
+        ),
+        tooltip=["真实类别:N", "预测类别:N", alt.Tooltip("数量:Q", format=".0f")],
+    )
+    labels = base.mark_text(fontSize=16, fontWeight="bold").encode(
+        text=alt.Text("数量:Q", format=".0f"),
+        color=alt.condition(
+            alt.datum.数量 > text_threshold,
+            alt.value("#FFFFFF"),
+            alt.value("#080C35"),
+        ),
+    )
+    return (
+        (heatmap + labels)
+        .properties(height=320)
+        .configure_axis(labelColor=CHART_COLORS["muted"], titleColor=CHART_COLORS["muted"])
+        .configure_view(strokeWidth=0)
+    )
+
+
 def model_metric_chart(frame: pd.DataFrame) -> alt.Chart:
     if frame.empty:
         return alt.Chart(pd.DataFrame(columns=["模型", "指标", "分数"])).mark_bar()
@@ -2248,22 +2549,16 @@ def page_model_eval() -> None:
     model_metrics = load_json_file(str(MODEL_METRICS))
     with left:
         with st.container(border=True):
-            render_card_title("混淆矩阵", "用于观察不同情感类别之间的识别情况。")
+            render_card_title("混淆矩阵", "展示不同情感类别之间的识别情况。")
             current_matrix = confusion_matrix_frame(metrics)
-            if model_name == "BERT" and not current_matrix.empty:
-                st.caption("BERT 混淆矩阵")
-                st.dataframe(current_matrix, width="stretch")
-            elif model_name == "BERT" and BERT_CONFUSION_MATRIX_CHART.exists():
-                st.image(str(BERT_CONFUSION_MATRIX_CHART), caption="BERT 混淆矩阵", width="stretch")
-            elif CONFUSION_MATRIX_CHART.exists():
-                st.image(str(CONFUSION_MATRIX_CHART), caption="模型评估混淆矩阵", width="stretch")
+            fallback_matrix = confusion_matrix_frame(model_metrics)
+            matrix_to_show = current_matrix if not current_matrix.empty else fallback_matrix
+            if matrix_to_show.empty:
+                st.info("缺少评估文件：当前未找到可展示的混淆矩阵。")
             else:
-                fallback_matrix = confusion_matrix_frame(model_metrics)
-                if model_name == "BERT" or fallback_matrix.empty:
-                    st.info("缺少评估文件：当前未找到 BERT 混淆矩阵。")
-                else:
-                    st.caption("传统模型混淆矩阵（对比）")
-                    st.dataframe(fallback_matrix, width="stretch")
+                caption = f"{model_name} 混淆矩阵" if not current_matrix.empty else "传统模型混淆矩阵（对比）"
+                st.caption(caption)
+                st.altair_chart(confusion_matrix_chart(matrix_to_show), width="stretch")
     with right:
         with st.container(border=True):
             render_card_title("分类报告", "展示不同情感类别下的识别表现。")
