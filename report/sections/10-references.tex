@@ -3,6 +3,9 @@
 
 \begingroup
 \raggedright
+\newcommand{\weburl}[1]{%
+  \href{https://#1}{\mbox{\texttt{https://}}\nolinkurl{#1}}%
+}
 \begin{enumerate}[label={[\arabic*]},leftmargin=3em]
   \item Devlin J, Chang M W, Lee K, Toutanova K. BERT: Pre-training of Deep
         Bidirectional Transformers for Language Understanding[C].
@@ -18,15 +21,15 @@
   \newpage
   \item Hugging Face. MungunshagaiT/coursera-reviews Dataset[EB/OL].
         [2026-06-14].
-        \url{https://huggingface.co/datasets/MungunshagaiT/coursera-reviews}.
+        \weburl{huggingface.co/datasets/MungunshagaiT/coursera-reviews}.
   \item Streamlit Documentation[EB/OL].
         [2026-06-14].
-        \url{https://docs.streamlit.io/}.
+        \weburl{docs.streamlit.io/}.
   \item PyTorch Documentation[EB/OL].
         [2026-06-14].
-        \url{https://pytorch.org/docs/stable/}.
+        \weburl{pytorch.org/docs/stable/}.
   \item jieba 中文分词项目[EB/OL].
         [2026-06-14].
-        \url{https://github.com/fxsjy/jieba}.
+        \weburl{github.com/fxsjy/jieba}.
 \end{enumerate}
 \endgroup

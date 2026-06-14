@@ -48,8 +48,8 @@
   \label{fig:bert-training-process}
 \end{figure}
 
-图~\ref{fig:bert-training-loss} 显示训练损失在两个 Epoch 内总体下降，说明模型逐渐拟合课程评价
-情感分类任务。图~\ref{fig:bert-validation-metrics} 显示验证集 Accuracy 从 0.7003 提升至
+图~\ref{fig:bert-training-process}(a) 显示训练损失在两个 Epoch 内总体下降，说明模型逐渐拟合
+课程评价情感分类任务。图~\ref{fig:bert-training-process}(b) 显示验证集 Accuracy 从 0.7003 提升至
 0.7230，Macro-F1 从 0.7039 提升至 0.7225。第二轮训练仍带来稳定增益，但验证损失未同步明显
 下降，因此当前训练轮数保持为 2，以控制过拟合风险和训练成本。
 
@@ -82,12 +82,12 @@
     \caption{分类别通过数}
     \label{fig:stress-test-categories}
   \end{subfigure}
-  \caption{独立压力测试中不同方法的整体性能与分类别通过率。压力测试共 48 条，覆盖缩写、拼写、
-  否定、讽刺、隐含抱怨、中英混合、长文本和混合情感，每类 6 条}
+  \caption{独立压力测试中不同方法的整体性能与分类别通过率}
   \label{fig:stress-test-visualization}
 \end{figure}
 
-图~\ref{fig:stress-test-visualization} 表明，混合流程在 48 条独立压力测试上的 Accuracy 和
+压力测试共 48 条，覆盖缩写、拼写、否定、讽刺、隐含抱怨、中英混合、长文本和混合情感，
+每类 6 条。图~\ref{fig:stress-test-visualization} 表明，混合流程在独立压力测试上的 Accuracy 和
 Macro-F1 均明显高于三个单独模块。其优势主要集中在缩写、拼写错误、否定、中英混合和长文本
 场景：中英混合通过 6/6，缩写、拼写、否定和长文本均通过 5/6。相较 BERT 单模块，完整流程的
 Accuracy 从 54.2\% 提升至 70.8\%，Macro-F1 从 54.2\% 提升至 72.2\%。另一方面，讽刺仅通过
