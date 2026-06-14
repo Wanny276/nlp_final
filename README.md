@@ -1,6 +1,6 @@
-# CourseInsight：中英双语课程评价智能分析系统
+# CourseInsight：面向课程评论的中英双语智能分析系统
 
-CourseInsight 是一个面向高校课程评价场景的自然语言处理应用。系统支持中文、英文和中英混合评价，
+CourseInsight 是一个面向高校课程评论场景的自然语言处理应用。系统支持中文、英文和中英混合评价，
 可以完成情感分类、课程维度识别、关键词提取、证据定位、相似评价检索、批量统计和教学建议生成。
 
 情感分析采用分层混合流程：优先使用微调后的 multilingual BERT，结合否定、转折、建议型表达和
@@ -9,9 +9,9 @@ CourseInsight 是一个面向高校课程评价场景的自然语言处理应用
 
 ## 当前状态
 
-- Streamlit 系统可以运行单条分析、批量分析、固定案例验证和系统信息四个页面。
+- Streamlit 系统包含首页概览、单条分析、批量分析、固定案例验证和模型评估五个页面。
 - 传统模型、BERT、规则校正、自动回退和长文本滑动窗口均已集成。
-- 12 条固定业务案例、48 条独立压力测试和 50 项自动化测试均已建立。
+- 12 条固定案例、48 条独立压力测试和自动化测试均已建立。
 - LaTeX 期末报告已完成，最新版位于 `report/main.pdf`，共 28 页 A4。
 - 报告已包含目录、系统架构图、数据流图、实验图表、消融实验、真实界面截图、部署测试和贡献度。
 - 小组成员为王佳妮、柯文丽，贡献度各 50%。
@@ -20,8 +20,8 @@ CourseInsight 是一个面向高校课程评价场景的自然语言处理应用
 
 - **单条评价分析**：输出语言、情感、置信度、模型来源、课程维度、关键词、原文证据、相似评价和教学建议。
 - **CSV 批量分析**：支持常见评价字段，展示情感分布、课程维度、高频关键词和逐条结果，并可下载明细。
-- **固定案例验证**：一键运行 12 条中英文案例，显示预期值、实际值和通过情况。
-- **模型与系统信息**：展示传统模型、BERT、分类报告、混淆矩阵、消融实验和当前运行后端。
+- **固定案例验证**：一键运行 12 条中英文固定案例，显示预期值、实际值和通过情况。
+- **模型评估**：展示传统模型、BERT、分类报告、混淆矩阵、消融实验和当前运行后端。
 - **噪声文本处理**：展开英文缩写，收缩重复字母，并仅对高置信度情感词执行保守拼写纠错。
 - **长文本推理**：使用带重叠的滑动窗口处理长评价，并按有效 Token 数加权聚合概率。
 - **结构化建议生成**：LLM 只整理已识别的情感、维度和证据；服务异常时自动使用本地模板。
@@ -74,7 +74,7 @@ streamlit run app.py
 python -m unittest discover -s tests
 ```
 
-当前测试集共 50 项，最近一次完整运行全部通过。
+自动化测试覆盖核心流程，提交前请以实际运行结果为准。
 
 ## 环境配置
 
@@ -91,7 +91,8 @@ BERT_MAX_CHUNKS=16
 ```
 
 `SENTIMENT_BACKEND` 可设为 `auto`、`bert`、`tfidf` 或 `rule`。`auto` 会按照
-BERT、TF-IDF、规则的顺序自动降级。`BERT_DEVICE=auto` 会优先使用 CUDA，没有 GPU 时使用 CPU。
+BERT、TF-IDF、规则的顺序自动降级。`bert` 表示优先尝试 BERT；如果 BERT 权重、依赖或设备不可用，
+系统仍会安全降级，并在模型评估页展示实际运行后端。`BERT_DEVICE=auto` 会优先使用 CUDA，没有 GPU 时使用 CPU。
 
 仓库保留 BERT 配置、Tokenizer 和指标文件，但约 711 MB 的 `model.safetensors` 不提交到 Git。
 队友运行最终模型时，需要将权重单独放入 `outputs/bert_model_final/`，并设置上述
@@ -118,7 +119,7 @@ LLM_TIMEOUT=20
 |---|---:|---|
 | Coursera 英文课程评论 | 9000 条，每类 3000 条 | 模型训练与量化评估 |
 | 中文课程评价 | 120 条，每类 40 条 | 双语训练、中文流程验证和演示 |
-| 固定业务案例 | 12 条 | 功能验证与课堂演示 |
+| 固定案例 | 12 条 | 演示流程验证与关键业务场景验证 |
 | 独立压力测试 | 48 条，每类场景 6 条 | 复杂表达和鲁棒性评估 |
 
 BERT 训练固定拆分为 5472 条训练集、1368 条验证集和 2280 条测试集。验证集用于选择最佳
@@ -170,27 +171,27 @@ python -m src.train_bert --data data/processed/bilingual_reviews_train.csv --mod
 
 ## 消融实验
 
-运行 12 条固定业务案例：
+运行 12 条固定案例：
 
 ```powershell
-python scripts\run_ablation_experiment.py --cases data\test_cases.csv --output-dir outputs\reports --model-dir models
+python scripts\run_ablation_experiment.py --cases data\test_cases.csv --output-dir outputs\reports\final_model --model-dir models
 ```
 
 | 实验版本 | Accuracy | Macro-F1 | 通过数 |
 |---|---:|---:|---:|
 | rule-only | 1.0000 | 1.0000 | 12/12 |
 | model-only（TF-IDF） | 0.5833 | 0.5424 | 7/12 |
-| bert-only | 0.8333 | 0.8197 | 10/12 |
+| bert-only | 0.9167 | 0.9221 | 11/12 |
 | hybrid | **1.0000** | **1.0000** | **12/12** |
 
-固定案例用于验证功能和准备演示，其中包含较多规则能够覆盖的典型表达，因此不能用 12/12
-替代独立泛化结论。
+固定案例用于验证演示流程和关键业务场景，其中包含较多规则能够覆盖的典型表达，因此不能用 12/12
+替代独立泛化能力结论。
 
 输出文件：
 
 ```text
-outputs/reports/ablation_metrics.json
-outputs/reports/ablation_errors.csv
+outputs/reports/final_model/ablation_metrics.json
+outputs/reports/final_model/ablation_errors.csv
 ```
 
 ## 独立压力测试
@@ -266,5 +267,3 @@ Set-Location report
 - `data/raw/`
 - BERT 的 `model.safetensors`、运行时压缩包和其他超大文件
 - `.venv/`、`__pycache__/`、测试临时文件和编辑器缓存
-
-课程要求的 PPT、10 分钟现场演示流程和演示视频需要作为独立材料准备，目前不在仓库中。

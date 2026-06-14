@@ -370,6 +370,18 @@ def bert_status(config: BertConfig | None = None) -> dict[str, Any]:
         for filename in ("tokenizer.json", "vocab.txt", "sentencepiece.bpe.model")
     )
     model_available = config_available and weights_available and tokenizer_available
+    device_error = None
+    if config.device not in {"auto", "cpu", "cuda"}:
+        device_error = "BERT_DEVICE must be auto, cpu, or cuda"
+    elif config.device == "cuda" and dependencies_available:
+        try:
+            import torch
+
+            if not torch.cuda.is_available():
+                device_error = "BERT_DEVICE=cuda but CUDA is not available"
+        except Exception as exc:
+            device_error = f"{exc.__class__.__name__}: {exc}"
+    error = device_error or _PREDICTOR_ERROR
     return {
         "model_path": str(config.model_path),
         "model_available": model_available,
@@ -377,14 +389,14 @@ def bert_status(config: BertConfig | None = None) -> dict[str, Any]:
         "ready": (
             model_available
             and dependencies_available
-            and _PREDICTOR_ERROR is None
+            and error is None
         ),
         "loaded": _PREDICTOR is not None and _PREDICTOR_KEY == _config_key(config),
         "device": _PREDICTOR.device if _PREDICTOR is not None else config.device,
         "max_length": config.max_length,
         "stride": config.stride,
         "max_chunks": config.max_chunks,
-        "error": _PREDICTOR_ERROR,
+        "error": error,
     }
 
 

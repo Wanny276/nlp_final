@@ -7,7 +7,7 @@ from pathlib import Path
 
 
 REQUIRED_TEXT_COLUMN = "text"
-TEXT_COLUMN_CANDIDATES = ("text", "review", "reviews", "comment", "content", "评价", "评论")
+TEXT_COLUMN_CANDIDATES = ("review_text", "text", "review", "reviews", "comment", "content", "评价", "评论")
 COURSE_COLUMN_CANDIDATES = ("course", "course_title", "course_name", "课程")
 TEACHER_COLUMN_CANDIDATES = ("teacher", "instructor", "讲师", "教师")
 RATING_COLUMN_CANDIDATES = ("rating", "stars", "score", "评分")
@@ -50,7 +50,7 @@ def load_reviews_csv(path: str | Path) -> list[dict[str, str]]:
 
         text_column = _find_column(reader.fieldnames, TEXT_COLUMN_CANDIDATES)
         if text_column is None:
-            raise ValueError("CSV 必须包含以下文本列之一：text, review, reviews, comment, content")
+            raise ValueError("CSV 必须包含以下文本列之一：review_text, text, review, reviews, comment, content")
 
         course_column = _find_column(reader.fieldnames, COURSE_COLUMN_CANDIDATES)
         teacher_column = _find_column(reader.fieldnames, TEACHER_COLUMN_CANDIDATES)

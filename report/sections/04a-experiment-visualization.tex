@@ -56,22 +56,14 @@
 \begin{figure}[H]
   \centering
   \includegraphics[width=0.90\textwidth]{ablation_results.png}
-  \caption{固定业务案例演示集消融结果}
+  \caption{固定案例演示集消融结果}
   \label{fig:ablation-visualization}
 \end{figure}
 
-<<<<<<< HEAD
 为验证各模块的实际作用，项目分别运行纯规则、TF-IDF、BERT 和完整混合流程。图~\ref{fig:ablation-visualization} 显示，
 TF-IDF 单模块通过 7/12，BERT 单模块通过 11/12，而完整流程通过 12/12。纯规则同样在这组固定案例上达到满分，是因为案例中
 包含较多规则能够直接覆盖的典型表达；因此项目进一步使用未参与规则开发的独立压力测试检验泛化能力，而不把固定案例满分直接解释为
 规则模型性能更强。
-=======
-为验证各模块的实际作用，项目分别运行纯规则、TF-IDF、BERT 和完整混合流程。图
-~\ref{fig:ablation-visualization} 显示，TF-IDF 单模块通过 7/12，BERT 单模块通过 10/12，
-而完整流程通过 12/12。纯规则同样在这组固定案例上达到满分，是因为案例中包含较多规则能够直接
-覆盖的典型表达。\textbf{固定业务案例主要用于验证课堂演示流程，不作为泛化性能结论。}为避免
-规则模型满分造成误解，项目进一步使用未参与规则开发的 48 条独立压力测试检验复杂输入下的表现。
->>>>>>> main
 
 \begin{figure}[H]
   \centering

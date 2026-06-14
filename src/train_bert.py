@@ -114,7 +114,7 @@ def train_bert(
     data_path: str | Path = "data/processed/bilingual_reviews_train.csv",
     model_name: str = "bert-base-multilingual-cased",
     output_dir: str | Path = "outputs/bert_model_final",
-    metrics_path: str | Path = "outputs/bert_metrics.json",
+    metrics_path: str | Path = "outputs/bert_metrics_final.json",
     epochs: float = 2.0,
     batch_size: int = 8,
     max_length: int = 160,
@@ -306,7 +306,7 @@ def build_parser() -> argparse.ArgumentParser:
     parser.add_argument("--data", default="data/processed/bilingual_reviews_train.csv")
     parser.add_argument("--model-name", default="bert-base-multilingual-cased")
     parser.add_argument("--output-dir", default="outputs/bert_model_final")
-    parser.add_argument("--metrics-path", default="outputs/bert_metrics.json")
+    parser.add_argument("--metrics-path", default="outputs/bert_metrics_final.json")
     parser.add_argument("--epochs", type=float, default=2.0)
     parser.add_argument("--batch-size", type=int, default=8)
     parser.add_argument("--max-length", type=int, default=160)

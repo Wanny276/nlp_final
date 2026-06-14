@@ -20,6 +20,11 @@ outputs/bert_model/
 outputs/bert_model_final/**/model.safetensors
 outputs/bert_model_final_runtime.zip
 
+# 运行日志
+outputs/streamlit-run*.log
+outputs/reports/report_streamlit*.log
+debug.log
+
 # 测试生成的临时产物
 outputs/reports/test_*
 

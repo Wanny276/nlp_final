@@ -123,7 +123,7 @@ def _error_rows(
 
 def run_ablation(
     cases: pd.DataFrame,
-    output_dir: str | Path = "outputs/reports",
+    output_dir: str | Path = "outputs/reports/final_model",
     model_dir: str | Path = "models",
 ) -> dict[str, Any]:
     """运行消融实验并写入指标和错误样例文件。"""
@@ -219,7 +219,7 @@ def run_ablation(
 def main() -> None:
     parser = ChineseArgumentParser(description="运行情感分类消融实验")
     parser.add_argument("--cases", default="data/test_cases.csv")
-    parser.add_argument("--output-dir", default="outputs/reports")
+    parser.add_argument("--output-dir", default="outputs/reports/final_model")
     parser.add_argument("--model-dir", default="models")
     args = parser.parse_args()
 

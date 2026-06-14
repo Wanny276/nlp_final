@@ -11,19 +11,19 @@
 
 \subsubsection{批量 CSV 分析}
 
-系统支持上传包含 \code{text}、\code{review} 等常见文本字段的 CSV 文件。批量分析使用向量化
+系统支持上传包含 \code{review_text}、\code{text}、\code{review} 等常见文本字段的 CSV 文件。批量分析使用向量化
 或批处理推理，输出有效评价数量、正负面占比、主要课程维度、高频关键词和逐条分析明细，并支持
 下载结果 CSV。该功能适合期末集中评价或问卷开放题的快速整理。
 
 \subsubsection{固定案例验证}
 
-测试验证页面读取 \code{data/test_cases.csv} 中的 12 条固定案例，一键执行完整 NLP 流程，并
+固定案例验证页面读取 \code{data/test_cases.csv} 中的 12 条固定案例，一键执行完整 NLP 流程，并
 同时比较情感标签和课程维度是否符合预期。页面给出通过数量、失败数量、总通过率和逐条结果，
 可作为课堂演示中的稳定案例。
 
-\subsubsection{模型与系统信息}
+\subsubsection{模型评估}
 
-系统信息页面展示传统分类器对比、BERT 指标、混淆矩阵、分语言结果和消融实验。页面同时报告
+模型评估页面展示传统分类器对比、BERT 指标、混淆矩阵、分语言结果和消融实验。页面同时报告
 当前实际启用的情感后端与 LLM 状态，便于演示时解释系统是在使用 BERT、TF-IDF 还是规则兜底。
 
 \subsection{功能模块划分}
@@ -38,7 +38,7 @@
     模块 & 主要文件 & 功能说明 \\
     \midrule
     前端交互 & \code{app.py} &
-    提供单条分析、批量分析、测试验证和系统信息四个页面 \\
+    提供首页概览、单条分析、批量分析、固定案例验证和模型评估五个页面 \\
     文本预处理 & \code{preprocess.py}、\code{sentiment_normalizer.py} &
     语言识别、文本清洗、双语分词、缩写展开和受限拼写纠错 \\
     情感分析 & \code{bert_sentiment.py}、\code{nlp_analyzer.py} &

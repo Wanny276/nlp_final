@@ -3,6 +3,8 @@ import logging
 import os
 import subprocess
 import sys
+import types
+from io import BytesIO
 from pathlib import Path
 from unittest.mock import patch
 
@@ -21,6 +23,7 @@ from app import (
     BERT_METRICS,
     PAGE_OPTIONS,
     SAMPLE_REVIEWS,
+    TEST_CASES,
     advice_card_html,
     classification_report_frame,
     collect_dimension_scores,
@@ -33,9 +36,12 @@ from app import (
     model_metric_chart,
     model_comparison_frame,
     normalize_dataframe,
+    parse_expected_topics,
     rating_summary_frame,
+    read_uploaded_csv,
     result_rows,
     sentiment_score,
+    test_case_result_row,
     validate_single_analysis_result,
 )
 from scripts.run_ablation_experiment import run_ablation
@@ -645,14 +651,14 @@ class CorePipelineTest(unittest.TestCase):
         mock_call.return_value = {
             "summary": "建议调整作业安排。",
             "problems": [],
-                    "suggestions": [
-                        {
-                            "aspect": "作业任务",
-                            "suggestion": "适当减少作业量。",
-                            "evidence": "作业太多了，每周都做不完，希望能适当减少。",
-                            "action_type": "improve",
-                        }
-                    ],
+            "suggestions": [
+                {
+                    "aspect": "作业任务",
+                    "suggestion": "适当减少作业量。",
+                    "evidence": "作业太多了，每周都做不完，希望能适当减少。",
+                    "action_type": "improve",
+                }
+            ],
             "risk_level": "middle",
         }
 
@@ -769,12 +775,14 @@ class CorePipelineTest(unittest.TestCase):
         self.assertEqual(set(sampled["label"]), {"negative", "neutral", "positive"})
         self.assertTrue(output_path.exists())
 
-    def test_frontend_navigation_is_limited_to_four_course_demo_pages(self):
+    def test_frontend_navigation_is_limited_to_five_course_demo_pages(self):
         page_names = [option[2:] for option in PAGE_OPTIONS]
 
-        self.assertEqual(page_names, ["首页概览", "单条分析", "批量分析", "模型评估"])
+        self.assertEqual(page_names, ["首页概览", "单条分析", "批量分析", "固定案例验证", "模型评估"])
         self.assertNotIn("系统设置", "".join(PAGE_OPTIONS))
         self.assertNotIn("数据管理", "".join(PAGE_OPTIONS))
+        self.assertNotIn("系统信息", "".join(PAGE_OPTIONS))
+        self.assertEqual(TEST_CASES, Path("data/test_cases.csv"))
 
     def test_detail_and_advice_cards_use_adaptive_layout(self):
         self.assertIn(
@@ -792,9 +800,9 @@ class CorePipelineTest(unittest.TestCase):
 
     def test_single_analysis_examples_cover_chinese_english_and_mixed_reviews(self):
         self.assertEqual(list(SAMPLE_REVIEWS), ["中文评价", "英文评价", "中英混合"])
-        self.assertIn("课堂互动", SAMPLE_REVIEWS["中文评价"])
-        self.assertIn("feedback often comes late", SAMPLE_REVIEWS["英文评价"])
-        self.assertIn("guidance 不够详细", SAMPLE_REVIEWS["中英混合"])
+        self.assertIn("知识点组织", SAMPLE_REVIEWS["中文评价"])
+        self.assertIn("deadlines are stressful", SAMPLE_REVIEWS["英文评价"])
+        self.assertIn("final project 有点赶", SAMPLE_REVIEWS["中英混合"])
 
     def test_single_analysis_result_validation_requires_real_backend_fields_not_score(self):
         validate_single_analysis_result(
@@ -852,6 +860,33 @@ class CorePipelineTest(unittest.TestCase):
         self.assertEqual(rows[0]["review_text"], "作业反馈有点慢")
         self.assertEqual(rows[0]["course_name"], "未提供")
         self.assertEqual(rows[0]["teacher"], "未提供")
+
+    def test_uploaded_csv_tries_common_encodings(self):
+        uploaded = BytesIO("review_text\n老师讲解清楚\n".encode("gb18030"))
+
+        frame = read_uploaded_csv(uploaded)
+
+        self.assertEqual(frame.loc[0, "review_text"], "老师讲解清楚")
+
+    def test_fixed_case_topics_use_subset_rule(self):
+        self.assertEqual(parse_expected_topics("教学内容;考试安排；作业任务"), {"教学内容", "考试安排", "作业任务"})
+        row = test_case_result_row(
+            1,
+            {
+                "id": "T1",
+                "text": "课程内容不错，但是考试范围不太明确",
+                "expected_sentiment": "neutral",
+                "expected_topics": "教学内容;考试安排",
+            },
+            {
+                "sentiment": "neutral",
+                "topics": ["教学内容", "考试安排", "作业任务"],
+                "topic_evidence": [],
+            },
+        )
+
+        self.assertEqual(row["是否通过"], "通过")
+        self.assertEqual(row["维度正确"], "是")
 
     def test_find_column_returns_none_when_required_text_column_missing(self):
         self.assertIsNone(find_column(["course_name", "rating"], ("review_text", "text")))
@@ -943,7 +978,7 @@ class CorePipelineTest(unittest.TestCase):
         frame = model_comparison_frame()
 
         self.assertEqual(set(frame["模型"]), {"Logistic Regression", "BERT"})
-        self.assertEqual(set(frame["模型类型"]), {"对比模型", "当前主模型"})
+        self.assertEqual(set(frame["模型类型"]), {"对比模型", "最终实验主模型"})
         self.assertEqual(display_model_name("linear_svm"), "Linear SVM")
         self.assertEqual(BERT_METRICS, Path("outputs/bert_metrics_final.json"))
         self.assertEqual(
@@ -1172,6 +1207,25 @@ class CorePipelineTest(unittest.TestCase):
 
         self.assertFalse(status["model_available"])
         self.assertFalse(status["ready"])
+
+    def test_bert_status_marks_cuda_unavailable(self):
+        model_path = Path("outputs/reports/test_bert_status_cuda")
+        model_path.mkdir(parents=True, exist_ok=True)
+        for filename in ("config.json", "model.safetensors", "tokenizer.json"):
+            (model_path / filename).write_text("{}", encoding="utf-8")
+        fake_torch = types.SimpleNamespace(
+            cuda=types.SimpleNamespace(is_available=lambda: False)
+        )
+
+        with (
+            patch("src.bert_sentiment.find_spec", return_value=object()),
+            patch.dict(sys.modules, {"torch": fake_torch}),
+        ):
+            status = bert_status(BertConfig(model_path=model_path, device="cuda"))
+
+        self.assertTrue(status["model_available"])
+        self.assertFalse(status["ready"])
+        self.assertIn("CUDA is not available", status["error"])
 
 
 if __name__ == "__main__":

@@ -5,6 +5,8 @@ from __future__ import annotations
 import hashlib
 import html
 import json
+import re
+from io import BytesIO
 from pathlib import Path
 from typing import Any
 
@@ -26,17 +28,19 @@ from src.topic_analyzer import TOPIC_KEYWORDS
 
 
 SAMPLE_DATA = Path("data/sample_reviews.csv")
+TEST_CASES = Path("data/test_cases.csv")
 MODEL_METRICS = Path("models/model_metrics.json")
 BERT_METRICS = Path("outputs/bert_metrics_final.json")
 ABLATION_METRICS = Path("outputs/reports/final_model/ablation_metrics.json")
 APP_LOGO = "🎓"
 BRAND_NAME = "CourseInsight"
-BRAND_SUBTITLE = "面向课程评论的多语言智能分析系统"
+BRAND_SUBTITLE = "面向课程评论的中英双语智能分析系统"
 
 PAGE_OPTIONS = [
     "🏠 首页概览",
     "📄 单条分析",
     "📊 批量分析",
+    "✅ 固定案例验证",
     "🧠 模型评估",
 ]
 
@@ -1092,6 +1096,14 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] div[role="radiogroup"] 
     border-left: 4px solid var(--danger) !important;
 }
 
+.notice-card.success {
+    border-left: 4px solid var(--success) !important;
+}
+
+.notice-card.danger {
+    border-left: 4px solid var(--danger) !important;
+}
+
 .progress-track {
     height: 8px;
     overflow: hidden;
@@ -1322,6 +1334,11 @@ def load_sample_rows() -> list[dict[str, str]]:
 
 
 @st.cache_data(show_spinner=False)
+def load_test_case_frame(path: str) -> pd.DataFrame:
+    return pd.read_csv(path, encoding="utf-8-sig")
+
+
+@st.cache_data(show_spinner=False)
 def llm_is_configured(env_version: int) -> bool:
     del env_version
     return bool(LLMConfig.from_env().api_key)
@@ -1416,6 +1433,33 @@ def display_model_name(name: object) -> str:
     if "bert" in normalized:
         return "BERT"
     return text or "缺少数据"
+
+
+def backend_display_name(name: object) -> str:
+    normalized = str(name or "").strip().lower()
+    labels = {
+        "auto": "auto（自动选择）",
+        "bert": "BERT",
+        "tfidf": "TF-IDF",
+        "rule": "规则",
+    }
+    return labels.get(normalized, str(name or "未知"))
+
+
+def bert_runtime_status_label(bert: dict[str, Any]) -> str:
+    if not bert.get("dependencies_available"):
+        return "依赖不可用"
+    if bert.get("error"):
+        return "不可用"
+    if bert.get("ready"):
+        return "已就绪"
+    if not bert.get("model_available"):
+        return "权重未就绪"
+    return "待加载"
+
+
+def tfidf_runtime_status_label(available: object) -> str:
+    return "已就绪" if available else "不可用"
 
 
 def active_model_short_label() -> str:
@@ -1578,7 +1622,7 @@ def render_progress(value: float, tone: str = "") -> None:
 
 def render_shell() -> str:
     st.set_page_config(
-        page_title="面向课程评论的多语言智能分析系统",
+        page_title="面向课程评论的中英双语智能分析系统",
         page_icon=APP_LOGO,
         layout="wide",
         initial_sidebar_state="expanded",
@@ -1723,10 +1767,89 @@ def normalize_project_rows(rows: list[dict[str, str]]) -> list[dict[str, str]]:
     return normalized
 
 
+def read_uploaded_csv(uploaded_file: Any) -> pd.DataFrame:
+    data = uploaded_file.getvalue()
+    for encoding in ("utf-8-sig", "utf-8", "gb18030"):
+        try:
+            return pd.read_csv(BytesIO(data), encoding=encoding)
+        except UnicodeDecodeError:
+            continue
+        except Exception as exc:
+            raise ValueError("CSV 读取失败，请确认文件包含表头和规范的逗号分隔内容。") from exc
+    raise ValueError("CSV 读取失败，请确认文件编码为 UTF-8 或 GB18030，并包含评价文本字段。")
+
+
 def load_uploaded_rows(uploaded_file: Any) -> list[dict[str, str]]:
-    uploaded_file.seek(0)
-    df = pd.read_csv(uploaded_file)
+    df = read_uploaded_csv(uploaded_file)
     return normalize_dataframe(df)
+
+
+def parse_expected_topics(value: object) -> set[str]:
+    if value is None or pd.isna(value):
+        return set()
+    return {
+        item.strip()
+        for item in re.split(r"[;；]", str(value or ""))
+        if item.strip()
+    }
+
+
+def display_topics(topics: list[str] | set[str]) -> str:
+    values = [str(topic).strip() for topic in topics if str(topic).strip()]
+    return "、".join(values) if values else "未识别"
+
+
+def sentiment_display(label: object) -> str:
+    text = str(label or "").strip()
+    return SENTIMENT_LABELS.get(text, text or "未识别")
+
+
+def extract_actual_topics(result: dict[str, Any]) -> list[str]:
+    topics = result.get("topics")
+    if isinstance(topics, list):
+        values = [str(topic).strip() for topic in topics if str(topic).strip()]
+        if values:
+            return values
+    evidence_topics = [
+        str(item.get("aspect", "")).strip()
+        for item in result.get("topic_evidence", []) or []
+        if isinstance(item, dict) and str(item.get("aspect", "")).strip()
+    ]
+    return list(dict.fromkeys(evidence_topics))
+
+
+def test_case_result_row(index: int, case: dict[str, Any], result: dict[str, Any]) -> dict[str, object]:
+    expected_sentiment = str(case.get("expected_sentiment", "")).strip()
+    actual_sentiment = str(result.get("sentiment", "")).strip()
+    expected_topics = parse_expected_topics(case.get("expected_topics", ""))
+    actual_topics = extract_actual_topics(result)
+    actual_topic_set = set(actual_topics)
+    missing_topics = sorted(expected_topics - actual_topic_set)
+    sentiment_correct = expected_sentiment == actual_sentiment
+    topic_correct = expected_topics.issubset(actual_topic_set)
+    passed = sentiment_correct and topic_correct
+    if passed:
+        note = "情感与课程维度均符合预期。"
+    else:
+        reasons = []
+        if not sentiment_correct:
+            reasons.append("情感不一致")
+        if not topic_correct:
+            reasons.append(f"缺少预期维度：{display_topics(missing_topics)}")
+        note = "；".join(reasons)
+
+    return {
+        "编号": case.get("id", index),
+        "评价文本": str(case.get("text", "")).strip(),
+        "预期情感": sentiment_display(expected_sentiment),
+        "实际情感": sentiment_display(actual_sentiment),
+        "情感正确": "是" if sentiment_correct else "否",
+        "预期维度": display_topics(sorted(expected_topics)),
+        "实际维度": display_topics(actual_topics),
+        "维度正确": "是" if topic_correct else "否",
+        "是否通过": "通过" if passed else "未通过",
+        "说明": note,
+    }
 
 
 def dataset_key(rows: list[dict[str, str]]) -> str:
@@ -2364,8 +2487,11 @@ def page_batch_analysis() -> None:
         try:
             rows = load_uploaded_rows(uploaded_file)
             source_name = uploaded_file.name
+        except ValueError as exc:
+            st.error(str(exc))
+            return
         except Exception as exc:
-            st.error(f"CSV 读取失败：{exc}")
+            st.error("CSV 读取失败，请确认文件编码为 UTF-8 或 GB18030，并包含评价文本字段。")
             return
     else:
         rows = st.session_state.get("batch_sample_rows", [])
@@ -2402,6 +2528,132 @@ def page_batch_analysis() -> None:
     stored_rows = st.session_state.get("batch_rows", rows)
     stored_source = st.session_state.get("batch_source_name", source_name)
     render_batch_results(stored_rows, results, stored_source)
+
+
+def test_case_source_key(path: Path, frame: pd.DataFrame) -> str:
+    version = path.stat().st_mtime_ns if path.exists() else 0
+    return f"{version}:{len(frame)}"
+
+
+def page_test_cases() -> None:
+    render_page_header(
+        "✅",
+        "固定案例验证",
+        "运行 12 条固定课程评价案例，检查当前 NLP 流程在典型业务场景下的情感分类和课程维度识别结果。",
+    )
+
+    if not TEST_CASES.exists():
+        render_notice("未找到固定案例文件", "请确认 data/test_cases.csv 存在后重试。", "danger")
+        return
+
+    try:
+        cases = load_test_case_frame(str(TEST_CASES))
+    except Exception:
+        st.error("固定案例文件读取失败，请确认 data/test_cases.csv 为 UTF-8 CSV，并包含表头行。")
+        return
+
+    required = {"text", "expected_sentiment", "expected_topics"}
+    missing = sorted(required - set(cases.columns))
+    if missing:
+        st.error(f"固定案例文件缺少字段：{', '.join(missing)}。请补齐后重试。")
+        return
+
+    preview_columns = ["text", "expected_sentiment", "expected_topics"]
+    preview = cases[preview_columns].rename(
+        columns={
+            "text": "评价文本",
+            "expected_sentiment": "预期情感",
+            "expected_topics": "预期维度",
+        }
+    )
+    with st.container(border=True):
+        render_card_title("测试用例预览", "固定案例覆盖中英文评价、混合表达和典型课程维度。")
+        st.dataframe(
+            preview,
+            hide_index=True,
+            width="stretch",
+            column_config={"评价文本": st.column_config.TextColumn("评价文本", width="large")},
+        )
+
+    render_notice(
+        "验证说明",
+        "固定案例用于验证演示流程和关键业务场景，不等同于完整泛化能力评估。",
+    )
+
+    source_key = test_case_source_key(TEST_CASES, cases)
+    if st.button("运行固定案例验证", type="primary", width="stretch"):
+        rows: list[dict[str, object]] = []
+        with st.spinner("正在运行固定案例验证，请稍候..."):
+            for index, raw_case in cases.reset_index(drop=True).iterrows():
+                case = raw_case.to_dict()
+                text = str(case.get("text", "")).strip()
+                if not text:
+                    continue
+                result = run_single_analysis(text, use_llm=False)
+                rows.append(test_case_result_row(index + 1, case, result))
+        st.session_state["test_case_results"] = rows
+        st.session_state["test_case_source_key"] = source_key
+        st.rerun()
+
+    results = st.session_state.get("test_case_results")
+    if st.session_state.get("test_case_source_key") != source_key or not results:
+        return
+
+    result_frame = pd.DataFrame(results)
+    total = len(result_frame)
+    passed = int((result_frame["是否通过"] == "通过").sum()) if total else 0
+    failed = total - passed
+    pass_rate = passed / total if total else 0
+
+    render_section_title("验证结果")
+    metric_cols = st.columns(4)
+    cards = [
+        ("", "固定案例总数", count_with_unit(total, "条"), "本次参与验证的固定案例数量。"),
+        ("", "通过案例", count_with_unit(passed, "条"), "情感与课程维度均符合预期。"),
+        ("", "失败案例", count_with_unit(failed, "条"), "需要复核的案例数量。"),
+        ("", "通过率", format_percent(pass_rate), "固定案例验证通过比例。"),
+    ]
+    for col, card in zip(metric_cols, cards):
+        with col:
+            render_metric_card(*card)
+
+    with st.container(border=True):
+        render_card_title("验证明细", "逐条展示预期结果、实际结果和判定说明。")
+        st.dataframe(
+            result_frame,
+            hide_index=True,
+            width="stretch",
+            column_config={
+                "评价文本": st.column_config.TextColumn("评价文本", width="large"),
+                "说明": st.column_config.TextColumn("说明", width="medium"),
+            },
+        )
+        st.download_button(
+            "下载验证结果 CSV",
+            data=result_frame.to_csv(index=False).encode("utf-8-sig"),
+            file_name="courseinsight_test_case_results.csv",
+            mime="text/csv",
+            width="stretch",
+        )
+
+    if failed == 0:
+        render_notice(
+            "固定案例全部通过",
+            "固定案例全部通过。该结果用于验证演示流程，泛化能力仍以独立测试集和压力测试为准。",
+            "success",
+        )
+    else:
+        render_section_title("未通过案例")
+        failed_frame = result_frame[result_frame["是否通过"] != "通过"]
+        st.dataframe(
+            failed_frame,
+            hide_index=True,
+            width="stretch",
+            column_config={
+                "评价文本": st.column_config.TextColumn("评价文本", width="large"),
+                "说明": st.column_config.TextColumn("说明", width="medium"),
+            },
+        )
 
 
 def macro_report(metrics: dict[str, Any]) -> dict[str, Any]:
@@ -2446,7 +2698,7 @@ def model_comparison_frame() -> pd.DataFrame:
                 "模型": "BERT",
                 "Accuracy": bert_metrics.get("accuracy"),
                 "Macro-F1": macro_f1_value(bert_metrics),
-                "模型类型": "当前主模型",
+                "模型类型": "最终实验主模型",
             }
         )
     model_metrics = load_json_file(str(MODEL_METRICS))
@@ -2659,26 +2911,43 @@ def page_model_eval() -> None:
     render_page_header(
         "🧠",
         "模型评估",
-        "本页展示已完成实验的评估结果，用于说明模型有效性。",
+        "本页展示离线实验评估结果，并同步显示当前演示环境实际调用的运行后端。",
     )
 
     model_name, metrics = current_eval_metrics()
     metric_cols = st.columns(4)
     support_total = classification_support_total(metrics)
     cards = [
-        ("", "当前主模型", model_name, "用于课程评价情感分类。"),
-        ("", "测试集准确率", format_percent(metrics.get("accuracy")), "模型整体分类正确比例。"),
-        ("", "Macro-F1", format_decimal(macro_f1_value(metrics)), "综合衡量三类情感分类效果。"),
-        ("", "评估样本", count_with_unit(support_total, "条") if support_total else "缺少数据", "用于当前分类报告的测试样本数。"),
+        ("", "最终实验主模型", model_name, "离线测试集上的主模型结果。"),
+        ("", "测试集 Accuracy", format_percent(metrics.get("accuracy")), "离线测试集整体分类正确比例。"),
+        ("", "Macro-F1", format_decimal(macro_f1_value(metrics)), "三类情感分类的宏平均 F1。"),
+        ("", "评估样本", count_with_unit(support_total, "条") if support_total else "缺少数据", "分类报告中的测试样本数。"),
     ]
     for col, card in zip(metric_cols, cards):
+        with col:
+            render_metric_card(*card)
+
+    runtime = load_backend()["runtime_status"]()
+    bert = runtime.get("bert", {}) if isinstance(runtime.get("bert"), dict) else {}
+    render_section_title("当前运行状态")
+    runtime_cards = [
+        ("", "配置后端", backend_display_name(runtime.get("configured_backend")), "来自 SENTIMENT_BACKEND。"),
+        ("", "实际运行后端", backend_display_name(runtime.get("active_backend")), "本机当前推理会调用的后端。"),
+        ("", "BERT 权重状态", bert_runtime_status_label(bert), str(bert.get("error") or bert.get("model_path") or "未配置路径")),
+        ("", "TF-IDF 模型状态", tfidf_runtime_status_label(runtime.get("tfidf_available")), "检查模型与向量器文件。"),
+        ("", "LLM 配置状态", "已配置" if llm_is_configured(current_env_version()) else "未配置", "只影响教学建议生成。"),
+    ]
+    for col, card in zip(st.columns(3), runtime_cards[:3]):
+        with col:
+            render_metric_card(*card)
+    for col, card in zip(st.columns(2), runtime_cards[3:]):
         with col:
             render_metric_card(*card)
 
     render_section_title("模型对比表")
     comparison = model_comparison_frame()
     with st.container(border=True):
-        render_card_title("模型指标对比", "当前主模型为 BERT；传统机器学习模型作为对照。")
+        render_card_title("模型指标对比", "最终实验主模型为 multilingual BERT；传统机器学习模型作为对照。")
         if comparison.empty:
             st.info("缺少评估文件：当前未找到模型对比指标。")
         else:
@@ -2697,12 +2966,12 @@ def page_model_eval() -> None:
     left, right = st.columns(2)
     with left:
         with st.container(border=True):
-            render_card_title("BERT 混淆矩阵", "展示最终 BERT 评估中不同情感类别之间的识别情况。")
+            render_card_title(f"{model_name} 混淆矩阵", "展示离线评估中不同情感类别之间的识别情况。")
             current_matrix = confusion_matrix_frame(metrics)
             if current_matrix.empty:
-                st.info("缺少最终评估数据：当前未找到可展示的 BERT 混淆矩阵。")
+                st.info("缺少最终评估数据：当前未找到可展示的混淆矩阵。")
             else:
-                st.caption("BERT 混淆矩阵（最终评估结果）")
+                st.caption(f"{model_name} 混淆矩阵（离线评估结果）")
                 st.altair_chart(confusion_matrix_chart(current_matrix), width="stretch")
     with right:
         with st.container(border=True):
@@ -2726,8 +2995,8 @@ def page_model_eval() -> None:
     render_section_title("模型选择说明")
     cols = st.columns(3)
     explanations = [
-        ("为什么选择 BERT", "BERT 能更好处理中英文混合评价和上下文表达，适合作为课程评价情感分类主模型。"),
-        ("模型优势", "结合课程场景规则校正，可增强否定、转折和关键教学场景的判断稳定性。"),
+        ("为什么选择 BERT", "multilingual BERT 更适合处理中英文混合评价和上下文表达。"),
+        ("运行后端说明", "当前运行后端以本机模型文件、依赖和配置为准，会在本页展示。"),
         ("后续优化", "对于讽刺表达、隐含抱怨和更细粒度教学问题，还需要更多标注数据支持。"),
     ]
     for col, item in zip(cols, explanations):
@@ -2737,7 +3006,7 @@ def page_model_eval() -> None:
     ablation_metrics = load_json_file(str(ABLATION_METRICS))
     if ablation_metrics.get("experiments"):
         with st.container(border=True):
-            render_card_title("消融实验：组件贡献分析", "用于展示不同组件对系统表现的影响。")
+            render_card_title("消融实验：组件贡献分析", "固定案例验证完整流程和各组件在典型场景下的表现。")
             rows = [
                 {
                     "实验版本": name,
@@ -2760,6 +3029,8 @@ def main() -> None:
         page_single_analysis()
     elif page == "📊 批量分析":
         page_batch_analysis()
+    elif page == "✅ 固定案例验证":
+        page_test_cases()
     else:
         page_model_eval()
 

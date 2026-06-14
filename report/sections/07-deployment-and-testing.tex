@@ -53,8 +53,8 @@ pip install -r requirements-bert.txt
 streamlit run app.py
 \end{verbatim}
 
-  \item 浏览器访问 Streamlit 输出的本地地址，依次检查评价分析、批量分析、测试验证和系统信息
-        页面。
+  \item 浏览器访问 Streamlit 输出的本地地址，依次检查首页概览、单条分析、批量分析、固定案例
+        验证和模型评估页面。
 \end{enumerate}
 
 \subsection{源代码组成与提交范围}
@@ -63,7 +63,7 @@ streamlit run app.py
 环境配置说明。主要内容如下：
 
 \begin{itemize}
-  \item \code{app.py}：Streamlit 应用入口及四个功能页面；
+  \item \code{app.py}：Streamlit 应用入口及五个功能页面；
   \item \code{src/}：预处理、BERT 与传统模型推理、课程维度、关键词、相似评价和建议生成模块；
   \item \code{scripts/}：数据构建、消融实验、压力测试和报告图表生成脚本；
   \item \code{tests/} 与 \code{data/test_cases.csv}：自动测试和固定演示案例；
@@ -92,7 +92,7 @@ python -m src.train_bert ^
   --data data/processed/bilingual_reviews_train.csv ^
   --model-name bert-base-multilingual-cased ^
   --output-dir outputs/bert_model_final ^
-  --metrics-path outputs/bert_metrics.json
+  --metrics-path outputs/bert_metrics_final.json
 \end{verbatim}
 
 固定案例消融实验和独立压力测试分别使用：
@@ -100,7 +100,7 @@ python -m src.train_bert ^
 \begin{verbatim}
 python scripts/run_ablation_experiment.py ^
   --cases data/test_cases.csv ^
-  --output-dir outputs/reports ^
+  --output-dir outputs/reports/final_model ^
   --model-dir models
 
 python scripts/run_stress_test.py ^
@@ -116,7 +116,7 @@ python scripts/run_stress_test.py ^
 \begin{enumerate}
   \item \textbf{单元与集成测试：}覆盖文本清洗、语言识别、分词、情感标准化、长文本窗口、课程
         维度证据、相似度、模型优先级、降级路径、LLM 本地兜底、数据脚本和页面数据格式。
-  \item \textbf{固定业务案例：}12 条中英文课程评价，用于验证课堂演示中的情感和课程维度结果。
+  \item \textbf{固定案例：}12 条中英文课程评价，用于验证课堂演示中的情感和课程维度结果。
   \item \textbf{独立压力测试：}48 条复杂表达，用于观察缩写、拼写、否定、讽刺、中英混合和长
         文本下的泛化表现。
 \end{enumerate}

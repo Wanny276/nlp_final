@@ -348,7 +348,7 @@ def plot_stress_test_results() -> None:
 
 
 def plot_ablation_results() -> None:
-    metrics = read_json("outputs/reports/ablation_metrics.json")
+    metrics = read_json("outputs/reports/final_model/ablation_metrics.json")
     experiment_keys = ["rule-only", "model-only", "bert-only", "hybrid"]
     display_names = ["Rule only", "TF-IDF only", "BERT only", "Hybrid"]
     accuracy = [metrics["experiments"][key]["accuracy"] for key in experiment_keys]

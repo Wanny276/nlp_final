@@ -252,7 +252,7 @@ def train(
 
 def main() -> None:
     parser = ChineseArgumentParser(description="训练并比较传统情感分类模型")
-    parser.add_argument("--data", default="data/sample_reviews.csv")
+    parser.add_argument("--data", default="data/processed/bilingual_reviews_train.csv")
     parser.add_argument("--model-dir", default="models")
     parser.add_argument("--report-dir", default="outputs/reports")
     parser.add_argument("--chart-dir", default="outputs/charts")
