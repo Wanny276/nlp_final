@@ -27,10 +27,8 @@ from src.topic_analyzer import TOPIC_KEYWORDS
 
 SAMPLE_DATA = Path("data/sample_reviews.csv")
 MODEL_METRICS = Path("models/model_metrics.json")
-BERT_METRICS = Path("outputs/bert_metrics.json")
-ABLATION_METRICS = Path("outputs/reports/ablation_metrics.json")
-CONFUSION_MATRIX_CHART = Path("outputs/charts/confusion_matrix.png")
-BERT_CONFUSION_MATRIX_CHART = Path("outputs/charts/bert_confusion_matrix.png")
+BERT_METRICS = Path("outputs/bert_metrics_final.json")
+ABLATION_METRICS = Path("outputs/reports/final_model/ablation_metrics.json")
 APP_LOGO = "🎓"
 BRAND_NAME = "CourseInsight"
 BRAND_SUBTITLE = "面向课程评论的多语言智能分析系统"
@@ -58,6 +56,7 @@ SENTIMENT_LABELS = {
     "neutral": "中性",
     "negative": "消极",
 }
+DEFAULT_SENTIMENT_LABEL_ORDER = ("negative", "neutral", "positive")
 SENTIMENT_DETAILS = {
     "positive": "整体反馈偏正向，可继续保留优势做法。",
     "neutral": "反馈包含认可与改进点，建议分项查看。",
@@ -111,6 +110,10 @@ CHART_COLORS = {
     "muted": "#596076",
     "compare": "#B6AFE4",
     "accent_2": "#1660BC",
+    "bert_blue": "#6EA2D8",
+    "bert_blue_soft": "#BBD0EA",
+    "bert_blue_dark": "#174F8A",
+    "bert_blue_pale": "#F4F8FC",
 }
 
 APP_CSS = """
@@ -272,11 +275,13 @@ section[data-testid="stSidebar"] div {
 }
 
 .brand-sidebar .brand-subtitle {
-    max-width: 190px;
+    max-width: none;
     margin-left: 0;
     margin-right: 0;
     color: rgba(255, 255, 255, 0.76);
-    font-size: 11.5px;
+    font-size: 11px;
+    letter-spacing: -0.01em;
+    white-space: nowrap;
 }
 
 .brand-hero {
@@ -326,6 +331,12 @@ section[data-testid="stSidebar"] div {
     background: rgba(255, 255, 255, 0.10);
     box-shadow: none;
     box-sizing: border-box;
+}
+
+.brand-sidebar .ci-logo-box {
+    border-color: rgba(232, 225, 255, 0.58);
+    background: linear-gradient(135deg, #F8F5FF 0%, #E8E1FF 100%);
+    box-shadow: 0 10px 24px rgba(5, 8, 35, 0.18), inset 0 1px 0 rgba(255, 255, 255, 0.65);
 }
 
 .brand-hero .ci-logo-box {
@@ -1767,6 +1778,52 @@ def risk_status_text(risk_level: object) -> str:
     return "可优化"
 
 
+MAINTAIN_SUGGESTION_MARKERS = (
+    "继续保持",
+    "保持",
+    "保留",
+    "巩固",
+    "延续",
+    "推广",
+    "维持",
+)
+
+IMPROVE_SUGGESTION_MARKERS = (
+    "优化",
+    "改进",
+    "调整",
+    "减少",
+    "增加",
+    "完善",
+    "缓解",
+    "降低",
+    "解决",
+    "延长",
+    "明确",
+    "补充",
+    "改善",
+    "减轻",
+)
+
+
+def advice_badge_info(suggestion: dict[str, Any], risk_level: object) -> tuple[str, str]:
+    action_type = str(suggestion.get("action_type", "")).strip().lower()
+    if action_type in {"maintain", "preserve", "protect", "promote", "keep"}:
+        return "保持优势", "success"
+    if action_type in {"priority", "urgent", "problem"}:
+        return "重点问题", "accent"
+    if action_type in {"improve", "optimize", "adjust"}:
+        return "可优化", "warning"
+
+    text = str(suggestion.get("suggestion", "")).strip()
+    has_maintain_marker = any(marker in text for marker in MAINTAIN_SUGGESTION_MARKERS)
+    has_improve_marker = any(marker in text for marker in IMPROVE_SUGGESTION_MARKERS)
+    if has_maintain_marker and not has_improve_marker:
+        return "保持优势", "success"
+
+    return risk_status_text(risk_level), risk_badge_class(risk_level)
+
+
 def topic_evidence_items(result: dict[str, Any]) -> list[dict[str, Any]]:
     evidence_items: list[dict[str, Any]] = []
     seen: set[str] = set()
@@ -1828,8 +1885,7 @@ def advice_suggestions(advice: object) -> list[dict[str, Any]]:
 def advice_card_html(suggestion: dict[str, Any], risk_level: object) -> str:
     aspect = str(suggestion.get("aspect", "")).strip() or "教学改进"
     evidence = str(suggestion.get("evidence", "")).strip() or "根据本条评价内容生成。"
-    badge = risk_status_text(risk_level)
-    badge_class = risk_badge_class(risk_level)
+    badge, badge_class = advice_badge_info(suggestion, risk_level)
     return f"""
         <div class="advice-card">
             <div class="badge-row"><span class="ui-badge {escaped(badge_class)}">{escaped(badge)}</span></div>
@@ -2428,8 +2484,12 @@ def classification_report_frame(metrics: dict[str, Any]) -> pd.DataFrame:
 
 def confusion_matrix_frame(metrics: dict[str, Any]) -> pd.DataFrame:
     matrix = metrics.get("confusion_matrix")
+    if not matrix:
+        return pd.DataFrame()
     labels = metrics.get("labels", [])
-    if not matrix or not labels:
+    if not labels and len(matrix) == len(DEFAULT_SENTIMENT_LABEL_ORDER):
+        labels = list(DEFAULT_SENTIMENT_LABEL_ORDER)
+    if not labels:
         return pd.DataFrame()
     readable_labels = [SENTIMENT_LABELS.get(str(label), str(label)) for label in labels]
     return pd.DataFrame(matrix, index=readable_labels, columns=readable_labels)
@@ -2451,14 +2511,48 @@ def confusion_matrix_chart(matrix_frame: pd.DataFrame) -> alt.Chart:
     text_threshold = max_value * 0.58
 
     base = alt.Chart(long_frame).encode(
-        x=alt.X("预测类别:N", title="预测类别", sort=list(matrix_frame.columns)),
-        y=alt.Y("真实类别:N", title="真实类别", sort=label_order),
+        x=alt.X(
+            "预测类别:N",
+            title=None,
+            sort=list(matrix_frame.columns),
+            axis=alt.Axis(
+                orient="top",
+                labelAngle=0,
+                labelPadding=12,
+                labelColor=CHART_COLORS["muted"],
+                domain=False,
+                ticks=False,
+            ),
+        ),
+        y=alt.Y(
+            "真实类别:N",
+            title=None,
+            sort=label_order,
+            axis=alt.Axis(
+                labelPadding=12,
+                labelColor=CHART_COLORS["muted"],
+                domain=False,
+                ticks=False,
+            ),
+        ),
     )
-    heatmap = base.mark_rect(cornerRadius=6).encode(
+    heatmap = base.mark_rect(cornerRadius=6, stroke="#F7F4FF", strokeWidth=2).encode(
         color=alt.Color(
             "数量:Q",
-            scale=alt.Scale(range=["#F7F4FF", "#B89AF8", CHART_COLORS["primary"]]),
-            legend=alt.Legend(title="数量"),
+            scale=alt.Scale(
+                range=[
+                    CHART_COLORS["bert_blue_pale"],
+                    CHART_COLORS["bert_blue_soft"],
+                    CHART_COLORS["bert_blue"],
+                    CHART_COLORS["bert_blue_dark"],
+                ]
+            ),
+            legend=alt.Legend(
+                title="样本数",
+                orient="right",
+                labelColor=CHART_COLORS["muted"],
+                titleColor=CHART_COLORS["muted"],
+            ),
         ),
         tooltip=["真实类别:N", "预测类别:N", alt.Tooltip("数量:Q", format=".0f")],
     )
@@ -2467,13 +2561,14 @@ def confusion_matrix_chart(matrix_frame: pd.DataFrame) -> alt.Chart:
         color=alt.condition(
             alt.datum.数量 > text_threshold,
             alt.value("#FFFFFF"),
-            alt.value("#080C35"),
+            alt.value("#182236"),
         ),
     )
     return (
         (heatmap + labels)
         .properties(height=320)
-        .configure_axis(labelColor=CHART_COLORS["muted"], titleColor=CHART_COLORS["muted"])
+        .configure_axis(labelFontSize=13, labelColor=CHART_COLORS["muted"])
+        .configure_legend(labelFontSize=12, titleFontSize=13)
         .configure_view(strokeWidth=0)
     )
 
@@ -2487,25 +2582,73 @@ def model_metric_chart(frame: pd.DataFrame) -> alt.Chart:
         var_name="指标",
         value_name="分数",
     ).dropna()
-    return (
-        alt.Chart(long_frame)
-        .mark_bar(cornerRadiusEnd=4)
-        .encode(
-            y=alt.Y("模型:N", sort=list(frame["模型"]), title=None),
-            x=alt.X("分数:Q", title=None, scale=alt.Scale(domain=[0, 1])),
-            color=alt.Color(
-                "指标:N",
-                scale=alt.Scale(
-                    domain=["Accuracy", "Macro-F1"],
-                    range=[CHART_COLORS["primary"], CHART_COLORS["compare"]],
-                ),
-                legend=alt.Legend(title=None),
+    long_frame["分数"] = pd.to_numeric(long_frame["分数"], errors="coerce")
+    long_frame = long_frame.dropna(subset=["分数"])
+    long_frame["分数标签"] = long_frame["分数"].map(lambda value: f"{value:.1%}")
+    max_score = float(long_frame["分数"].max()) if not long_frame.empty else 1.0
+    x_upper = min(1.0, max(0.4, round((max_score + 0.06) * 20 + 0.499) / 20))
+    metric_order = ["Accuracy", "Macro-F1"]
+    model_order = list(frame["模型"])
+
+    base = alt.Chart(long_frame).encode(
+        y=alt.Y(
+            "模型:N",
+            sort=model_order,
+            title=None,
+            axis=alt.Axis(
+                labelLimit=220,
+                labelPadding=14,
+                labelColor=CHART_COLORS["muted"],
+                domain=False,
+                ticks=False,
             ),
-            yOffset=alt.YOffset("指标:N"),
-            tooltip=["模型:N", "指标:N", alt.Tooltip("分数:Q", format=".4f")],
-        )
-        .properties(height=max(220, 42 * frame["模型"].nunique()))
-        .configure_axis(labelColor=CHART_COLORS["muted"], titleColor=CHART_COLORS["muted"])
+        ),
+        x=alt.X(
+            "分数:Q",
+            title=None,
+            scale=alt.Scale(domain=[0, x_upper], nice=False),
+            axis=alt.Axis(
+                format=".0%",
+                tickCount=5,
+                grid=True,
+                gridColor="#E8E4F2",
+                labelColor=CHART_COLORS["muted"],
+                domain=False,
+                ticks=False,
+            ),
+        ),
+        yOffset=alt.YOffset("指标:N", sort=metric_order),
+        tooltip=["模型:N", "指标:N", alt.Tooltip("分数:Q", format=".4f")],
+    )
+    bars = base.mark_bar(cornerRadiusEnd=6, size=11).encode(
+        color=alt.Color(
+            "指标:N",
+            scale=alt.Scale(
+                domain=metric_order,
+                range=[CHART_COLORS["bert_blue"], CHART_COLORS["bert_blue_soft"]],
+            ),
+            legend=alt.Legend(
+                title=None,
+                orient="top",
+                direction="horizontal",
+                symbolType="square",
+                labelColor=CHART_COLORS["muted"],
+            ),
+        ),
+    )
+    labels = base.mark_text(
+        align="left",
+        baseline="middle",
+        dx=7,
+        fontSize=12,
+        fontWeight="bold",
+        color=CHART_COLORS["muted"],
+    ).encode(text=alt.Text("分数标签:N"))
+    return (
+        (bars + labels)
+        .properties(height=max(240, 44 * frame["模型"].nunique()), padding={"right": 56})
+        .configure_axis(labelFontSize=13, labelColor=CHART_COLORS["muted"])
+        .configure_legend(labelFontSize=13, orient="top", padding=0)
         .configure_view(strokeWidth=0)
     )
 
@@ -2550,19 +2693,15 @@ def page_model_eval() -> None:
 
     render_section_title("混淆矩阵与分类报告")
     left, right = st.columns(2)
-    model_metrics = load_json_file(str(MODEL_METRICS))
     with left:
         with st.container(border=True):
-            render_card_title("混淆矩阵", "展示不同情感类别之间的识别情况。")
+            render_card_title("BERT 混淆矩阵", "展示最终 BERT 评估中不同情感类别之间的识别情况。")
             current_matrix = confusion_matrix_frame(metrics)
-            fallback_matrix = confusion_matrix_frame(model_metrics)
-            matrix_to_show = current_matrix if not current_matrix.empty else fallback_matrix
-            if matrix_to_show.empty:
-                st.info("缺少评估文件：当前未找到可展示的混淆矩阵。")
+            if current_matrix.empty:
+                st.info("缺少最终评估数据：当前未找到可展示的 BERT 混淆矩阵。")
             else:
-                caption = f"{model_name} 混淆矩阵" if not current_matrix.empty else "传统模型混淆矩阵（对比）"
-                st.caption(caption)
-                st.altair_chart(confusion_matrix_chart(matrix_to_show), width="stretch")
+                st.caption("BERT 混淆矩阵（最终评估结果）")
+                st.altair_chart(confusion_matrix_chart(current_matrix), width="stretch")
     with right:
         with st.container(border=True):
             render_card_title("分类报告", "展示不同情感类别下的识别表现。")
@@ -2596,7 +2735,7 @@ def page_model_eval() -> None:
     ablation_metrics = load_json_file(str(ABLATION_METRICS))
     if ablation_metrics.get("experiments"):
         with st.container(border=True):
-            render_card_title("补充实验：组件贡献分析", "用于展示不同组件对系统表现的影响。")
+            render_card_title("消融实验：组件贡献分析", "用于展示不同组件对系统表现的影响。")
             rows = [
                 {
                     "实验版本": name,

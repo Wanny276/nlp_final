@@ -16,16 +16,21 @@ logging.getLogger("streamlit").setLevel(logging.ERROR)
 cache_data_api._LOGGER.setLevel(logging.ERROR)
 
 from app import (
+    ABLATION_METRICS,
     APP_CSS,
+    BERT_METRICS,
     PAGE_OPTIONS,
     SAMPLE_REVIEWS,
+    advice_card_html,
     classification_report_frame,
     collect_dimension_scores,
+    confusion_matrix_chart,
     confusion_matrix_frame,
     count_with_unit,
     display_model_name,
     find_column,
     macro_report,
+    model_metric_chart,
     model_comparison_frame,
     normalize_dataframe,
     rating_summary_frame,
@@ -521,6 +526,19 @@ class CorePipelineTest(unittest.TestCase):
         self.assertNotIn("作业任务、作业任务", result["summary"])
         self.assertNotIn("授课方式、授课方式", result["suggestions"][0]["suggestion"])
 
+    def test_advice_card_uses_suggestion_tone_for_badge(self):
+        html = advice_card_html(
+            {
+                "aspect": "授课方式",
+                "suggestion": "继续保持清晰易懂的讲解风格，这是学生认可的教学亮点。",
+                "evidence": "老师讲解很 clear",
+            },
+            "middle",
+        )
+
+        self.assertIn("保持优势", html)
+        self.assertNotIn("可优化", html)
+
     @patch("src.llm_client.call_llm_json")
     def test_generate_review_advice_uses_api_result(self, mock_call):
         mock_call.return_value = {
@@ -683,6 +701,13 @@ class CorePipelineTest(unittest.TestCase):
             APP_CSS,
         )
 
+    def test_sidebar_brand_keeps_logo_background_and_subtitle_single_line(self):
+        self.assertIn(".brand-sidebar .ci-logo-box {", APP_CSS)
+        self.assertIn("background: linear-gradient(135deg, #F8F5FF 0%, #E8E1FF 100%);", APP_CSS)
+        self.assertIn("box-shadow: 0 10px 24px rgba(5, 8, 35, 0.18)", APP_CSS)
+        self.assertIn("white-space: nowrap;", APP_CSS)
+        self.assertIn("letter-spacing: -0.01em;", APP_CSS)
+
     def test_single_analysis_examples_cover_chinese_english_and_mixed_reviews(self):
         self.assertEqual(list(SAMPLE_REVIEWS), ["中文评价", "英文评价", "中英混合"])
         self.assertIn("课堂互动", SAMPLE_REVIEWS["中文评价"])
@@ -827,7 +852,7 @@ class CorePipelineTest(unittest.TestCase):
                         "Logistic Regression": {"accuracy": 0.69, "macro_f1": 0.68},
                     }
                 }
-            if str(path).endswith("bert_metrics.json"):
+            if str(path).endswith("bert_metrics_final.json"):
                 return {"accuracy": 0.75, "macro_f1": 0.72}
             return {}
 
@@ -838,6 +863,50 @@ class CorePipelineTest(unittest.TestCase):
         self.assertEqual(set(frame["模型"]), {"Logistic Regression", "BERT"})
         self.assertEqual(set(frame["模型类型"]), {"对比模型", "当前主模型"})
         self.assertEqual(display_model_name("linear_svm"), "Linear SVM")
+        self.assertEqual(BERT_METRICS, Path("outputs/bert_metrics_final.json"))
+        self.assertEqual(
+            ABLATION_METRICS,
+            Path("outputs/reports/final_model/ablation_metrics.json"),
+        )
+
+    def test_model_metric_chart_uses_compact_legend_and_value_labels(self):
+        chart = model_metric_chart(
+            pd.DataFrame(
+                [
+                    {"模型": "BERT", "Accuracy": 0.746, "Macro-F1": 0.745},
+                    {"模型": "Dummy Most Frequent", "Accuracy": 0.333, "Macro-F1": 0.167},
+                ]
+            )
+        )
+
+        spec = chart.to_dict()
+
+        self.assertIn("layer", spec)
+        self.assertEqual(spec["layer"][0]["encoding"]["color"]["legend"]["orient"], "top")
+        self.assertEqual(spec["layer"][0]["encoding"]["y"]["axis"]["labelLimit"], 220)
+        self.assertEqual(spec["layer"][1]["mark"]["type"], "text")
+        self.assertEqual(spec["layer"][1]["encoding"]["text"]["field"], "分数标签")
+        color_range = spec["layer"][0]["encoding"]["color"]["scale"]["range"]
+        self.assertEqual(color_range, ["#6EA2D8", "#BBD0EA"])
+
+    def test_confusion_matrix_chart_uses_final_bert_matrix_with_blue_scale(self):
+        metrics = {
+            "confusion_matrix": [[590, 160, 10], [228, 460, 72], [14, 95, 651]],
+        }
+
+        matrix = confusion_matrix_frame(metrics)
+        chart = confusion_matrix_chart(matrix)
+        spec = chart.to_dict()
+
+        self.assertEqual(list(matrix.index), ["消极", "中性", "积极"])
+        self.assertEqual(matrix.loc["积极", "积极"], 651)
+        self.assertIn("layer", spec)
+        self.assertEqual(spec["layer"][0]["encoding"]["color"]["field"], "数量")
+        self.assertEqual(
+            spec["layer"][0]["encoding"]["color"]["scale"]["range"],
+            ["#F4F8FC", "#BBD0EA", "#6EA2D8", "#174F8A"],
+        )
+        self.assertEqual(spec["layer"][0]["encoding"]["x"]["axis"]["orient"], "top")
 
     def test_train_model_writes_detailed_metrics(self):
         data_path = Path("outputs/reports/test_train_metrics_data.csv")
