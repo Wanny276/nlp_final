@@ -744,19 +744,21 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label:has(input:checked
 }
 
 .flow-index {
-    display: inline-flex;
-    align-items: center;
-    justify-content: center;
-    flex: 0 0 1.7rem;
+    display: inline-flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    flex: 0 0 2.1rem;
     box-sizing: border-box;
-    width: 1.7rem;
-    height: 1.7rem;
+    width: 2.1rem;
+    height: 2.1rem;
+    padding: 0;
+    margin: 0;
     border-radius: 999px;
     background: var(--primary);
-    color: #FFFFFF;
-    font-size: 13px;
-    font-weight: 700;
-    line-height: 1;
+    color: #FFFFFF !important;
+    font-size: 14px;
+    font-weight: 800;
+    line-height: 1 !important;
     text-align: center;
 }
 
@@ -768,7 +770,7 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label:has(input:checked
     font-weight: 700;
 }
 
-.flow-step span {
+.flow-step > span:not(.flow-index) {
     display: block;
     margin-top: 0.28rem;
     color: var(--text-muted);
@@ -1623,16 +1625,14 @@ def render_single_result(result: dict[str, Any]) -> None:
 
     render_section_title("教学改进建议")
     if isinstance(advice, dict):
-        risk_label, _risk_tone = RISK_LABELS.get(str(advice.get("risk_level", "middle")), RISK_LABELS["middle"])
+        risk_label = risk_status_text(advice.get("risk_level"))
         risk_class = risk_badge_class(advice.get("risk_level"))
         st.html(
             f"""
             <div class="analysis-summary-card advice-highlight">
                 <div class="badge-row">
                     <span class="ui-badge accent">{escaped(advice_source_label(advice))}</span>
-                    <span class="ui-badge {escaped(risk_class)}">{escaped(risk_label)}</span>
                 </div>
-                <h3>教学改进建议</h3>
                 <p>{escaped(advice.get("summary", "本次建议未生成总结。"))}</p>
             </div>
             """
@@ -1648,7 +1648,6 @@ def render_single_result(result: dict[str, Any]) -> None:
         st.html(
             """
             <div class="analysis-summary-card advice-highlight">
-                <h3>教学改进建议</h3>
                 <p>本次未启用建议生成。开启“生成改进建议”后，系统将结合评价内容给出可复核的教学建议。</p>
             </div>
             """
@@ -1859,8 +1858,7 @@ def render_batch_summary(
     st.html(
         f"""
         <div class="analysis-summary-card">
-            <div class="badge-row"><span class="ui-badge primary">基于本批统计生成</span></div>
-            <h3>本批结论摘要</h3>
+            <div class="badge-row"><span class="ui-badge primary">本批结论摘要</span></div>
             <p>{escaped(batch_summary_text(sentiments, topics, problem_topics))}</p>
         </div>
         """
