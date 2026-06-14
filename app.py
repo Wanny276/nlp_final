@@ -705,11 +705,17 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] div[role="radiogroup"] 
     line-height: 1.7;
 }
 
-.analysis-summary-grid,
+.analysis-summary-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 18px;
+    align-items: stretch;
+}
+
 .detail-card-grid,
 .advice-card-grid {
     display: grid;
-    grid-template-columns: repeat(3, minmax(0, 1fr));
+    grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
     gap: 18px;
     align-items: stretch;
 }
@@ -1180,9 +1186,7 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] div[role="radiogroup"] 
     .home-metric-grid,
     .home-info-grid,
     .single-overview-grid,
-    .analysis-summary-grid,
-    .detail-card-grid,
-    .advice-card-grid {
+    .analysis-summary-grid {
         grid-template-columns: repeat(2, minmax(0, 1fr));
     }
 

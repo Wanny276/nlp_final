@@ -16,6 +16,7 @@ logging.getLogger("streamlit").setLevel(logging.ERROR)
 cache_data_api._LOGGER.setLevel(logging.ERROR)
 
 from app import (
+    APP_CSS,
     PAGE_OPTIONS,
     SAMPLE_REVIEWS,
     classification_report_frame,
@@ -38,7 +39,7 @@ from scripts.run_stress_test import (
     grouped_metrics,
     load_stress_cases,
 )
-from src.bert_sentiment import _split_token_ids
+from src.bert_sentiment import BertConfig, _split_token_ids, bert_status
 from src.keyword_extractor import keywords_only
 from src.llm_client import LLMConfig, call_llm_json, generate_review_advice, local_summary
 from src.nlp_analyzer import (
@@ -54,7 +55,7 @@ from src.sentiment_normalizer import (
     correct_sentiment_spelling,
     normalize_sentiment_text_with_details,
 )
-from src.similarity import cosine_similarity
+from src.similarity import cosine_similarity, find_similar_reviews
 from src.train_bert import sample_per_label
 from src.train_model import train
 from src.topic_analyzer import detect_topic_evidence, detect_topics
@@ -169,14 +170,36 @@ class CorePipelineTest(unittest.TestCase):
         topics = detect_topics("The course is difficult but I learned practical skills")
         self.assertIn("教学内容", topics)
 
+    def test_learning_outcome_topic_recognizes_mastery(self):
+        topics = detect_topics("至少让我掌握了基本方法")
+        self.assertIn("学习收获", topics)
+
     def test_keyword_extraction(self):
         keywords = keywords_only("作业太多了，作业提交时间也紧", top_k=5)
         self.assertIn("作业", keywords)
         self.assertIn("提交", keywords)
 
+    def test_keyword_extraction_removes_function_words(self):
+        keywords = keywords_only("这门课不能说没有价值，至少让我掌握了基本方法", top_k=6)
+        self.assertIn("价值", keywords)
+        self.assertIn("掌握", keywords)
+        self.assertNotIn("不能", keywords)
+        self.assertNotIn("没有", keywords)
+
     def test_similarity(self):
         score = cosine_similarity("实验环境配置复杂", "实验配置步骤太麻烦")
         self.assertGreater(score, 0)
+
+    def test_similar_reviews_excludes_weak_matches(self):
+        reviews = [
+            "作业太多了，每周都做不完，希望能适当减少。",
+            "如果能提前公布复习重点就更好了。",
+        ]
+        result = find_similar_reviews(
+            "这门课不能说没有价值，至少让我掌握了基本方法",
+            reviews,
+        )
+        self.assertEqual(result, [])
 
     @patch("src.nlp_analyzer.bert_based_sentiment", return_value=None)
     @patch("src.nlp_analyzer.model_based_sentiment", return_value=None)
@@ -519,6 +542,39 @@ class CorePipelineTest(unittest.TestCase):
         self.assertEqual(result["source"], "llm_api")
         mock_call.assert_called_once()
 
+    @patch("src.llm_client.call_llm_json")
+    def test_generate_review_advice_rejects_evidence_from_other_reviews(self, mock_call):
+        mock_call.return_value = {
+            "summary": "建议调整作业安排。",
+            "problems": [],
+            "suggestions": [
+                {
+                    "aspect": "作业任务",
+                    "suggestion": "适当减少作业量。",
+                    "evidence": "作业太多了，每周都做不完，希望能适当减少。",
+                }
+            ],
+            "risk_level": "middle",
+        }
+
+        result = generate_review_advice(
+            {
+                "text": "这门课不能说没有价值，至少让我掌握了基本方法",
+                "sentiment": "positive",
+                "topics": ["学习收获"],
+                "topic_evidence": [
+                    {
+                        "aspect": "学习收获",
+                        "evidence": "这门课不能说没有价值，至少让我掌握了基本方法",
+                    }
+                ],
+                "keywords": ["价值", "掌握", "方法"],
+            }
+        )
+
+        self.assertEqual(result["source"], "local_fallback")
+        self.assertNotEqual(result["suggestions"][0]["aspect"], "作业任务")
+
     @patch("src.llm_client.requests.post")
     def test_llm_request_uses_compatible_payload(self, mock_post):
         class FakeResponse:
@@ -619,6 +675,13 @@ class CorePipelineTest(unittest.TestCase):
         self.assertEqual(page_names, ["首页概览", "单条分析", "批量分析", "模型评估"])
         self.assertNotIn("系统设置", "".join(PAGE_OPTIONS))
         self.assertNotIn("数据管理", "".join(PAGE_OPTIONS))
+
+    def test_detail_and_advice_cards_use_adaptive_layout(self):
+        self.assertIn(
+            ".detail-card-grid,\n.advice-card-grid {\n    display: grid;\n"
+            "    grid-template-columns: repeat(auto-fit",
+            APP_CSS,
+        )
 
     def test_single_analysis_examples_cover_chinese_english_and_mixed_reviews(self):
         self.assertEqual(list(SAMPLE_REVIEWS), ["中文评价", "英文评价", "中英混合"])
@@ -948,6 +1011,16 @@ class CorePipelineTest(unittest.TestCase):
         self.assertIn("用法:", result.stdout)
         self.assertIn("选项:", result.stdout)
         self.assertIn("--sample-per-label", result.stdout)
+
+    def test_bert_status_requires_weights_and_tokenizer(self):
+        model_path = Path("outputs/reports/test_bert_status_incomplete")
+        model_path.mkdir(parents=True, exist_ok=True)
+        (model_path / "config.json").write_text("{}", encoding="utf-8")
+
+        status = bert_status(BertConfig(model_path=model_path))
+
+        self.assertFalse(status["model_available"])
+        self.assertFalse(status["ready"])
 
 
 if __name__ == "__main__":

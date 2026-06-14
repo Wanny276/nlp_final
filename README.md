@@ -222,41 +222,6 @@ outputs/reports/stress_test_final/stress_errors.csv
 
 ## 报告维护
 
-<<<<<<< HEAD
-## BERT 主模型
-
-系统默认使用 `auto` 后端：本地 BERT 权重可用时优先运行 BERT；加载或推理失败时回退到 TF-IDF，最后回退到规则。使用 BERT 前需要安装深度学习依赖：
-
-```bash
-pip install -r requirements.txt
-pip install -r requirements-bert.txt
-```
-
-训练命令：
-
-```bash
-python -m src.train_bert --data data/processed/bilingual_reviews_train.csv --model-name bert-base-multilingual-cased --output-dir outputs/bert_model_final --metrics-path outputs/bert_metrics.json
-```
-
-如果只检查脚本和数据流，可以用小样本：
-
-```bash
-python -m src.train_bert --sample-per-label 5 --epochs 1
-```
-
-训练流程固定拆分训练集、验证集和测试集。验证集用于选择最佳 checkpoint，测试集只在训练完成后评估一次。
-
-情感后端配置：
-
-```text
-SENTIMENT_BACKEND=auto
-BERT_MODEL_PATH=outputs/bert_model_final
-BERT_DEVICE=auto
-BERT_BATCH_SIZE=32
-BERT_MAX_LENGTH=160
-BERT_STRIDE=32
-BERT_MAX_CHUNKS=16
-=======
 最终报告不再使用 `docs/report.md`，统一维护 `report/` 下的 LaTeX 文件：
 
 ```text
@@ -266,7 +231,6 @@ report/report.sty                  字体、字号、行距、目录和封面格
 report/sections/                   独立章节
 report/figures/                    实验图表和真实系统截图
 report/main.pdf                    最新可提交 PDF
->>>>>>> main
 ```
 
 重新生成实验图表：
@@ -277,23 +241,9 @@ report/main.pdf                    最新可提交 PDF
 
 重新编译报告：
 
-<<<<<<< HEAD
-`outputs/bert_metrics.json` 可以提交用于展示；`outputs/bert_model_final/` 中的权重约 711 MB，受 GitHub 单文件限制，不直接提交，应在部署时单独下载或挂载。
-
-## 大模型配置
-
-复制 `.env.example` 为 `.env`，填入 API 信息：
-
-```text
-LLM_API_KEY=your_api_key
-LLM_BASE_URL=https://chat.ecnu.edu.cn/open/api/v1
-LLM_MODEL=ecnu-plus
-LLM_TIMEOUT=20
-=======
 ```powershell
 Set-Location report
 .\build-report.ps1
->>>>>>> main
 ```
 
 中间文件位于被忽略的 `report/build/`，脚本会把最终 PDF 复制到可提交、可推送的
@@ -314,12 +264,7 @@ Set-Location report
 
 - `.env` 和任何真实 API Key
 - `data/raw/`
-<<<<<<< HEAD
-- `outputs/bert_model_final/model.safetensors`
-- `__pycache__`、测试临时文件和编辑器缓存
-=======
 - BERT 的 `model.safetensors`、运行时压缩包和其他超大文件
 - `.venv/`、`__pycache__/`、测试临时文件和编辑器缓存
 
 课程要求的 PPT、10 分钟现场演示流程和演示视频需要作为独立材料准备，目前不在仓库中。
->>>>>>> main

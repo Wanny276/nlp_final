@@ -1,0 +1,8 @@
+2026-06-14 20:15:19.882 Uvicorn server started on 0.0.0.0:8501
+2026-06-14 20:15:22.095 Did not auto detect external IP.
+Please go to https://docs.streamlit.io/ for debugging hints.
+Building prefix dict from the default dictionary ...
+Loading model from cache C:\Users\27971\AppData\Local\Temp\jieba.cache
+Loading model cost 0.616 seconds.
+Prefix dict has been built successfully.
+Loading weights:   0%|          | 0/201 [00:00<?, ?it/s]Loading weights: 100%|¨€¨€¨€¨€¨€¨€¨€¨€¨€¨€| 201/201 [00:00<00:00, 7664.90it/s]

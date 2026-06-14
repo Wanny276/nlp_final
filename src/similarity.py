@@ -30,9 +30,14 @@ def cosine_similarity(text_a: str, text_b: str) -> float:
     return numerator / (norm_a * norm_b)
 
 
-def find_similar_reviews(query: str, reviews: list[str], top_k: int = 3) -> list[tuple[str, float]]:
-    """按余弦相似度返回前 top-k 条相似评价。"""
+def find_similar_reviews(
+    query: str,
+    reviews: list[str],
+    top_k: int = 3,
+    min_score: float = 0.2,
+) -> list[tuple[str, float]]:
+    """按余弦相似度返回足够相关的前 top-k 条评价。"""
 
     scored = [(review, cosine_similarity(query, review)) for review in reviews if review != query]
     scored.sort(key=lambda item: item[1], reverse=True)
-    return scored[:top_k]
+    return [item for item in scored if item[1] >= min_score][:top_k]

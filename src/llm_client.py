@@ -84,11 +84,11 @@ REVIEW_ADVICE_SCHEMA: dict[str, Any] = {
     "required": ["summary", "problems", "suggestions", "risk_level"],
 }
 
-SYSTEM_PROMPT = """你是高校课程评价分析助手。请只根据用户提供的结构化 NLP 结果、课程维度证据和相似评论生成建议。
+SYSTEM_PROMPT = """你是高校课程评价分析助手。请只根据用户提供的当前评价、结构化 NLP 结果和课程维度证据生成建议。
 禁止编造学生没有提到的问题。输出必须是合法 JSON 对象，必须包含 summary、problems、suggestions、risk_level 四个字段。
 problems 可以为空数组，但字段不能省略；suggestions 至少 1 条。
 正面评价也必须给出维护型或推广型建议。aspect 必须优先来自 topic_evidence.aspect。
-evidence 必须引用 review_text、topic_evidence.evidence 或 similar_reviews.text 中的原文片段。
+evidence 必须逐字引用 review_text 或 topic_evidence.evidence 中的原文片段。
 表达要自然，避免直接堆叠关键词，避免重复课程维度。"""
 
 
@@ -107,7 +107,6 @@ def build_single_review_prompt(analysis: dict[str, Any]) -> str:
     """为单条评价构建结构化提示词。"""
 
     topic_evidence = json.dumps(analysis.get("topic_evidence", []), ensure_ascii=False)
-    similar_reviews = json.dumps(analysis.get("similar_reviews", []), ensure_ascii=False)
     topics = "、".join(_unique_strings(analysis.get("topics", [])))
     keywords = "、".join(_unique_strings(analysis.get("keywords", []))[:6])
     return f"""请根据下面的课程评价结构化结果，生成面向教师或课程管理者的自然中文反馈建议。
@@ -118,7 +117,6 @@ review_text：{analysis.get("text", "")}
 课程维度：{topics}
 关键词：{keywords}
 主题证据：{topic_evidence}
-相似评论：{similar_reviews}
 
 输出要求：
 1. 只输出 JSON，不要 Markdown，不要解释。
@@ -127,7 +125,8 @@ review_text：{analysis.get("text", "")}
 4. aspect 优先使用“课程维度”中的名称。
 5. summary 用 1 句自然中文说明整体反馈。
 6. problems 和 suggestions 最多各 2 条，不要重复同一课程维度。
-7. 不要把关键词列表直接拼成句子；如果评价是英文或中英混合，也用自然中文总结。"""
+7. evidence 必须逐字摘自 review_text 或主题证据，禁止引用其他评论或编造证据。
+8. 不要把关键词列表直接拼成句子；如果评价是英文或中英混合，也用自然中文总结。"""
 
 
 def local_summary(analysis: dict[str, Any]) -> dict[str, Any]:
@@ -226,6 +225,28 @@ def _validate_review_advice(result: dict[str, Any]) -> None:
                     raise ValueError(f"LLM response item missing required key: {item_key}")
 
 
+def _normalized_evidence(text: object) -> str:
+    return "".join(str(text).lower().split())
+
+
+def _validate_advice_grounding(result: dict[str, Any], analysis: dict[str, Any]) -> None:
+    allowed_sources = [analysis.get("text", "")]
+    for item in analysis.get("topic_evidence", []) or []:
+        if isinstance(item, dict):
+            allowed_sources.append(item.get("evidence", ""))
+
+    normalized_sources = [
+        _normalized_evidence(source)
+        for source in allowed_sources
+        if _normalized_evidence(source)
+    ]
+    for key in ("problems", "suggestions"):
+        for item in result.get(key, []):
+            evidence = _normalized_evidence(item.get("evidence", ""))
+            if not evidence or not any(evidence in source for source in normalized_sources):
+                raise ValueError("LLM response evidence is not grounded in the current review")
+
+
 def call_llm_json(prompt: str, config: LLMConfig | None = None) -> dict[str, Any]:
     """调用配置的大模型聊天接口，并解析 JSON 输出。"""
 
@@ -276,6 +297,7 @@ def generate_review_advice(analysis: dict[str, Any], config: LLMConfig | None = 
     prompt = build_single_review_prompt(analysis)
     try:
         result = call_llm_json(prompt, config=config)
+        _validate_advice_grounding(result, analysis)
         result.setdefault("source", "llm_api")
         return result
     except Exception as exc:

@@ -360,12 +360,22 @@ def bert_status(config: BertConfig | None = None) -> dict[str, Any]:
         find_spec("torch") is not None
         and find_spec("transformers") is not None
     )
+    config_available = (config.model_path / "config.json").exists()
+    weights_available = any(
+        (config.model_path / filename).exists()
+        for filename in ("model.safetensors", "pytorch_model.bin")
+    )
+    tokenizer_available = any(
+        (config.model_path / filename).exists()
+        for filename in ("tokenizer.json", "vocab.txt", "sentencepiece.bpe.model")
+    )
+    model_available = config_available and weights_available and tokenizer_available
     return {
         "model_path": str(config.model_path),
-        "model_available": (config.model_path / "config.json").exists(),
+        "model_available": model_available,
         "dependencies_available": dependencies_available,
         "ready": (
-            (config.model_path / "config.json").exists()
+            model_available
             and dependencies_available
             and _PREDICTOR_ERROR is None
         ),
