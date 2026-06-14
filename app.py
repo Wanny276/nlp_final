@@ -189,12 +189,20 @@ section[data-testid="stSidebar"] div {
 }
 
 .sidebar-brand-title {
-    display: flex;
-    align-items: center;
-    gap: 0.55rem;
+    display: block;
     margin: 0;
     color: #FFFFFF;
-    font-size: 18px;
+    font-size: 21px;
+    font-weight: 800;
+    line-height: 1.25;
+    letter-spacing: 0.01em;
+}
+
+.sidebar-brand-subtitle {
+    display: block;
+    margin-top: 0.28rem;
+    color: rgba(255, 255, 255, 0.78);
+    font-size: 15px;
     font-weight: 700;
     line-height: 1.35;
 }
@@ -239,7 +247,7 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] > div {
     gap: 0.35rem;
 }
 
-section[data-testid="stSidebar"] [data-testid="stRadio"] label {
+section[data-testid="stSidebar"] [data-testid="stRadio"] div[role="radiogroup"] label {
     display: flex !important;
     align-items: center;
     width: 100% !important;
@@ -251,7 +259,7 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label {
     background: transparent;
 }
 
-section[data-testid="stSidebar"] [data-testid="stRadio"] label p {
+section[data-testid="stSidebar"] [data-testid="stRadio"] div[role="radiogroup"] label p {
     width: 100%;
     margin: 0 !important;
     color: rgba(255, 255, 255, 0.78);
@@ -262,18 +270,18 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label p {
     white-space: nowrap;
 }
 
-section[data-testid="stSidebar"] [data-testid="stRadio"] label:hover {
+section[data-testid="stSidebar"] [data-testid="stRadio"] div[role="radiogroup"] label:hover {
     background: rgba(255, 255, 255, 0.08);
     border-color: rgba(255, 255, 255, 0.08);
 }
 
-section[data-testid="stSidebar"] [data-testid="stRadio"] label:has(input:checked) {
+section[data-testid="stSidebar"] [data-testid="stRadio"] div[role="radiogroup"] label:has(input:checked) {
     background: linear-gradient(135deg, var(--primary) 0%, var(--primary-2) 100%);
     border-color: rgba(255, 255, 255, 0.18);
     box-shadow: 0 10px 24px rgba(8, 12, 53, 0.26);
 }
 
-section[data-testid="stSidebar"] [data-testid="stRadio"] label:has(input:checked) p {
+section[data-testid="stSidebar"] [data-testid="stRadio"] div[role="radiogroup"] label:has(input:checked) p {
     color: #FFFFFF;
     font-weight: 700;
 }
@@ -1217,7 +1225,7 @@ def render_hero() -> None:
         f"""
         <section class="hero-card">
             <div>
-                <h1 class="hero-title"><span class="hero-logo">{escaped(APP_LOGO)}</span>课程评价智能分析平台</h1>
+                <h1 class="hero-title"><span class="hero-logo">{escaped(APP_LOGO)}</span>面向课程评论的多语言智能分析系统</h1>
                 <p class="hero-copy">
                     面向课程评价文本，提供情感倾向识别、关键词抽取、问题维度定位与教学改进建议生成。
                 </p>
@@ -1311,7 +1319,7 @@ def render_progress(value: float, tone: str = "") -> None:
 
 def render_shell() -> str:
     st.set_page_config(
-        page_title="课程评价智能分析平台",
+        page_title="面向课程评论的多语言智能分析系统",
         page_icon=APP_LOGO,
         layout="wide",
         initial_sidebar_state="expanded",
@@ -1319,11 +1327,14 @@ def render_shell() -> str:
     inject_css()
 
     st.sidebar.html(
-        """
-        <div class="sidebar-brand">
-            <div class="sidebar-brand-title"><span class="sidebar-logo">🎓</span><span>课程评价智能分析平台</span></div>
+    """
+    <div class="sidebar-brand">
+        <div class="sidebar-brand-title">
+            <span>CourseInsight</span>
+            <span class="sidebar-brand-subtitle">面向课程评论的多语言智能分析系统</span>
         </div>
-        """
+    </div>
+    """
     )
     page = st.sidebar.radio("页面导航", PAGE_OPTIONS, label_visibility="collapsed")
     st.sidebar.html('<div class="sidebar-version">CourseInsight v2.0</div>')
@@ -1338,7 +1349,7 @@ def page_home() -> None:
     metrics = [
         ("", "数据规模", data_value, data_detail),
         ("", "主模型", model_value, model_detail),
-        ("", "支持输入", "单条 / CSV", "支持单条评价分析与批量导入。"),
+        ("", "支持输入", "单条 / 批量", "支持单条评价分析与批量导入。"),
         ("", "输出结果", "4 类", "情感倾向、关键词、命中维度、教学建议。"),
     ]
     metrics_html = "".join(metric_card_html(*metric) for metric in metrics)
