@@ -75,8 +75,12 @@ REVIEW_ADVICE_SCHEMA: dict[str, Any] = {
                     "aspect": {"type": "string"},
                     "suggestion": {"type": "string"},
                     "evidence": {"type": "string"},
+                    "action_type": {
+                        "type": "string",
+                        "enum": ["maintain", "improve", "priority"],
+                    },
                 },
-                "required": ["aspect", "suggestion", "evidence"],
+                "required": ["aspect", "suggestion", "evidence", "action_type"],
             },
         },
         "risk_level": {"type": "string", "enum": ["low", "middle", "high"]},
@@ -88,6 +92,7 @@ SYSTEM_PROMPT = """你是高校课程评价分析助手。请只根据用户提�
 禁止编造学生没有提到的问题。输出必须是合法 JSON 对象，必须包含 summary、problems、suggestions、risk_level 四个字段。
 problems 可以为空数组，但字段不能省略；suggestions 至少 1 条。
 正面评价也必须给出维护型或推广型建议。aspect 必须优先来自 topic_evidence.aspect。
+suggestions 每项必须包含 action_type：maintain 表示保持优势，improve 表示可优化，priority 表示重点问题。
 evidence 必须逐字引用 review_text 或 topic_evidence.evidence 中的原文片段。
 表达要自然，避免直接堆叠关键词，避免重复课程维度。"""
 
@@ -121,12 +126,13 @@ review_text：{analysis.get("text", "")}
 输出要求：
 1. 只输出 JSON，不要 Markdown，不要解释。
 2. JSON 包含 summary、problems、suggestions、risk_level，risk_level 只能是 low、middle、high。
-3. problems 每项包含 aspect、description、evidence；suggestions 每项包含 aspect、suggestion、evidence。
+3. problems 每项包含 aspect、description、evidence；suggestions 每项包含 aspect、suggestion、evidence、action_type。
 4. aspect 优先使用“课程维度”中的名称。
 5. summary 用 1 句自然中文说明整体反馈。
 6. problems 和 suggestions 最多各 2 条，不要重复同一课程维度。
 7. evidence 必须逐字摘自 review_text 或主题证据，禁止引用其他评论或编造证据。
-8. 不要把关键词列表直接拼成句子；如果评价是英文或中英混合，也用自然中文总结。"""
+8. action_type 只能是 maintain、improve、priority：保持已有优点用 maintain，优化安排或补充材料用 improve，明确高风险问题用 priority。
+9. 不要把关键词列表直接拼成句子；如果评价是英文或中英混合，也用自然中文总结。"""
 
 
 def local_summary(analysis: dict[str, Any]) -> dict[str, Any]:
@@ -147,16 +153,19 @@ def local_summary(analysis: dict[str, Any]) -> dict[str, Any]:
     if sentiment == "positive":
         summary = f"学生整体反馈较积极，主要认可{topic_text}方面。"
         risk_level = "low"
+        action_type = "maintain"
         problem_text = "暂未发现明确问题，可继续关注学生认可点是否能稳定保持。"
         suggestion_text = f"保持{topic_text}中的有效做法，并在后续课程中继续收集学生反馈。"
     elif sentiment == "negative":
         summary = f"学生反馈偏负面，问题集中在{topic_text}方面。"
         risk_level = "high"
+        action_type = "priority"
         problem_text = f"需要优先核实{topic_text}中被学生明确指出的不便。"
         suggestion_text = f"针对{topic_text}制定具体调整措施，降低学生学习阻力。"
     else:
         summary = f"学生反馈较为中性，涉及{topic_text}，同时包含肯定和改进建议。"
         risk_level = "middle"
+        action_type = "improve"
         problem_text = f"需要把{topic_text}中的认可点和不便之处分开处理。"
         suggestion_text = f"保留学生认可的做法，同时针对{topic_text}中提到的不便安排改进。"
 
@@ -174,6 +183,7 @@ def local_summary(analysis: dict[str, Any]) -> dict[str, Any]:
                 "aspect": aspect,
                 "suggestion": suggestion_text,
                 "evidence": evidence,
+                "action_type": action_type,
             }
         ],
         "risk_level": risk_level,
@@ -223,6 +233,10 @@ def _validate_review_advice(result: dict[str, Any]) -> None:
             for item_key in required:
                 if not item.get(item_key):
                     raise ValueError(f"LLM response item missing required key: {item_key}")
+            if key == "suggestions":
+                action_type = item.get("action_type")
+                if action_type not in {"maintain", "improve", "priority"}:
+                    raise ValueError("LLM response suggestion has invalid action_type")
 
 
 def _normalized_evidence(text: object) -> str:

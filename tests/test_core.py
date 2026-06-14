@@ -46,7 +46,14 @@ from scripts.run_stress_test import (
 )
 from src.bert_sentiment import BertConfig, _split_token_ids, bert_status
 from src.keyword_extractor import keywords_only
-from src.llm_client import LLMConfig, call_llm_json, generate_review_advice, local_summary
+from src.llm_client import (
+    LLMConfig,
+    REVIEW_ADVICE_SCHEMA,
+    build_single_review_prompt,
+    call_llm_json,
+    generate_review_advice,
+    local_summary,
+)
 from src.nlp_analyzer import (
     analyze_batch,
     analyze_review,
@@ -539,12 +546,85 @@ class CorePipelineTest(unittest.TestCase):
         self.assertIn("保持优势", html)
         self.assertNotIn("可优化", html)
 
+    def test_advice_card_uses_improvement_marker_before_low_risk_badge(self):
+        html = advice_card_html(
+            {
+                "aspect": "实验实践",
+                "suggestion": "建议优化期末项目的时间规划，提前发布任务或增加中间检查点，为学生预留充足的调试与完善时间。",
+                "evidence": "final project 有点赶，debug 花了不少时间",
+            },
+            "low",
+        )
+
+        self.assertIn("可优化", html)
+        self.assertNotIn("保持优势", html)
+
+    def test_llm_schema_and_prompt_request_suggestion_action_type(self):
+        suggestion_schema = REVIEW_ADVICE_SCHEMA["properties"]["suggestions"]["items"]
+        prompt = build_single_review_prompt(
+            {
+                "text": "final project 有点赶，debug 花了不少时间",
+                "language": "mixed",
+                "sentiment": "negative",
+                "topics": ["实验实践"],
+                "keywords": ["debug"],
+                "topic_evidence": [
+                    {
+                        "aspect": "实验实践",
+                        "evidence": "final project 有点赶，debug 花了不少时间",
+                    }
+                ],
+            }
+        )
+
+        self.assertIn("action_type", suggestion_schema["required"])
+        self.assertEqual(
+            set(suggestion_schema["properties"]["action_type"]["enum"]),
+            {"maintain", "improve", "priority"},
+        )
+        self.assertIn("action_type", prompt)
+        self.assertIn("maintain", prompt)
+        self.assertIn("improve", prompt)
+        self.assertIn("priority", prompt)
+
+    def test_local_fallback_marks_suggestion_action_type(self):
+        cases = [
+            ("positive", "maintain"),
+            ("neutral", "improve"),
+            ("negative", "priority"),
+        ]
+        for sentiment, action_type in cases:
+            with self.subTest(sentiment=sentiment):
+                result = local_summary(
+                    {
+                        "text": "final project 有点赶，debug 花了不少时间",
+                        "sentiment": sentiment,
+                        "language": "mixed",
+                        "topics": ["实验实践"],
+                        "topic_evidence": [
+                            {
+                                "aspect": "实验实践",
+                                "evidence": "final project 有点赶，debug 花了不少时间",
+                            }
+                        ],
+                    }
+                )
+
+                self.assertEqual(result["suggestions"][0]["action_type"], action_type)
+
     @patch("src.llm_client.call_llm_json")
     def test_generate_review_advice_uses_api_result(self, mock_call):
         mock_call.return_value = {
             "summary": "课堂反馈整体积极。",
             "problems": [],
-            "suggestions": [{"aspect": "教学内容", "suggestion": "继续保持", "evidence": "讲得清楚"}],
+            "suggestions": [
+                {
+                    "aspect": "教学内容",
+                    "suggestion": "继续保持",
+                    "evidence": "讲得清楚",
+                    "action_type": "maintain",
+                }
+            ],
             "risk_level": "low",
         }
 
@@ -565,13 +645,14 @@ class CorePipelineTest(unittest.TestCase):
         mock_call.return_value = {
             "summary": "建议调整作业安排。",
             "problems": [],
-            "suggestions": [
-                {
-                    "aspect": "作业任务",
-                    "suggestion": "适当减少作业量。",
-                    "evidence": "作业太多了，每周都做不完，希望能适当减少。",
-                }
-            ],
+                    "suggestions": [
+                        {
+                            "aspect": "作业任务",
+                            "suggestion": "适当减少作业量。",
+                            "evidence": "作业太多了，每周都做不完，希望能适当减少。",
+                            "action_type": "improve",
+                        }
+                    ],
             "risk_level": "middle",
         }
 
@@ -607,7 +688,8 @@ class CorePipelineTest(unittest.TestCase):
                                 "content": (
                                     '{"summary":"反馈中性。","problems":[],'
                                     '"suggestions":[{"aspect":"作业任务","suggestion":"适当调整作业量。",'
-                                    '"evidence":"assignment 太多"}],"risk_level":"middle"}'
+                                    '"evidence":"assignment 太多","action_type":"improve"}],'
+                                    '"risk_level":"middle"}'
                                 )
                             }
                         }

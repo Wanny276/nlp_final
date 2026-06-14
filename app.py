@@ -41,9 +41,9 @@ PAGE_OPTIONS = [
 ]
 
 SAMPLE_REVIEWS = {
-    "中文评价": "这门课老师讲解很清楚，案例也很贴近实际，课堂互动让我更容易理解重点。",
-    "英文评价": "The lectures are organized, but the assignments are too heavy and feedback often comes late.",
-    "中英混合": "老师讲得很认真，examples are helpful，但是实验部分 guidance 不够详细，希望能多给步骤说明。",
+    "中文评价": "老师讲课很清楚，课程内容和知识点组织得很好，案例也帮助我理解重点，整体收获很多。",
+    "英文评价": "The assignments are too many, the deadlines are stressful, and the exam scope is not clear enough.",
+    "中英混合": "讲得很清楚，但 final project 有点赶，debug 花了不少时间。",
 }
 TEXT_COLUMN_CANDIDATES = ("review_text", "text", "review", "reviews", "comment", "content", "评价", "评论")
 COURSE_COLUMN_CANDIDATES = ("course_name", "course", "course_title", "课程", "课程名称")
@@ -1818,6 +1818,8 @@ def advice_badge_info(suggestion: dict[str, Any], risk_level: object) -> tuple[s
     text = str(suggestion.get("suggestion", "")).strip()
     has_maintain_marker = any(marker in text for marker in MAINTAIN_SUGGESTION_MARKERS)
     has_improve_marker = any(marker in text for marker in IMPROVE_SUGGESTION_MARKERS)
+    if has_improve_marker:
+        return "可优化", "warning"
     if has_maintain_marker and not has_improve_marker:
         return "保持优势", "success"
 
