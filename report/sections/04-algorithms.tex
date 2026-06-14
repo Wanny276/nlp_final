@@ -22,10 +22,10 @@
     \toprule
     原始表达 & 送入情感分类器的标准化表达 \\
     \midrule
-    \code{Tbh this crs is dificult} & \code{To be honest this course is difficult} \\
-    \code{I cant recomend this crs} & \code{I can not recommend this course} \\
-    \code{borng and uncler} & \code{boring and unclear} \\
-    \code{goooood} & \code{good} \\
+    \texttt{Tbh this crs is dificult} & \texttt{To be honest, this course is difficult} \\
+    \texttt{I cant recomend this crs} & \texttt{I cannot recommend this course} \\
+    \texttt{borng and uncler} & \texttt{boring and unclear} \\
+    \texttt{goooood} & \texttt{good} \\
     \bottomrule
   \end{tabularx}
 \end{table}
@@ -75,17 +75,17 @@ FP16 和 GPU，否则可在 CPU 上运行。部署阶段采用懒加载方式，
 \subsection{长文本滑动窗口推理}
 
 直接截断长评价会丢失后半部分信息。系统将超过最大长度的 Token 序列按滑动窗口切分，默认最大
-长度为 160，重叠 32 个 Token，单条评价最多保留 16 个窗口。设第 \(i\) 个窗口的分类概率为
-\(\boldsymbol{p}_i\)，有效 Token 数为 \(w_i\)，则整条评价的概率为：
+长度为 160，重叠 32 个 Token，单条评价最多保留 16 个窗口。整条评价的加权分类概率为：
 
-\begin{equation}
-  \overline{\boldsymbol{p}}
+\[
+  \boldsymbol{p}
   = \frac{\sum_{i=1}^{m} w_i \boldsymbol{p}_i}
   {\sum_{i=1}^{m} w_i}.
-\end{equation}
+\]
 
-使用有效 Token 数加权可以避免短尾窗口和完整窗口具有相同影响。系统还在结果中记录窗口数量、
-Token 数量和是否达到窗口上限，便于页面提示用户存在未处理的超长内容。
+其中，\(\boldsymbol{p}_i\) 表示第 \(i\) 个窗口的分类概率，\(w_i\) 表示该窗口的有效 Token
+数，\(m\) 表示窗口数量。使用有效 Token 数加权可以避免短尾窗口和完整窗口具有相同影响。系统
+还在结果中记录窗口数量、Token 数量和是否达到窗口上限，便于页面提示用户存在未处理的超长内容。
 
 \subsection{规则校正与分层回退}
 

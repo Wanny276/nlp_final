@@ -139,7 +139,7 @@ def moving_average(values: list[float], window: int = 5) -> np.ndarray:
     return np.convolve(values, kernel, mode="valid")
 
 
-def plot_bert_training_curve() -> None:
+def plot_bert_training_figures() -> None:
     state = read_json(
         "outputs/bert_model_final/checkpoint-1368/trainer_state.json"
     )
@@ -156,19 +156,34 @@ def plot_bert_training_curve() -> None:
     smooth_losses = moving_average(losses)
     smooth_steps = steps[len(steps) - len(smooth_losses) :]
 
-    fig, axes = plt.subplots(1, 2, figsize=(10.5, 4.2))
-    axes[0].plot(steps, losses, color=LIGHT_BLUE, alpha=0.48, linewidth=1.0, label="批次损失")
-    axes[0].plot(smooth_steps, smooth_losses, color=BLUE, linewidth=2.2, label="5 点滑动平均")
-    axes[0].set_title("训练损失")
-    axes[0].set_xlabel("训练步数")
-    axes[0].set_ylabel("交叉熵损失")
-    axes[0].grid(color=GRID, linewidth=0.7)
-    axes[0].legend(frameon=False)
+    fig, ax = plt.subplots(figsize=(5.2, 4.1))
+    ax.plot(
+        steps,
+        losses,
+        color=LIGHT_BLUE,
+        alpha=0.5,
+        linewidth=1.0,
+        label="批次损失",
+    )
+    ax.plot(
+        smooth_steps,
+        smooth_losses,
+        color=BLUE,
+        linewidth=2.2,
+        label="5 点滑动平均",
+    )
+    ax.set_xlabel("训练步数")
+    ax.set_ylabel("交叉熵损失")
+    ax.grid(color=GRID, linewidth=0.7)
+    ax.legend(frameon=False)
+    fig.tight_layout()
+    finish_figure(fig, "bert_training_loss.png")
 
     epochs = [item["epoch"] for item in evaluation_logs]
     eval_accuracy = [item["eval_accuracy"] for item in evaluation_logs]
     eval_macro_f1 = [item["eval_macro_f1"] for item in evaluation_logs]
-    axes[1].plot(
+    fig, ax = plt.subplots(figsize=(5.2, 4.1))
+    ax.plot(
         epochs,
         eval_accuracy,
         marker="o",
@@ -177,7 +192,7 @@ def plot_bert_training_curve() -> None:
         color=BLUE,
         label="Validation Accuracy",
     )
-    axes[1].plot(
+    ax.plot(
         epochs,
         eval_macro_f1,
         marker="s",
@@ -187,19 +202,60 @@ def plot_bert_training_curve() -> None:
         label="Validation Macro-F1",
     )
     for epoch, value in zip(epochs, eval_accuracy):
-        axes[1].annotate(f"{value:.3f}", (epoch, value), xytext=(0, 8), textcoords="offset points", ha="center")
+        ax.annotate(
+            f"{value:.3f}",
+            (epoch, value),
+            xytext=(0, 8),
+            textcoords="offset points",
+            ha="center",
+        )
     for epoch, value in zip(epochs, eval_macro_f1):
-        axes[1].annotate(f"{value:.3f}", (epoch, value), xytext=(0, -16), textcoords="offset points", ha="center")
-    axes[1].set_title("验证集指标")
-    axes[1].set_xlabel("Epoch")
-    axes[1].set_ylabel("指标值")
-    axes[1].set_xticks(epochs)
-    axes[1].set_ylim(0.66, 0.75)
-    axes[1].grid(color=GRID, linewidth=0.7)
-    axes[1].legend(frameon=False, loc="lower right")
-
+        ax.annotate(
+            f"{value:.3f}",
+            (epoch, value),
+            xytext=(0, -16),
+            textcoords="offset points",
+            ha="center",
+        )
+    ax.set_xlabel("训练轮次")
+    ax.set_ylabel("指标值")
+    ax.set_xticks(epochs)
+    ax.set_ylim(0.66, 0.75)
+    ax.grid(color=GRID, linewidth=0.7)
+    ax.legend(frameon=False, loc="lower right")
     fig.tight_layout()
-    finish_figure(fig, "bert_training_curve.png")
+    finish_figure(fig, "bert_validation_metrics.png")
+
+
+def plot_bert_confusion_matrix() -> None:
+    metrics = read_json("outputs/bert_metrics_final.json")
+    matrix = np.asarray(metrics["confusion_matrix"], dtype=int)
+    labels = ["负面", "中性", "正面"]
+
+    fig, ax = plt.subplots(figsize=(5.8, 4.8))
+    image = ax.imshow(matrix, cmap="Blues", aspect="equal")
+    ax.set_xticks(range(len(labels)), labels)
+    ax.set_yticks(range(len(labels)), labels)
+    ax.set_xlabel("预测类别")
+    ax.set_ylabel("真实类别")
+
+    threshold = matrix.max() * 0.58
+    for row in range(matrix.shape[0]):
+        for column in range(matrix.shape[1]):
+            ax.text(
+                column,
+                row,
+                str(matrix[row, column]),
+                ha="center",
+                va="center",
+                color="white" if matrix[row, column] >= threshold else "#17212B",
+                fontsize=12,
+                fontweight="bold",
+            )
+    colorbar = fig.colorbar(image, ax=ax, fraction=0.046, pad=0.04)
+    colorbar.set_label("样本数")
+    fig.tight_layout()
+    finish_figure(fig, "bert_confusion_matrix.png")
 
 
 def plot_stress_test_results() -> None:
@@ -221,69 +277,74 @@ def plot_stress_test_results() -> None:
         "spelling",
     ]
     category_names = ["缩写", "中英混合", "隐含抱怨", "长文本", "混合情感", "否定", "讽刺", "拼写"]
-    heatmap = np.asarray(
+    passed = np.asarray(
         [
             [
-                metrics["experiments"][experiment]["by_category"][category][
-                    "accuracy"
-                ]
+                metrics["experiments"][experiment]["by_category"][category]["passed"]
                 for category in category_keys
             ]
             for experiment in experiment_keys
         ]
     )
-
-    fig, axes = plt.subplots(
-        1,
-        2,
-        figsize=(13.2, 5.1),
-        gridspec_kw={"width_ratios": [0.9, 1.55]},
+    support = np.asarray(
+        [
+            [
+                metrics["experiments"][experiment]["by_category"][category]["support"]
+                for category in category_keys
+            ]
+            for experiment in experiment_keys
+        ]
     )
+    heatmap = passed / support
 
+    fig, ax = plt.subplots(figsize=(7.5, 4.6))
     x = np.arange(len(display_names))
     width = 0.36
-    bars_accuracy = axes[0].bar(
+    bars_accuracy = ax.bar(
         x - width / 2,
         accuracy,
         width,
         label="Accuracy",
         color=BLUE,
     )
-    bars_f1 = axes[0].bar(
+    bars_f1 = ax.bar(
         x + width / 2,
         macro_f1,
         width,
         label="Macro-F1",
         color=ORANGE,
     )
-    axes[0].set_ylabel("指标值")
-    axes[0].set_xticks(x, display_names)
-    axes[0].set_ylim(0, 0.86)
-    axes[0].grid(axis="y", color=GRID, linewidth=0.7)
-    axes[0].legend(frameon=False, loc="upper left")
-    annotate_bars(axes[0], bars_accuracy, percentage=True, decimals=0)
-    annotate_bars(axes[0], bars_f1, percentage=True, decimals=0)
+    ax.set_ylabel("指标值")
+    ax.set_xticks(x, display_names)
+    ax.set_ylim(0, 0.86)
+    ax.grid(axis="y", color=GRID, linewidth=0.7)
+    ax.legend(frameon=False, loc="upper left")
+    annotate_bars(ax, bars_accuracy, percentage=True, decimals=0)
+    annotate_bars(ax, bars_f1, percentage=True, decimals=0)
+    fig.tight_layout()
+    finish_figure(fig, "stress_test_overall.png")
 
-    image = axes[1].imshow(heatmap, cmap="Blues", vmin=0, vmax=1, aspect="auto")
-    axes[1].set_xticks(range(len(category_names)), category_names, rotation=35, ha="right")
-    axes[1].set_yticks(range(len(display_names)), display_names)
+    fig, ax = plt.subplots(figsize=(10.8, 4.2))
+    image = ax.imshow(heatmap, cmap="Blues", vmin=0, vmax=1, aspect="auto")
+    ax.set_xticks(range(len(category_names)), category_names)
+    ax.set_yticks(range(len(display_names)), display_names)
     for row in range(heatmap.shape[0]):
         for column in range(heatmap.shape[1]):
             value = heatmap[row, column]
-            axes[1].text(
+            ax.text(
                 column,
                 row,
-                f"{value:.0%}",
+                f"{passed[row, column]}/{support[row, column]}",
                 ha="center",
                 va="center",
                 color="white" if value >= 0.62 else "#17212B",
                 fontsize=9,
                 fontweight="bold",
             )
-    colorbar = fig.colorbar(image, ax=axes[1], fraction=0.035, pad=0.025)
-    colorbar.set_label("Accuracy")
+    colorbar = fig.colorbar(image, ax=ax, fraction=0.026, pad=0.025)
+    colorbar.set_label("通过率")
     fig.tight_layout()
-    finish_figure(fig, "stress_test_results.png")
+    finish_figure(fig, "stress_test_categories.png")
 
 
 def plot_ablation_results() -> None:
@@ -349,7 +410,8 @@ def plot_ablation_results() -> None:
 def main() -> None:
     configure_style()
     plot_model_performance()
-    plot_bert_training_curve()
+    plot_bert_training_figures()
+    plot_bert_confusion_matrix()
     plot_ablation_results()
     plot_stress_test_results()
     print(f"Generated report charts in: {FIGURE_DIR}")

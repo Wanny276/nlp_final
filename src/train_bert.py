@@ -21,7 +21,12 @@ def _load_optional_dependencies() -> dict[str, Any]:
         import numpy as np
         import pandas as pd
         import torch
-        from sklearn.metrics import accuracy_score, classification_report, f1_score
+        from sklearn.metrics import (
+            accuracy_score,
+            classification_report,
+            confusion_matrix,
+            f1_score,
+        )
         from sklearn.model_selection import train_test_split
         from transformers import (
             AutoModelForSequenceClassification,
@@ -41,6 +46,7 @@ def _load_optional_dependencies() -> dict[str, Any]:
         "torch": torch,
         "accuracy_score": accuracy_score,
         "classification_report": classification_report,
+        "confusion_matrix": confusion_matrix,
         "f1_score": f1_score,
         "train_test_split": train_test_split,
         "AutoModelForSequenceClassification": AutoModelForSequenceClassification,
@@ -258,6 +264,11 @@ def train_bert(
             zero_division=0,
             output_dict=True,
         ),
+        "confusion_matrix": deps["confusion_matrix"](
+            y_true,
+            y_pred,
+            labels=LABELS,
+        ).tolist(),
     }
     if "language" in test_df.columns:
         language_metrics: dict[str, dict[str, float | int]] = {}

@@ -41,7 +41,7 @@
   \centering
   \resizebox{\textwidth}{!}{%
   \begin{tikzpicture}[
-    font=\small,
+    font=\songti\small,
     module/.style={
       draw=ReportBlue, rounded corners=2pt, fill=ReportLightBlue,
       minimum height=10mm, align=center, inner xsep=4pt
@@ -91,29 +91,48 @@
   \centering
   \resizebox{\textwidth}{!}{%
   \begin{tikzpicture}[
-    font=\small,
-    node distance=5mm,
+    font=\songti\small,
     flowstep/.style={
       draw=ReportBlue, rounded corners=2pt, fill=white,
-      minimum width=2.35cm, minimum height=1.15cm,
+      minimum width=2.7cm, minimum height=1.15cm,
       align=center
+    },
+    rawstep/.style={
+      flowstep, fill=ReportGray, draw=ReportLine
+    },
+    sentimentstep/.style={
+      flowstep, fill=ReportLightBlue
     },
     arrow/.style={-{Latex[length=2mm]}, thick, draw=ReportBlue}
   ]
-    \node[flowstep] (input) {文本或\\CSV 输入};
-    \node[flowstep, right=of input] (clean) {语言识别\\清洗与分词};
-    \node[flowstep, right=of clean] (normalize) {情感文本\\标准化};
-    \node[flowstep, right=of normalize] (classify) {BERT 分类\\与规则校正};
-    \node[flowstep, right=of classify] (extract) {维度、关键词\\证据与相似评价};
-    \node[flowstep, right=of extract] (output) {结构化结果\\与教学建议};
+    \node[flowstep] (input) at (0,0) {文本或\\CSV 输入};
+    \node[flowstep] (clean) at (3.4,0) {语言识别\\基础清洗};
+
+    \node[rawstep] (raw) at (7.1,1.35)
+      {原始文本通道\\保留学生原话};
+    \node[rawstep] (extract) at (11.1,1.35)
+      {课程维度、关键词\\证据与相似评价};
+
+    \node[sentimentstep] (normalize) at (7.1,-1.35)
+      {标准化情感通道\\缩写展开与保守纠错};
+    \node[sentimentstep] (classify) at (11.1,-1.35)
+      {BERT 分类\\与规则校正};
+
+    \node[flowstep] (merge) at (14.9,0)
+      {结构化结果\\合并与解释};
+    \node[flowstep] (output) at (18.4,0)
+      {教学建议\\LLM + 模板};
 
     \draw[arrow] (input) -- (clean);
-    \draw[arrow] (clean) -- (normalize);
+    \draw[arrow] (clean.east) -- ++(0.55,0) |- (raw.west);
+    \draw[arrow] (clean.east) -- ++(0.55,0) |- (normalize.west);
+    \draw[arrow] (raw) -- (extract);
     \draw[arrow] (normalize) -- (classify);
-    \draw[arrow] (classify) -- (extract);
-    \draw[arrow] (extract) -- (output);
+    \draw[arrow] (extract.east) -- ++(0.55,0) |- (merge.west);
+    \draw[arrow] (classify.east) -- ++(0.55,0) |- (merge.west);
+    \draw[arrow] (merge) -- (output);
   \end{tikzpicture}}
-  \caption{系统核心数据流}
+  \caption{CourseInsight 双文本通道与核心数据流}
   \label{fig:data-flow}
 \end{figure}
 
@@ -141,6 +160,11 @@
     \bottomrule
   \end{tabularx}
 \end{table}
+
+Coursera 课程评论主要用于英文情感模型训练和量化评估；人工课程评价样本根据高校课程评价场景
+构造，用于覆盖中文、中英混合、作业、考试和实验等课堂演示场景。人工样本不包含真实学生姓名、
+学号或其他隐私信息，仅用于双语功能验证和测试用例构建。两类数据承担的任务不同，报告中的模型
+性能结论主要依据固定划分的独立测试集，不以少量人工样本单独推断真实校园场景的整体效果。
 
 标签定义为：正面表示主要认可或满意；负面表示主要抱怨或明确问题；中性不仅包含态度不明显的
 评价，也包含建议型评价和正负信息相对平衡的混合评价。该定义更符合教学反馈场景，因为“内容
