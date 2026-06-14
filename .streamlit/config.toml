@@ -1,14 +1,28 @@
 [theme]
-primaryColor = "#4F46E5"
-backgroundColor = "#F5F7FB"
+primaryColor = "#2563EB"
+backgroundColor = "#F7F8FA"
 secondaryBackgroundColor = "#FFFFFF"
-textColor = "#172033"
+textColor = "#111827"
 font = "sans serif"
+greenColor = "#16A34A"
+orangeColor = "#F97316"
+yellowColor = "#F59E0B"
+redColor = "#DC2626"
+blueColor = "#2563EB"
+violetColor = "#7C3AED"
+grayColor = "#64748B"
+chartCategoricalColors = ["#2563EB", "#16A34A", "#F59E0B", "#DC2626", "#94A3B8", "#7C3AED"]
+dataframeBorderColor = "#E5E7EB"
+dataframeHeaderBackgroundColor = "#F8FAFC"
+baseRadius = "12px"
+buttonRadius = "12px"
+showWidgetBorder = true
 
 [browser]
 gatherUsageStats = false
 
 [server]
+headless = true
 # Transformers exposes optional vision modules lazily. Disabling source watching
 # prevents Streamlit from importing those unrelated modules during path scans.
 fileWatcherType = "none"

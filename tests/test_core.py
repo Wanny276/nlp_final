@@ -16,20 +16,21 @@ logging.getLogger("streamlit").setLevel(logging.ERROR)
 cache_data_api._LOGGER.setLevel(logging.ERROR)
 
 from app import (
-    ablation_summary_rows,
-    batch_conclusion_card,
-    bert_metric_status,
-    bert_summary_rows,
-    build_test_case_results,
-    confidence_status,
+    PAGE_OPTIONS,
+    SAMPLE_REVIEWS,
+    classification_report_frame,
+    collect_dimension_scores,
+    confusion_matrix_frame,
     count_with_unit,
-    display_device_label,
-    language_metric_rows,
-    limited_result_rows,
-    model_chart_frame,
-    parse_expected_topics,
-    sentiment_chip_label,
-    sentiment_source_label,
+    display_model_name,
+    find_column,
+    macro_report,
+    model_comparison_frame,
+    normalize_dataframe,
+    rating_summary_frame,
+    result_rows,
+    sentiment_score,
+    validate_single_analysis_result,
 )
 from scripts.run_ablation_experiment import run_ablation
 from scripts.prepare_coursera_dataset import prepare_dataset
@@ -45,6 +46,7 @@ from src.nlp_analyzer import (
     analyze_review,
     rule_based_sentiment,
     sentiment_distribution,
+    topic_distribution,
 )
 from src.data_loader import label_from_rating, load_reviews_csv
 from src.preprocess import clean_text, detect_language, tokenize
@@ -611,133 +613,168 @@ class CorePipelineTest(unittest.TestCase):
         self.assertEqual(set(sampled["label"]), {"negative", "neutral", "positive"})
         self.assertTrue(output_path.exists())
 
-    def test_parse_expected_topics(self):
-        self.assertEqual(parse_expected_topics("教学内容;考试安排；学习收获"), ["教学内容", "考试安排", "学习收获"])
+    def test_frontend_navigation_is_limited_to_four_course_demo_pages(self):
+        page_names = [option[2:] for option in PAGE_OPTIONS]
 
-    def test_confidence_status_explains_low_mixed_feedback(self):
-        status = confidence_status(0.35, "neutral")
+        self.assertEqual(page_names, ["首页概览", "单条分析", "批量分析", "模型评估"])
+        self.assertNotIn("系统设置", "".join(PAGE_OPTIONS))
+        self.assertNotIn("数据管理", "".join(PAGE_OPTIONS))
 
-        self.assertEqual(status["level"], "较低")
-        self.assertIn("问题归因", status["detail"])
-        self.assertIn("正向表述", status["reason"])
+    def test_single_analysis_examples_cover_chinese_english_and_mixed_reviews(self):
+        self.assertEqual(list(SAMPLE_REVIEWS), ["中文评价", "英文评价", "中英混合"])
+        self.assertIn("课堂互动", SAMPLE_REVIEWS["中文评价"])
+        self.assertIn("feedback often comes late", SAMPLE_REVIEWS["英文评价"])
+        self.assertIn("guidance 不够详细", SAMPLE_REVIEWS["中英混合"])
 
-    def test_batch_conclusion_prioritizes_negative_topic(self):
-        conclusion = batch_conclusion_card(
-            {"positive": 3, "neutral": 5, "negative": 8},
-            {"作业任务": 6, "教学内容": 3},
-            {"作业": 5, "deadline": 2},
-            16,
-        )
-
-        self.assertIn("作业任务", conclusion["title"])
-        self.assertIn("优先", conclusion["detail"])
-        self.assertEqual(conclusion["tone"], "negative")
-
-    def test_bert_metric_status_marks_stage_metrics(self):
-        status = bert_metric_status({"macro_f1": 0.75529, "test_size": 2280})
-
-        self.assertEqual(status["label"], "阶段性 BERT Macro-F1")
-        self.assertEqual(status["value"], "0.755")
-        self.assertIn("2,280 条测试样本", status["detail"])
-        self.assertIn("最终训练", status["detail"])
-
-    def test_ui_copy_helpers_normalize_terms_and_units(self):
-        self.assertEqual(display_device_label("cpu"), "CPU")
-        self.assertEqual(display_device_label("cuda"), "CUDA")
-        self.assertEqual(sentiment_source_label("bert"), "BERT 模型预测")
-        self.assertEqual(sentiment_source_label("bert+rule"), "BERT 模型 + 规则校正")
-        self.assertEqual(count_with_unit(2280, "条测试样本"), "2,280 条测试样本")
-
-    def test_language_metric_rows_uses_support_and_skips_empty_rows(self):
-        rows = language_metric_rows(
+    def test_single_analysis_result_validation_requires_real_backend_fields_not_score(self):
+        validate_single_analysis_result(
             {
-                "language_metrics": {
-                    "zh": {"accuracy": 0.5, "macro_f1": 0.49, "support": 26},
-                    "mixed": {"accuracy": 0.0, "macro_f1": 0.0, "support": 0},
+                "sentiment": "neutral",
+                "confidence": 0.72,
+                "keywords": ["作业"],
+                "topic_evidence": [],
+            }
+        )
+        with self.assertRaisesRegex(ValueError, "confidence"):
+            validate_single_analysis_result(
+                {
+                    "sentiment": "neutral",
+                    "keywords": [],
+                    "topic_evidence": [],
                 }
-            }
-        )
+            )
 
-        self.assertEqual(
-            rows,
-            [{
-                "语言": "中文",
-                "准确率 Accuracy": "0.5000",
-                "宏平均 F1 Macro-F1": "0.4900",
-                "样本数": "26 条",
-            }],
-        )
-
-    def test_limited_result_rows_defaults_to_ten_items(self):
-        results = [
-            {
-                "text": f"评价 {index}",
-                "language": "zh",
-                "sentiment": "positive" if index % 2 else "negative",
-                "confidence": 0.8,
-                "sentiment_source": "bert",
-                "sentiment_device": "cpu",
-                "sentiment_chunk_count": 1,
-                "topics": ["教学内容"],
-                "keywords": ["清楚"],
-            }
-            for index in range(12)
-        ]
-
-        frame = limited_result_rows(results)
-
-        self.assertEqual(len(frame), 10)
-        self.assertEqual(frame.iloc[0]["评价文本"], "评价 0")
-        self.assertEqual(set(frame["情感"]).issubset({"正面", "负面"}), True)
-
-    def test_model_chart_frame_flattens_metric_results(self):
-        frame = model_chart_frame(
-            {
-                "results": {
-                    "Logistic Regression": {"accuracy": 0.69, "macro_f1": 0.68},
-                    "Linear SVM": {"accuracy": 0.67, "macro_f1": 0.66},
-                }
-            }
-        )
-
-        self.assertEqual(list(frame.columns), ["模型", "指标", "分数"])
-        self.assertEqual(len(frame), 4)
-        self.assertIn("宏平均 F1 Macro-F1", set(frame["指标"]))
-
-    def test_sentiment_chip_label_uses_chinese_labels(self):
-        self.assertEqual(sentiment_chip_label("positive"), "正面")
-        self.assertEqual(sentiment_chip_label("neutral"), "中性 / 混合")
-        self.assertEqual(sentiment_chip_label("negative"), "负面")
-        self.assertEqual(sentiment_chip_label("custom"), "custom")
-
-    @patch("app.analyze_batch")
-    def test_build_test_case_results(self, mock_analyze):
-        mock_analyze.return_value = [{
-            "language": "zh",
-            "sentiment": "positive",
-            "confidence": 0.91,
-            "sentiment_source": "rule",
-            "topics": ["授课方式", "教学内容"],
-            "keywords": ["清楚", "内容"],
-        }]
-        cases = pd.DataFrame(
+    def test_normalize_dataframe_requires_review_text_and_preserves_optional_fields(self):
+        frame = pd.DataFrame(
             [
                 {
-                    "id": 1,
-                    "text": "老师讲课很清楚，内容也很有用",
-                    "expected_sentiment": "positive",
-                    "expected_topics": "授课方式;教学内容",
-                    "note": "正面评价",
-                }
+                    "review_text": "老师讲解清楚",
+                    "course_name": "NLP",
+                    "teacher": "王老师",
+                    "rating": 5,
+                    "date": "2026-06-14",
+                },
+                {
+                    "review_text": "老师讲解清楚",
+                    "course_name": "NLP",
+                    "teacher": "王老师",
+                    "rating": 5,
+                    "date": "2026-06-14",
+                },
+                {"review_text": ""},
             ]
         )
 
-        results = build_test_case_results(cases)
+        rows = normalize_dataframe(frame)
 
-        self.assertEqual(results.loc[0, "是否通过"], "通过")
-        self.assertEqual(results.loc[0, "分析方法"], "规则兜底")
-        self.assertEqual(results.loc[0, "实际情感"], "正面")
-        self.assertEqual(results.loc[0, "关键词"], "清楚、内容")
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]["review_text"], "老师讲解清楚")
+        self.assertEqual(rows[0]["course_name"], "NLP")
+        self.assertEqual(rows[0]["teacher"], "王老师")
+        self.assertEqual(rows[0]["rating"], "5")
+        self.assertEqual(rows[0]["date"], "2026-06-14")
+
+    def test_normalize_dataframe_accepts_compatible_text_column_and_defaults_metadata(self):
+        frame = pd.DataFrame([{"comment": "作业反馈有点慢"}])
+
+        rows = normalize_dataframe(frame)
+
+        self.assertEqual(rows[0]["review_text"], "作业反馈有点慢")
+        self.assertEqual(rows[0]["course_name"], "未提供")
+        self.assertEqual(rows[0]["teacher"], "未提供")
+
+    def test_find_column_returns_none_when_required_text_column_missing(self):
+        self.assertIsNone(find_column(["course_name", "rating"], ("review_text", "text")))
+        with self.assertRaisesRegex(ValueError, "review_text"):
+            normalize_dataframe(pd.DataFrame([{"course_name": "NLP"}]))
+
+    def test_result_rows_maps_backend_fields_for_batch_table(self):
+        rows = [{
+            "review_text": "实验说明不够详细",
+            "course_name": "NLP",
+            "teacher": "李老师",
+            "rating": "2",
+            "date": "2026-06-14",
+        }]
+        results = [{
+            "sentiment": "negative",
+            "confidence": 0.82,
+            "topics": ["实验实践"],
+            "keywords": ["实验", "说明"],
+            "sentiment_source": "bert",
+        }]
+
+        frame_rows = result_rows(rows, results)
+
+        self.assertEqual(frame_rows[0]["情感"], "消极")
+        self.assertEqual(frame_rows[0]["分析方法"], "BERT 模型预测")
+        self.assertEqual(frame_rows[0]["课程维度"], "实验实践")
+        self.assertEqual(frame_rows[0]["关键词"], "实验、说明")
+
+    def test_topic_and_rating_summaries_use_real_returned_fields(self):
+        results = [
+            {"topics": ["教学内容", "授课方式"]},
+            {"topics": ["教学内容"]},
+        ]
+        topics = topic_distribution(results)
+        rating_frame = rating_summary_frame(
+            [
+                {"review_text": "a", "course_name": "A", "teacher": "", "rating": "2"},
+                {"review_text": "b", "course_name": "A", "teacher": "", "rating": "4"},
+                {"review_text": "c", "course_name": "B", "teacher": "", "rating": "1"},
+            ]
+        )
+
+        self.assertEqual(topics["教学内容"], 2)
+        self.assertEqual(topics["授课方式"], 1)
+        self.assertEqual(rating_frame.iloc[0]["对象"], "B")
+
+    def test_collect_dimension_scores_and_sentiment_score_do_not_invent_missing_values(self):
+        self.assertEqual(collect_dimension_scores({}), {})
+        self.assertEqual(sentiment_score("positive"), 1.0)
+        self.assertEqual(sentiment_score("neutral"), 0.5)
+        self.assertEqual(sentiment_score("negative"), 0.0)
+        self.assertEqual(count_with_unit(2280, "条测试样本"), "2,280 条测试样本")
+
+    def test_model_eval_frames_read_existing_metric_shapes(self):
+        metrics = {
+            "accuracy": 0.75,
+            "classification_report": {
+                "negative": {"precision": 0.7, "recall": 0.8, "f1-score": 0.74, "support": 10},
+                "macro avg": {"precision": 0.75, "recall": 0.76, "f1-score": 0.755, "support": 30},
+            },
+            "labels": ["negative", "neutral"],
+            "confusion_matrix": [[8, 2], [3, 7]],
+        }
+
+        self.assertEqual(macro_report(metrics)["f1-score"], 0.755)
+        report = classification_report_frame(metrics)
+        matrix = confusion_matrix_frame(metrics)
+
+        self.assertEqual(report.loc[0, "类别"], "消极")
+        self.assertEqual(list(matrix.index), ["消极", "中性"])
+        self.assertEqual(matrix.loc["消极", "中性"], 2)
+
+    @patch("app.load_json_file")
+    def test_model_comparison_frame_combines_traditional_and_bert_metrics(self, mock_load_json):
+        def fake_load(path):
+            if str(path).endswith("model_metrics.json"):
+                return {
+                    "results": {
+                        "Logistic Regression": {"accuracy": 0.69, "macro_f1": 0.68},
+                    }
+                }
+            if str(path).endswith("bert_metrics.json"):
+                return {"accuracy": 0.75, "macro_f1": 0.72}
+            return {}
+
+        mock_load_json.side_effect = fake_load
+
+        frame = model_comparison_frame()
+
+        self.assertEqual(set(frame["模型"]), {"Logistic Regression", "BERT"})
+        self.assertEqual(set(frame["模型类型"]), {"对比模型", "当前主模型"})
+        self.assertEqual(display_model_name("linear_svm"), "Linear SVM")
 
     def test_train_model_writes_detailed_metrics(self):
         data_path = Path("outputs/reports/test_train_metrics_data.csv")
@@ -879,36 +916,25 @@ class CorePipelineTest(unittest.TestCase):
         self.assertEqual(metrics["spelling"]["passed"], 1)
         self.assertEqual(metrics["negation"]["passed"], 1)
 
-    def test_app_formats_bert_and_ablation_metrics(self):
-        bert_metrics = {
-            "model_name": "bert-base-multilingual-cased",
+    def test_model_eval_helpers_keep_macro_report_and_leave_missing_confusion_empty(self):
+        metrics = {
             "accuracy": 0.75,
             "macro_f1": 0.72,
-            "test_size": 20,
-        }
-        ablation_metrics = {
-            "experiments": {
-                "rule-only": {
-                    "status": "completed",
-                    "accuracy": 0.5,
-                    "macro_f1": 0.44,
-                    "passed": 1,
-                    "failed": 1,
-                    "skipped": 0,
-                },
-                "model-only": {"status": "跳过", "skipped": 2},
-            }
+            "classification_report": {
+                "macro avg": {
+                    "precision": 0.73,
+                    "recall": 0.74,
+                    "f1-score": 0.72,
+                    "support": 20,
+                }
+            },
         }
 
-        bert_rows = bert_summary_rows(bert_metrics)
-        ablation_rows = ablation_summary_rows(ablation_metrics)
-
-        self.assertEqual(bert_rows[0]["模型"], "BERT")
-        self.assertEqual(bert_rows[0]["预训练模型"], "bert-base-multilingual-cased")
-        self.assertEqual(bert_rows[0]["状态"], "阶段性评估")
-        self.assertEqual(bert_rows[0]["测试样本"], "20 条")
-        self.assertEqual(ablation_rows[0]["实验版本"], "rule-only")
-        self.assertEqual(ablation_rows[1]["状态"], "跳过")
+        self.assertEqual(macro_report(metrics)["precision"], 0.73)
+        report = classification_report_frame(metrics)
+        self.assertEqual(report.loc[0, "类别"], "macro avg")
+        self.assertEqual(report.loc[0, "Support"], 20)
+        self.assertTrue(confusion_matrix_frame(metrics).empty)
 
     def test_bert_help_does_not_require_transformers(self):
         result = subprocess.run(
