@@ -101,35 +101,35 @@ MODEL_NAME_LABELS = {
     "BERT": "BERT",
 }
 CHART_COLORS = {
-    "primary": "#2563EB",
-    "accent": "#F97316",
-    "success": "#16A34A",
-    "warning": "#F59E0B",
-    "danger": "#DC2626",
-    "muted": "#64748B",
-    "compare": "#94A3B8",
-    "accent_2": "#7C3AED",
+    "primary": "#5636D3",
+    "accent": "#6D4AEF",
+    "success": "#28C76F",
+    "warning": "#E67835",
+    "danger": "#D95C59",
+    "muted": "#596076",
+    "compare": "#B6AFE4",
+    "accent_2": "#1660BC",
 }
 
 APP_CSS = """
 <style>
 :root {
-    --primary: #2563EB;
-    --primary-2: #1D4ED8;
-    --accent: #F97316;
-    --accent-2: #7C3AED;
-    --primary-soft: #EFF6FF;
-    --accent-soft: #FFF7ED;
-    --background: #F7F8FA;
+    --primary: #5636D3;
+    --primary-2: #3E20B5;
+    --accent: #6D4AEF;
+    --accent-2: #1660BC;
+    --primary-soft: #F3F0FF;
+    --accent-soft: #F5F2FF;
+    --background: #F8F7FC;
     --card-bg: #FFFFFF;
-    --text-main: #111827;
-    --text-muted: #64748B;
-    --border: #E5E7EB;
-    --success: #16A34A;
-    --warning: #F59E0B;
-    --danger: #DC2626;
-    --sidebar-bg: #111827;
-    --card-shadow: 0 10px 24px rgba(15, 23, 42, 0.06);
+    --text-main: #080C35;
+    --text-muted: #596076;
+    --border: #E4DDF6;
+    --success: #28C76F;
+    --warning: #E67835;
+    --danger: #D95C59;
+    --sidebar-bg: #080C35;
+    --card-shadow: 0 10px 24px rgba(8, 12, 53, 0.08);
     --radius-card: 18px;
     --radius-control: 12px;
     --radius-inner: 14px;
@@ -167,7 +167,7 @@ footer,
 section[data-testid="stSidebar"] {
     width: 245px !important;
     min-width: 245px !important;
-    background: linear-gradient(180deg, var(--sidebar-bg) 0%, #0F172A 100%);
+    background: linear-gradient(180deg, var(--sidebar-bg) 0%, #120A45 100%);
     border-right: 0;
 }
 
@@ -270,7 +270,7 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label:hover {
 section[data-testid="stSidebar"] [data-testid="stRadio"] label:has(input:checked) {
     background: linear-gradient(135deg, var(--primary) 0%, var(--primary-2) 100%);
     border-color: rgba(255, 255, 255, 0.18);
-    box-shadow: 0 10px 24px rgba(15, 23, 42, 0.24);
+    box-shadow: 0 10px 24px rgba(8, 12, 53, 0.26);
 }
 
 section[data-testid="stSidebar"] [data-testid="stRadio"] label:has(input:checked) p {
@@ -657,26 +657,26 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label:has(input:checked
 }
 
 .ui-badge.primary {
-    border-color: rgba(37, 99, 235, 0.22);
+    border-color: rgba(86, 54, 211, 0.22);
     background: var(--primary-soft);
     color: var(--primary);
 }
 
 .ui-badge.accent {
-    border-color: rgba(249, 115, 22, 0.25);
+    border-color: rgba(109, 74, 239, 0.25);
     background: var(--accent-soft);
     color: var(--accent);
 }
 
 .ui-badge.warning {
-    border-color: rgba(245, 158, 11, 0.26);
-    background: #FFFBEB;
-    color: #B45309;
+    border-color: rgba(230, 120, 53, 0.26);
+    background: #FFF8F1;
+    color: #B85B20;
 }
 
 .ui-badge.success {
-    border-color: rgba(22, 163, 74, 0.24);
-    background: #F0FDF4;
+    border-color: rgba(40, 199, 111, 0.24);
+    background: #F0FFF6;
     color: var(--success);
 }
 
@@ -736,7 +736,7 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label:has(input:checked
     right: -9px;
     width: 16px;
     height: 1px;
-    background: rgba(37, 99, 235, 0.25);
+    background: rgba(86, 54, 211, 0.30);
 }
 
 .flow-step:last-child::after {
@@ -907,7 +907,7 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] label:has(input:checked
 [data-testid="stFileUploaderDropzone"]:focus-within,
 [data-baseweb="select"] > div:focus-within {
     border-color: var(--primary) !important;
-    box-shadow: 0 0 0 3px rgba(37, 99, 235, 0.12) !important;
+    box-shadow: 0 0 0 3px rgba(86, 54, 211, 0.14) !important;
 }
 
 .stButton > button,
