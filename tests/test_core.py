@@ -54,7 +54,7 @@ from scripts.run_stress_test import (
     load_stress_cases,
 )
 from src.bert_sentiment import BertConfig, _split_token_ids, bert_status
-from src.keyword_extractor import keywords_only
+from src.keyword_extractor import extract_keywords, keywords_only, normalize_english_keyword
 from src.llm_client import (
     LLMConfig,
     REVIEW_ADVICE_SCHEMA,
@@ -191,6 +191,55 @@ class CorePipelineTest(unittest.TestCase):
         topics = detect_topics("The course is difficult but I learned practical skills")
         self.assertIn("教学内容", topics)
 
+    def test_topic_evidence_matches_complete_english_words(self):
+        evidence = detect_topic_evidence(
+            "The assignments are too many and the deadlines are stressful."
+        )
+        assignment_evidence = next(item for item in evidence if item["aspect"] == "作业任务")
+
+        self.assertEqual(
+            assignment_evidence["keywords"],
+            ["assignments", "deadlines"],
+        )
+
+    def test_topic_evidence_does_not_match_clear_inside_unclear(self):
+        evidence = detect_topic_evidence("The exam scope is unclear.")
+
+        self.assertNotIn("授课方式", [item["aspect"] for item in evidence])
+        self.assertIn("考试安排", [item["aspect"] for item in evidence])
+
+    def test_clear_only_hits_teaching_method_in_teaching_context(self):
+        exam_evidence = detect_topic_evidence("The exam scope is not clear enough.")
+        teaching_evidence = detect_topic_evidence("The instructor is clear.")
+        chinese_exam_evidence = detect_topic_evidence("考试范围不清楚。")
+        chinese_teaching_evidence = detect_topic_evidence("老师讲得很清楚。")
+
+        self.assertNotIn("授课方式", [item["aspect"] for item in exam_evidence])
+        self.assertIn("授课方式", [item["aspect"] for item in teaching_evidence])
+        self.assertNotIn("授课方式", [item["aspect"] for item in chinese_exam_evidence])
+        self.assertIn("授课方式", [item["aspect"] for item in chinese_teaching_evidence])
+
+    def test_english_evidence_snippet_does_not_cut_words(self):
+        evidence = detect_topic_evidence(
+            "The assignments are too many, the deadlines are stressful, and the exam scope is not clear enough."
+        )
+
+        for item in evidence:
+            snippet = str(item["evidence"])
+            self.assertFalse(snippet.startswith(("nes ", "o many")))
+            self.assertFalse(snippet.endswith(" a"))
+
+    def test_weak_shared_topic_keywords_require_context(self):
+        learning_evidence = detect_topic_evidence("案例帮助我理解重点")
+        review_evidence = detect_topic_evidence("复习时抓不到重点")
+        generic_example_evidence = detect_topic_evidence("希望老师多给一些示例")
+        code_example_evidence = detect_topic_evidence("希望老师多给一些代码示例")
+
+        self.assertNotIn("考试安排", [item["aspect"] for item in learning_evidence])
+        self.assertIn("考试安排", [item["aspect"] for item in review_evidence])
+        self.assertNotIn("实验实践", [item["aspect"] for item in generic_example_evidence])
+        self.assertIn("实验实践", [item["aspect"] for item in code_example_evidence])
+
     def test_learning_outcome_topic_recognizes_mastery(self):
         topics = detect_topics("至少让我掌握了基本方法")
         self.assertIn("学习收获", topics)
@@ -206,6 +255,54 @@ class CorePipelineTest(unittest.TestCase):
         self.assertIn("掌握", keywords)
         self.assertNotIn("不能", keywords)
         self.assertNotIn("没有", keywords)
+
+    def test_keyword_extraction_removes_low_information_english_modifiers(self):
+        keywords = keywords_only(
+            "The assignments are too many, the deadlines are stressful, and the exam scope is not clear enough.",
+            top_k=10,
+        )
+
+        self.assertEqual(
+            keywords,
+            ["assignments", "deadlines", "stressful", "exam", "scope", "clear"],
+        )
+
+    def test_batch_keyword_extraction_merges_common_english_plurals(self):
+        keywords = dict(
+            extract_keywords(
+                [
+                    "assignment deadline example concept",
+                    "assignments deadlines examples concepts",
+                ],
+                top_k=10,
+                normalize_english_plurals=True,
+            )
+        )
+
+        self.assertEqual(
+            keywords,
+            {
+                "assignment": 2,
+                "deadline": 2,
+                "example": 2,
+                "concept": 2,
+            },
+        )
+
+    def test_english_keyword_normalization_preserves_singular_s_words(self):
+        for token in [
+            "analysis",
+            "status",
+            "process",
+            "class",
+            "stress",
+            "news",
+            "physics",
+            "mathematics",
+            "statistics",
+        ]:
+            with self.subTest(token=token):
+                self.assertEqual(normalize_english_keyword(token), token)
 
     def test_similarity(self):
         score = cosine_similarity("实验环境配置复杂", "实验配置步骤太麻烦")
@@ -388,6 +485,29 @@ class CorePipelineTest(unittest.TestCase):
         self.assertEqual(result["sentiment"], "negative")
         self.assertEqual(result["sentiment_source"], "bert+rule")
 
+    @patch.dict(os.environ, {"SENTIMENT_BACKEND": "tfidf"})
+    @patch(
+        "src.nlp_analyzer.model_based_sentiment",
+        return_value=("neutral", 0.77),
+    )
+    def test_normalized_clear_positive_word_overrides_uncertain_neutral_tfidf(self, _mock_tfidf):
+        result = analyze_review("goooood", use_llm=False)
+
+        self.assertEqual(result["sentiment_text"], "good")
+        self.assertEqual(result["sentiment"], "positive")
+        self.assertEqual(result["sentiment_source"], "tfidf+rule")
+
+    @patch.dict(os.environ, {"SENTIMENT_BACKEND": "tfidf"})
+    @patch(
+        "src.nlp_analyzer.model_based_sentiment",
+        return_value=("neutral", 0.90),
+    )
+    def test_clear_positive_rule_does_not_override_confident_neutral_model(self, _mock_tfidf):
+        result = analyze_review("good", use_llm=False)
+
+        self.assertEqual(result["sentiment"], "neutral")
+        self.assertEqual(result["sentiment_source"], "tfidf")
+
     def test_compositional_rules_handle_double_negation(self):
         positive_cases = [
             "The course is not bad",
@@ -458,6 +578,35 @@ class CorePipelineTest(unittest.TestCase):
         for text in cases:
             with self.subTest(text=text):
                 self.assertEqual(rule_based_sentiment(text)[0], "neutral")
+
+    def test_english_mixed_signal_requires_complete_word_match(self):
+        self.assertEqual(rule_based_sentiment("The butter is good")[0], "positive")
+        self.assertEqual(
+            rule_based_sentiment("The examples are good but the setup is difficult")[0],
+            "neutral",
+        )
+
+    def test_chinese_negative_context_does_not_match_unrelated_characters(self):
+        neutral_or_positive_cases = [
+            "学习过程很愉快",
+            "知识点之间联系紧密",
+            "我很快掌握了基本方法",
+            "课堂节奏紧凑，内容安排合理",
+        ]
+        negative_cases = [
+            "老师讲课太快",
+            "课程进度过快",
+            "之后课程进度不断加快",
+            "实验报告提交时间有点紧",
+            "截止时间太赶",
+        ]
+
+        for text in neutral_or_positive_cases:
+            with self.subTest(text=text):
+                self.assertNotEqual(rule_based_sentiment(text)[0], "negative")
+        for text in negative_cases:
+            with self.subTest(text=text):
+                self.assertEqual(rule_based_sentiment(text)[0], "negative")
 
     @patch.dict(os.environ, {"SENTIMENT_BACKEND": "auto"})
     @patch("src.nlp_analyzer.bert_based_sentiments", return_value=None)

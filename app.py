@@ -2404,7 +2404,13 @@ def render_batch_results(rows: list[dict[str, str]], results: list[dict[str, Any
         keyword_indexes = list(range(len(results)))
     keyword_rows = subset_by_indexes(rows, keyword_indexes)
     keyword_texts = [row["review_text"] for row in keyword_rows]
-    keywords = dict(extract_keywords(keyword_texts, top_k=12))
+    keywords = dict(
+        extract_keywords(
+            keyword_texts,
+            top_k=12,
+            normalize_english_plurals=True,
+        )
+    )
     top_topic = next(iter(topics), "未识别到结果")
 
     render_section_title("批量概览")

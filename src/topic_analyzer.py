@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import re
+
+
 TOPIC_KEYWORDS: dict[str, set[str]] = {
     "教学内容": {
         "内容",
@@ -56,6 +59,7 @@ TOPIC_KEYWORDS: dict[str, set[str]] = {
         "exercise",
         "exercises",
         "deadline",
+        "deadlines",
         "submission",
         "peer review",
     },
@@ -119,9 +123,98 @@ TOPIC_KEYWORDS: dict[str, set[str]] = {
     },
 }
 
+TEACHING_METHOD_CONTEXT = {
+    "老师",
+    "教师",
+    "讲",
+    "解释",
+    "课堂",
+    "instructor",
+    "teacher",
+    "teaching",
+    "explain",
+    "explanation",
+    "lecture",
+    "lectures",
+    "video",
+    "videos",
+    "pace",
+    "interactive",
+}
+EXAM_CONTEXT = {
+    "考试",
+    "范围",
+    "题型",
+    "复习",
+    "成绩",
+    "quiz",
+    "quizzes",
+    "exam",
+    "exams",
+    "test",
+    "tests",
+    "grade",
+    "grading",
+}
+PRACTICE_CONTEXT = {
+    "实验",
+    "环境",
+    "代码",
+    "配置",
+    "运行",
+    "报错",
+    "实践",
+    "lab",
+    "labs",
+    "project",
+    "projects",
+    "code",
+    "coding",
+    "programming",
+    "setup",
+    "environment",
+    "bug",
+    "bugs",
+}
+
+
+def _keyword_pattern(keyword: str) -> re.Pattern[str] | None:
+    if not re.search(r"[A-Za-z]", keyword):
+        return None
+    words = [re.escape(word) for word in keyword.split()]
+    return re.compile(
+        r"(?<![A-Za-z0-9])" + r"\s+".join(words) + r"(?![A-Za-z0-9])",
+        re.IGNORECASE,
+    )
+
+
+def _keyword_matches(text: str, keyword: str) -> bool:
+    pattern = _keyword_pattern(keyword)
+    if pattern is not None:
+        return pattern.search(text) is not None
+    return keyword in text
+
+
+def _contextual_topic_matches(topic: str, matched: list[str], text: str) -> list[str]:
+    matched_set = set(matched)
+    if topic == "授课方式" and matched_set.issubset({"clear", "清楚"}):
+        if not any(_keyword_matches(text, anchor) for anchor in TEACHING_METHOD_CONTEXT):
+            return []
+    if topic == "考试安排" and matched_set == {"重点"}:
+        if not any(_keyword_matches(text, anchor) for anchor in EXAM_CONTEXT):
+            return []
+    if topic == "实验实践" and matched_set == {"示例"}:
+        if not any(_keyword_matches(text, anchor) for anchor in PRACTICE_CONTEXT):
+            return []
+    return matched
+
 
 def _keyword_position(text: str, keyword: str) -> int:
-    position = text.lower().find(keyword.lower())
+    pattern = _keyword_pattern(keyword)
+    if pattern is not None:
+        match = pattern.search(text)
+        return match.start() if match is not None else len(text)
+    position = text.find(keyword)
     return position if position >= 0 else len(text)
 
 
@@ -132,16 +225,20 @@ def _evidence_snippet(text: str, keyword: str, window: int = 45) -> str:
 
     start = max(0, position - window)
     end = min(len(text), position + len(keyword) + window)
+    while start > 0 and text[start - 1].isalnum() and text[start].isalnum():
+        start -= 1
+    while end < len(text) and text[end - 1].isalnum() and text[end].isalnum():
+        end += 1
     return text[start:end].strip()
 
 
 def detect_topic_evidence(text: str, max_topics: int | None = None) -> list[dict[str, object]]:
     """根据命中关键词和原文证据片段识别课程维度。"""
 
-    normalized = text.lower()
     evidence_rows: list[dict[str, object]] = []
     for topic, keywords in TOPIC_KEYWORDS.items():
-        matched = [keyword for keyword in keywords if keyword in normalized]
+        matched = [keyword for keyword in keywords if _keyword_matches(text, keyword)]
+        matched = _contextual_topic_matches(topic, matched, text)
         if not matched:
             continue
 

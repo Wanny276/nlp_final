@@ -28,8 +28,6 @@ NEGATIVE_HINTS = {
     "不明确",
     "不太明确",
     "抓不到",
-    "紧",
-    "快",
     "困难",
     "压力",
 }
@@ -65,6 +63,11 @@ ENGLISH_NEGATIVE_HINTS = {
     "lack",
 }
 ENGLISH_MIXED_HINTS = {"but", "however", "although", "wish", "could", "while"}
+CHINESE_NEGATIVE_CONTEXT_PATTERNS = (
+    r"(?:讲课|讲解|语速|进度|节奏).{0,6}(?:太快|过快|偏快|有点快|加快|快得)",
+    r"(?:时间|截止时间|期限|工期).{0,6}(?:紧|赶|太短|不够)",
+    r"(?:有点|太)(?:赶|仓促)",
+)
 SENTIMENT_MODEL: Any | None = None
 TFIDF_VECTORIZER: Any | None = None
 MODEL_LOAD_ATTEMPTED = False
@@ -97,6 +100,9 @@ def _sentiment_hint_counts(text: str) -> tuple[int, int]:
     )
     negative_hits += sum(
         1 for word in ENGLISH_NEGATIVE_HINTS if _contains_english_hint(normalized, word)
+    )
+    negative_hits += sum(
+        1 for pattern in CHINESE_NEGATIVE_CONTEXT_PATTERNS if re.search(pattern, text)
     )
     return positive_hits, negative_hits
 
@@ -205,7 +211,7 @@ def _semantic_sentiment_override(text: str) -> tuple[str, float] | None:
 def _has_mixed_signal(text: str) -> bool:
     normalized = text.lower()
     return any(word in text for word in NEGATION_HINTS) or any(
-        word in normalized for word in ENGLISH_MIXED_HINTS
+        _contains_english_hint(normalized, word) for word in ENGLISH_MIXED_HINTS
     )
 
 
@@ -418,6 +424,22 @@ def _apply_rule_correction(
     ):
         return (
             "negative",
+            rule_confidence,
+            corrected_source,
+            device,
+            chunk_count,
+            token_count,
+            truncated,
+        )
+    if (
+        model_sentiment == "neutral"
+        and rule_sentiment == "positive"
+        and not _has_mixed_signal(text)
+        and rule_confidence >= 0.75
+        and model_confidence < 0.80
+    ):
+        return (
+            "positive",
             rule_confidence,
             corrected_source,
             device,
