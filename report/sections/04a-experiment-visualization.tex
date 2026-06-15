@@ -15,7 +15,7 @@
 图~\ref{fig:model-performance} 将传统基线和最终 BERT 模型置于同一坐标系中，评价指标为
 \mbox{Accuracy} 和 \mbox{Macro-F1}。multilingual BERT 的 Accuracy 为 0.7461，Macro-F1 为
 0.7457，分别比最佳传统模型 Logistic Regression 提高约 5.57 和 5.51 个百分点，说明上下文
-表示对课程评价中的转折、否定和混合态度具有实际价值。
+表示对课程评价中的转折、否定和混合态度有实际价值。
 
 \begin{figure}[H]
   \centering
@@ -27,7 +27,7 @@
 图~\ref{fig:bert-confusion-matrix} 展示了 multilingual BERT 在 negative、neutral 和 positive
 三类上的具体分类情况。正面类别识别效果最好；中性类别有 228 条被误判为负面、72 条被误判为
 正面，是最主要的错误来源。这说明课程评价中的建议型表达、轻度抱怨和正负混合表达仍容易与单一
-极性混淆，不能只依赖总体指标判断模型效果。
+极性混淆，因此不能只依赖总体指标判断模型效果。
 
 \begin{figure}[H]
   \centering
@@ -56,14 +56,15 @@
 \begin{figure}[H]
   \centering
   \includegraphics[width=0.90\textwidth]{ablation_results.png}
-  \caption{固定案例演示集消融结果}
+  \caption{固定案例演示集消融结果：用于流程验证，不作为泛化能力指标}
   \label{fig:ablation-visualization}
 \end{figure}
 
-为验证各模块的实际作用，项目分别运行纯规则、TF-IDF、BERT 和完整混合流程。图~\ref{fig:ablation-visualization} 显示，
-TF-IDF 单模块通过 7/12，BERT 单模块通过 11/12，而完整流程通过 12/12。纯规则同样在这组固定案例上达到满分，是因为案例中
-包含较多规则能够直接覆盖的典型表达；因此项目进一步使用未参与规则开发的独立压力测试检验泛化能力，而不把固定案例满分直接解释为
-规则模型性能更强。
+固定案例主要用于课堂演示流程验证，不作为泛化能力指标。为观察各模块的实际作用，项目分别运行
+纯规则、TF-IDF、BERT 和完整混合流程。图~\ref{fig:ablation-visualization} 显示，TF-IDF
+单模块通过 7/12，BERT 单模块通过 11/12，而完整流程通过 12/12。纯规则同样在这组固定案例上
+达到满分，是因为案例中包含较多规则能够直接覆盖的典型表达；因此项目进一步使用未参与规则开发
+的独立压力测试检验鲁棒性，不把固定案例满分解释为规则模型泛化能力更强。
 
 \begin{figure}[H]
   \centering
@@ -86,8 +87,10 @@ TF-IDF 单模块通过 7/12，BERT 单模块通过 11/12，而完整流程通过
 \end{figure}
 
 压力测试共 48 条，覆盖缩写、拼写、否定、讽刺、隐含抱怨、中英混合、长文本和混合情感，
-每类 6 条。图~\ref{fig:stress-test-visualization} 表明，混合流程在独立压力测试上的 Accuracy 和
-Macro-F1 均明显高于三个单独模块。其优势主要集中在缩写、拼写错误、否定、中英混合和长文本
+每类 6 条。压力测试不是普通随机测试集，而是针对缩写、拼写错误、否定、讽刺、隐含抱怨等困难
+现象构造的挑战集，因此其结果主要反映复杂边界场景下的鲁棒性，不应与 2280 条常规独立测试集
+指标直接等价比较。图~\ref{fig:stress-test-visualization} 表明，混合流程在独立压力测试上的
+Accuracy 和 Macro-F1 均高于三个单独模块。其优势主要集中在缩写、拼写错误、否定、中英混合和长文本
 场景：中英混合通过 6/6，缩写、拼写、否定和长文本均通过 5/6。相较 BERT 单模块，完整流程的
 Accuracy 从 54.2\% 提升至 70.8\%，Macro-F1 从 54.2\% 提升至 72.2\%。另一方面，讽刺仅通过
-1/6，隐含抱怨仅通过 3/6，仍是当前系统最主要的失败类型。
+1/6，隐含抱怨仅通过 3/6，仍是当前最主要的失败类型。

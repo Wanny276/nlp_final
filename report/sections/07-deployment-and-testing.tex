@@ -23,6 +23,10 @@
   \end{tabularx}
 \end{table}
 
+Git 仓库保留 BERT 配置、Tokenizer、训练参数和评估指标，但不提交
+\code{model.safetensors}。若权重不存在，系统会自动降级到 TF-IDF 或规则
+后端。页面侧边栏会显示当前实际运行的情感后端，避免把降级结果误认为 BERT 推理结果。
+
 \subsection{安装与启动步骤}
 
 \begin{enumerate}
@@ -57,10 +61,9 @@ streamlit run app.py
         验证和模型评估页面。
 \end{enumerate}
 
-\subsection{源代码组成与提交范围}
+\subsection{源代码组成}
 
-电子版代码以项目根目录为提交单位，包含完整的应用入口、NLP 实现、训练评估脚本、自动测试和
-环境配置说明。主要内容如下：
+主要内容如下：
 
 \begin{itemize}
   \item \code{app.py}：Streamlit 应用入口及五个功能页面；
@@ -69,11 +72,9 @@ streamlit run app.py
   \item \code{tests/} 与 \code{data/test_cases.csv}：自动测试和固定演示案例；
   \item \code{requirements.txt}、\code{requirements-bert.txt} 和
         \code{.env.example}：依赖与配置模板；
-  \item \code{models/}：可直接运行的传统模型文件。BERT 权重体积较大，可随最终电子材料单独
+  \item \code{models/}：可直接运行的传统模型文件。BERT 权重体积较大，随最终电子材料单独
         提交；缺少该权重时系统会自动回退到传统模型，基本功能仍可运行。
 \end{itemize}
-
-提交时不包含本地密钥文件 \code{.env}、Python 缓存和运行日志，避免泄露凭据或混入临时文件。
 
 \subsection{模型训练与实验复现}
 
@@ -129,7 +130,7 @@ python -m unittest discover -s tests
 
 \subsection{代表性测试用例与结果}
 
-表~\ref{tab:test-cases} 给出 8 个代表性案例，超过作业要求的至少 5 个测试用例。结果来自当前
+表~\ref{tab:test-cases} 给出 8 个代表性案例，结果来自当前
 完整混合流程的固定案例实验。
 
 {\setlength{\tabcolsep}{4pt}
@@ -166,8 +167,10 @@ python -m unittest discover -s tests
 
 \subsection{结果分析}
 
-固定案例中，TF-IDF 单独通过 7/12，BERT 单独通过 11/12，完整流程通过 12/12。BERT 改善了
-英文上下文和中文短句的判断，规则校正进一步处理了“内容不错，但是考试范围不明确”等混合评价。
+固定案例中，TF-IDF 单独通过 7/12，BERT 单独通过 11/12，完整流程通过 12/12。该结果说明
+课堂演示流程能够稳定跑通，但由于固定案例包含较多典型规则表达，不能把 12/12 解释为整体泛化
+准确率。BERT 改善了英文上下文和中文短句的判断，规则校正进一步处理了“内容不错，但是考试范围
+不明确”等混合评价。
 
 48 条独立压力测试中，完整流程通过 34 条，Accuracy 为 0.7083，Macro-F1 为 0.7217。中英混合
 类别通过 6/6，缩写、拼写、否定和长文本类别均通过 5/6，说明针对噪声文本和长文本的设计有效。

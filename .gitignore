@@ -33,3 +33,6 @@ outputs/reports/test_*
 Thumbs.db
 .idea/
 .vscode/
+
+report/*.bbl
+report/*.blg
