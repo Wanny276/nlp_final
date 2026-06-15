@@ -1,21 +1,27 @@
-% 建议负责人：负责模型、算法与实验的成员
-\subsection{实验结果可视化}
+\subsection{实验结果图表分析}
 
-为避免只依赖表格陈述实验结论，本节使用训练数据、模型评估文件和训练日志生成可复现图表。所有
-图片均由 \code{scripts/generate_report_charts.py} 自动生成，数据来源与前文表格一致。训练数据
-按照 60\%、15\% 和 25\% 划分训练集、验证集和独立测试集，独立测试集规模为 2280 条。
+本节汇总模型对比、混淆矩阵、训练过程、固定案例消融和压力测试结果。
+图表数据来自训练输出、模型评估文件和实验日志；
+与前文表格中的数值保持一致。
+训练数据按照 60\%、15\% 和 25\% 划分训练集、验证集和独立测试集；
+独立测试集规模为 2280 条。
+
+不同情感分类模型的独立测试集结果见图~\ref{fig:model-performance}。
 
 \begin{figure}[H]
   \centering
   \includegraphics[width=0.92\textwidth]{model_performance.png}
-  \caption{独立测试集上不同情感分类模型性能对比}
+  \caption{独立测试集情感分类模型对比}
   \label{fig:model-performance}
 \end{figure}
 
-图~\ref{fig:model-performance} 将传统基线和最终 BERT 模型置于同一坐标系中，评价指标为
-\mbox{Accuracy} 和 \mbox{Macro-F1}。multilingual BERT 的 Accuracy 为 0.7461，Macro-F1 为
-0.7457，分别比最佳传统模型 Logistic Regression 提高约 5.57 和 5.51 个百分点，说明上下文
-表示对课程评价中的转折、否定和混合态度有实际价值。
+图~\ref{fig:model-performance} 将传统基线和最终 BERT 模型置于同一坐标系中。
+评价指标为 \mbox{Accuracy} 和 \mbox{Macro-F1}。
+multilingual BERT 的 Accuracy 为 0.7461，Macro-F1 为 0.7457；
+分别比最佳传统模型 Logistic Regression 提高约 5.57 和 5.51 个百分点。
+这说明上下文表示对课程评价中的转折、否定和混合态度有实际帮助。
+
+BERT 在三类情感上的具体错误分布见图~\ref{fig:bert-confusion-matrix}。
 
 \begin{figure}[H]
   \centering
@@ -24,47 +30,57 @@
   \label{fig:bert-confusion-matrix}
 \end{figure}
 
-图~\ref{fig:bert-confusion-matrix} 展示了 multilingual BERT 在 negative、neutral 和 positive
-三类上的具体分类情况。正面类别识别效果最好；中性类别有 228 条被误判为负面、72 条被误判为
-正面，是最主要的错误来源。这说明课程评价中的建议型表达、轻度抱怨和正负混合表达仍容易与单一
-极性混淆，因此不能只依赖总体指标判断模型效果。
+图~\ref{fig:bert-confusion-matrix} 显示，积极类别识别效果最好。
+中性类别有 228 条被误判为消极、72 条被误判为积极；
+这是最主要的错误来源。
+课程评价中的建议型表达、轻度抱怨和正负混合表达仍容易与单一极性混淆。
+因此，不能只依赖总体指标判断模型效果。
+
+BERT 微调过程见图~\ref{fig:bert-training-process}。
 
 \begin{figure}[H]
   \centering
   \begin{subfigure}[t]{0.48\textwidth}
     \centering
     \includegraphics[width=\textwidth]{bert_training_loss.png}
-    \caption{训练损失变化}
+    \caption{训练损失}
     \label{fig:bert-training-loss}
   \end{subfigure}
   \hfill
   \begin{subfigure}[t]{0.48\textwidth}
     \centering
     \includegraphics[width=\textwidth]{bert_validation_metrics.png}
-    \caption{验证集 Accuracy 与 Macro-F1 变化}
+    \caption{验证集指标}
     \label{fig:bert-validation-metrics}
   \end{subfigure}
   \caption{multilingual BERT 微调过程}
   \label{fig:bert-training-process}
 \end{figure}
 
-图~\ref{fig:bert-training-process}(a) 显示训练损失在两个 Epoch 内总体下降，说明模型逐渐拟合
-课程评价情感分类任务。图~\ref{fig:bert-training-process}(b) 显示验证集 Accuracy 从 0.7003 提升至
-0.7230，Macro-F1 从 0.7039 提升至 0.7225。第二轮训练仍带来稳定增益，但验证损失未同步明显
-下降，因此当前训练轮数保持为 2，以控制过拟合风险和训练成本。
+图~\ref{fig:bert-training-process}(a) 显示训练损失在两个 Epoch 内总体下降。
+图~\ref{fig:bert-training-process}(b) 显示验证集 Accuracy 从 0.7003 提升至 0.7230；
+Macro-F1 从 0.7039 提升至 0.7225。
+第二轮训练仍带来稳定增益；
+但验证损失未同步明显下降，因此当前训练轮数保持为 2，以控制过拟合风险和训练成本。
+
+固定案例消融结果见图~\ref{fig:ablation-visualization}。
 
 \begin{figure}[H]
   \centering
   \includegraphics[width=0.90\textwidth]{ablation_results.png}
-  \caption{固定案例演示集消融结果：用于流程验证，不作为泛化能力指标}
+  \caption{固定案例消融结果}
   \label{fig:ablation-visualization}
 \end{figure}
 
-固定案例主要用于课堂演示流程验证，不作为泛化能力指标。为观察各模块的实际作用，项目分别运行
-纯规则、TF-IDF、BERT 和完整混合流程。图~\ref{fig:ablation-visualization} 显示，TF-IDF
-单模块通过 7/12，BERT 单模块通过 11/12，而完整流程通过 12/12。纯规则同样在这组固定案例上
-达到满分，是因为案例中包含较多规则能够直接覆盖的典型表达；因此项目进一步使用未参与规则开发
-的独立压力测试检验鲁棒性，不把固定案例满分解释为规则模型泛化能力更强。
+固定案例主要用于课堂演示流程验证，不作为泛化能力指标。
+项目分别运行纯规则、TF-IDF、BERT 和完整混合流程。
+图~\ref{fig:ablation-visualization} 显示，TF-IDF 单模块通过 7/12；
+BERT 单模块通过 11/12；
+完整流程通过 12/12。
+纯规则同样在这组固定案例上达到满分，原因是案例集中包含较多规则能够直接覆盖的典型表达。
+因此，项目进一步使用未参与规则开发的独立压力测试检验鲁棒性。
+
+独立压力测试结果见图~\ref{fig:stress-test-visualization}。
 
 \begin{figure}[H]
   \centering
@@ -82,15 +98,16 @@
     \caption{分类别通过数}
     \label{fig:stress-test-categories}
   \end{subfigure}
-  \caption{独立压力测试中不同方法的整体性能与分类别通过率}
+  \caption{独立压力测试结果}
   \label{fig:stress-test-visualization}
 \end{figure}
 
-压力测试共 48 条，覆盖缩写、拼写、否定、讽刺、隐含抱怨、中英混合、长文本和混合情感，
-每类 6 条。压力测试不是普通随机测试集，而是针对缩写、拼写错误、否定、讽刺、隐含抱怨等困难
-现象构造的挑战集，因此其结果主要反映复杂边界场景下的鲁棒性，不应与 2280 条常规独立测试集
-指标直接等价比较。图~\ref{fig:stress-test-visualization} 表明，混合流程在独立压力测试上的
-Accuracy 和 Macro-F1 均高于三个单独模块。其优势主要集中在缩写、拼写错误、否定、中英混合和长文本
-场景：中英混合通过 6/6，缩写、拼写、否定和长文本均通过 5/6。相较 BERT 单模块，完整流程的
-Accuracy 从 54.2\% 提升至 70.8\%，Macro-F1 从 54.2\% 提升至 72.2\%。另一方面，讽刺仅通过
-1/6，隐含抱怨仅通过 3/6，仍是当前最主要的失败类型。
+压力测试共 48 条，覆盖缩写、拼写、否定、讽刺、隐含抱怨、中英混合、长文本和混合情感；
+每类 6 条。
+压力测试不是随机测试集，而是面向困难表达构造的挑战集。
+其结果主要反映复杂边界场景下的鲁棒性，不应与 2280 条常规独立测试集指标直接比较。
+图~\ref{fig:stress-test-visualization} 表明，混合流程在压力测试上的 Accuracy 和 Macro-F1
+均高于三个单独模块。
+其优势主要集中在缩写、拼写错误、否定、中英混合和长文本场景。
+另一方面，讽刺仅通过 1/6，隐含抱怨仅通过 3/6；
+这些类型仍是当前系统的主要短板。

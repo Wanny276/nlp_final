@@ -1,14 +1,16 @@
-% 建议负责人：负责系统集成与工程架构的成员
 \section{技术方案}
 
-\subsection{技术选型与理由}
+\subsection{技术选型}
 
-Web 应用和传统模型部分主要参考 Streamlit 与 scikit-learn 文档\citep{streamlit_docs,pedregosa2011scikit}。
-深度模型和中文处理部分参考 Transformers、PyTorch 与 jieba 项目文档\citep{wolf2020transformers,pytorch_docs,jieba_project}。
+本项目的技术选型围绕三个要求展开。
+第一，系统需要能在普通课程项目环境中运行；
+第二，模型训练、评估和页面展示要能够复现；
+第三，外部服务或大模型权重不可用时，核心分析流程仍应保留。
+主要技术栈见表~\ref{tab:technology-selection}。
 
 \begin{table}[H]
   \centering
-  \caption{主要技术选型}
+  \caption{主要技术选型与用途}
   \label{tab:technology-selection}
   \small
   \begin{tabularx}{\textwidth}{C{2.5cm} C{3.4cm} Y}
@@ -16,142 +18,339 @@ Web 应用和传统模型部分主要参考 Streamlit 与 scikit-learn 文档\ci
     层次 & 技术或工具 & 选型理由 \\
     \midrule
     开发语言 & Python 3.10+ &
-    NLP 与机器学习生态完整，便于整合数据处理、模型训练和前端应用 \\
+    便于整合数据处理、模型训练、前端应用和自动化测试 \\
     Web 前端 & Streamlit &
-    能快速构建数据应用，原生支持表格、图表、文件上传、缓存和下载 \\
+    适合快速构建课程演示型数据应用，支持表格、图表、文件上传和下载 \\
     数据处理 & Pandas、NumPy &
-    适合 CSV 清洗、批量统计、训练数据划分和结果导出 \\
+    用于 CSV 清洗、批量统计、训练数据划分和结果导出 \\
     中文处理 & jieba &
     部署轻量，适合课程领域词汇的基础分词和关键词统计 \\
     传统模型 & scikit-learn &
     提供 TF-IDF、Logistic Regression、Naive Bayes、Linear SVM 和评估指标 \\
     深度模型 & PyTorch、Transformers &
-    支持 multilingual BERT 微调、GPU/CPU 切换、批量推理和模型保存 \\
+    支持 multilingual BERT 微调、本地推理、批量推理和模型保存 \\
     建议生成 & ChatECNU API &
-    与聊天补全接口兼容，可将结构化分析结果转换为自然语言教学建议 \\
+    将结构化分析结果转换为自然语言教学建议；未配置时使用本地模板 \\
     测试工具 & unittest &
-    Python 标准库自带，覆盖预处理、模型编排、降级路径和脚本输出 \\
+    使用 Python 标准库覆盖预处理、模型编排、降级路径和脚本输出 \\
     \bottomrule
   \end{tabularx}
 \end{table}
 
-\subsection{系统总体架构}
+\subsection{系统架构}
 
-系统采用分层结构，将页面交互、NLP 编排、模型推理、规则知识和外部服务分开。前端只调用统一
-分析接口，不直接依赖某一种模型；更换情感后端或关闭 LLM 时，不需要修改页面逻辑。
+系统采用分层结构，将页面交互、NLP 编排、模型推理、规则知识和外部建议服务分开。
+前端只调用统一分析接口，不直接依赖某一种模型。
+更换情感后端或关闭 LLM 时，页面逻辑不需要同步修改。
 
 \begin{figure}[H]
   \centering
   \resizebox{\textwidth}{!}{%
   \begin{tikzpicture}[
     font=\songti\small,
-    module/.style={
-      draw=ReportBlue, rounded corners=2pt, fill=ReportLightBlue,
-      minimum height=10mm, align=center, inner xsep=4pt
+    layergray/.style={
+      draw=ReportLine,
+      rounded corners=6pt,
+      line width=0.45pt,
+      fill=ReportGray
+    },
+    layerwhite/.style={
+      draw=ReportLine,
+      rounded corners=6pt,
+      line width=0.45pt,
+      fill=white
     },
     layerlabel/.style={
-      draw=ReportBlue, rounded corners=2pt, fill=ReportBlue,
-      text=white, font=\bfseries, align=center,
-      minimum width=2.6cm, minimum height=13mm
+      draw=ReportBlue,
+      rounded corners=4pt,
+      fill=ReportBlue,
+      text=white,
+      font=\songti\bfseries,
+      align=center,
+      minimum width=2.45cm,
+      minimum height=0.82cm
     },
-    arrow/.style={-{Latex[length=2.2mm]}, thick, draw=ReportBlue}
+    module/.style={
+      draw=ReportBlue,
+      rounded corners=4pt,
+      fill=white,
+      align=center,
+      text width=2.65cm,
+      minimum width=3.00cm,
+      minimum height=0.92cm,
+      inner xsep=4pt,
+      inner ysep=3pt,
+      line width=0.50pt
+    },
+    uimodule/.style={
+      module,
+      fill=ReportLightBlue
+    },
+    hub/.style={
+      draw=ReportBlue,
+      rounded corners=5pt,
+      fill=ReportLightBlue,
+      align=center,
+      minimum width=13.40cm,
+      minimum height=0.62cm,
+      font=\songti\bfseries,
+      line width=0.55pt
+    },
+    resource/.style={
+      draw=ReportLine,
+      rounded corners=4pt,
+      fill=white,
+      align=center,
+      text width=2.65cm,
+      minimum width=3.00cm,
+      minimum height=0.82cm,
+      inner xsep=4pt,
+      inner ysep=3pt,
+      line width=0.45pt
+    },
+    arrow/.style={
+      -{Latex[length=2.0mm,width=1.45mm]},
+      draw=ReportBlue,
+      line width=0.72pt,
+      shorten <=2pt,
+      shorten >=2pt
+    },
+    busline/.style={
+      draw=ReportBlue,
+      line width=0.72pt
+    },
+    busarrow/.style={
+      -{Latex[length=2.0mm,width=1.45mm]},
+      draw=ReportBlue,
+      line width=0.72pt,
+      shorten <=0pt,
+      shorten >=0pt
+    },
+    support/.style={
+      -{Latex[length=1.8mm,width=1.25mm]},
+      draw=ReportBlue,
+      dashed,
+      line width=0.52pt,
+      shorten <=2pt,
+      shorten >=2pt
+    }
   ]
-    \draw[draw=ReportLine, rounded corners=3pt, fill=ReportGray]
-      (0,4.4) rectangle (16.8,6.0);
-    \draw[draw=ReportLine, rounded corners=3pt, fill=white]
-      (0,2.2) rectangle (16.8,3.8);
-    \draw[draw=ReportLine, rounded corners=3pt, fill=ReportGray]
-      (0,0) rectangle (16.8,1.6);
 
-    \node[layerlabel] at (1.45,5.2) {交互层\\Streamlit};
-    \node[layerlabel] at (1.45,3.0) {NLP 服务层};
-    \node[layerlabel] at (1.45,0.8) {模型与\\资源层};
+    % 三层背景
+    \draw[layergray]  (0.00,5.65) rectangle (19.00,7.10);
+    \draw[layerwhite] (0.00,1.95) rectangle (19.00,5.35);
+    \draw[layergray]  (0.00,-0.05) rectangle (19.00,1.45);
 
-    \node[module, text width=3.7cm] at (5.0,5.2) {单条评价分析};
-    \node[module, text width=3.7cm] at (9.3,5.2) {批量 CSV 分析};
-    \node[module, text width=3.7cm] at (13.6,5.2) {固定案例验证\\与模型评估};
+    % 左侧层标签
+    \node[layerlabel] at (1.55,6.38) {交互层\\Streamlit};
+    \node[layerlabel] at (1.55,3.55) {NLP\\服务层};
+    \node[layerlabel] at (1.55,0.70) {模型与\\资源层};
 
-    \node[module, text width=2.8cm] at (4.35,3.0) {双语预处理\\与文本标准化};
-    \node[module, text width=2.8cm] at (7.95,3.0) {情感分析编排\\BERT + 规则};
-    \node[module, text width=2.8cm] at (11.55,3.0) {维度、关键词\\与相似评价};
-    \node[module, text width=2.8cm] at (15.15,3.0) {教学建议生成\\LLM + 模板};
+    % 交互层
+    \node[uimodule] (single) at (5.20,6.38)
+      {单条评价\\即时分析};
 
-    \node[module, text width=2.8cm] at (4.35,0.8) {multilingual BERT\\Transformers};
-    \node[module, text width=2.8cm] at (7.95,0.8) {TF-IDF 分类器\\scikit-learn};
-    \node[module, text width=2.8cm] at (11.55,0.8) {情感规则与\\课程领域词典};
-    \node[module, text width=2.8cm] at (15.15,0.8) {ChatECNU API\\与本地兜底};
+    \node[uimodule] (batch) at (9.80,6.38)
+      {批量 CSV\\统计分析};
 
-    \draw[arrow] (9.3,4.4) -- (9.3,3.8);
-    \draw[arrow] (9.3,2.2) -- (9.3,1.6);
+    \node[uimodule] (eval) at (14.40,6.38)
+      {固定案例\\模型评估};
+
+    % 统一分析接口
+    \node[hub] (hub) at (10.00,4.78)
+      {统一分析接口 / NLP Orchestrator};
+
+    % NLP 服务层
+    \node[module] (prep) at (4.45,2.88)
+      {双语预处理\\情感标准化};
+
+    \node[module] (sent) at (8.60,2.88)
+      {情感分析\\BERT + 规则校正};
+
+    \node[module] (evidence) at (12.75,2.88)
+      {课程维度识别\\关键词与证据};
+
+    \node[module] (advice) at (16.90,2.88)
+      {结构化建议生成\\LLM + 本地模板};
+
+    % 模型与资源层
+    \node[resource] (cleanres) at (4.45,0.70)
+      {清洗规则\\词表映射};
+
+    \node[resource] (bert) at (8.60,0.70)
+      {multilingual BERT\\本地权重};
+
+    \node[resource] (dict) at (12.75,0.70)
+      {课程词典\\情感规则};
+
+    \node[resource] (api) at (16.90,0.70)
+      {ChatECNU API\\本地兜底};
+
+    % 交互层到统一接口：短竖直箭头
+    \draw[arrow] (single.south) -- (single.south |- hub.north);
+    \draw[arrow] (batch.south)  -- (batch.south  |- hub.north);
+    \draw[arrow] (eval.south)   -- (eval.south   |- hub.north);
+
+    % 统一接口到服务层：总线分发
+    \coordinate (busL) at (4.45,3.86);
+    \coordinate (busR) at (16.90,3.86);
+    \coordinate (busC) at (10.00,3.86);
+
+    \draw[busline] (busL) -- (busR);
+    \draw[busline] (hub.south) -- (busC);
+
+    % 分发箭头不使用 shorten，保证与总线、模块边框接上
+    \draw[busarrow] (4.45,3.86) -- (prep.north);
+    \draw[busarrow] (8.60,3.86) -- (sent.north);
+    \draw[busarrow] (12.75,3.86) -- (evidence.north);
+    \draw[busarrow] (16.90,3.86) -- (advice.north);
+
+    % 服务层主流程
+    \draw[arrow] (prep.east) -- (sent.west);
+    \draw[arrow] (sent.east) -- (evidence.west);
+    \draw[arrow] (evidence.east) -- (advice.west);
+
+    % 资源层支撑关系
+    \draw[support] (cleanres.north) -- (prep.south);
+    \draw[support] (bert.north) -- (sent.south);
+    \draw[support] (dict.north) -- (evidence.south);
+    \draw[support] (api.north) -- (advice.south);
+
   \end{tikzpicture}}
-  \caption{CourseInsight 系统总体架构}
+  \caption{CourseInsight 系统分层架构}
   \label{fig:system-architecture}
 \end{figure}
 
-\subsection{数据流设计}
+\subsection{双通道数据流}
 
 \begin{figure}[H]
   \centering
   \resizebox{\textwidth}{!}{%
   \begin{tikzpicture}[
     font=\songti\small,
+    boxbase/.style={
+      rounded corners=4pt,
+      line width=0.5pt,
+      minimum width=3.40cm,
+      text width=3.00cm,
+      minimum height=1.15cm,
+      align=center,
+      inner xsep=4pt,
+      inner ysep=4pt
+    },
     flowstep/.style={
-      draw=ReportBlue, rounded corners=2pt, fill=white,
-      minimum width=2.7cm, minimum height=1.15cm,
-      align=center
+      boxbase,
+      draw=ReportBlue,
+      fill=white
     },
-    rawstep/.style={
-      flowstep, fill=ReportGray, draw=ReportLine
+    evidencebox/.style={
+      boxbase,
+      draw=ReportLine,
+      fill=ReportGray
     },
-    sentimentstep/.style={
-      flowstep, fill=ReportLightBlue
+    sentimentbox/.style={
+      boxbase,
+      draw=ReportBlue,
+      fill=ReportLightBlue
     },
-    arrow/.style={-{Latex[length=2mm]}, thick, draw=ReportBlue}
+    arrow/.style={
+      -{Latex[length=2.1mm,width=1.5mm]},
+      draw=ReportBlue,
+      line width=0.8pt,
+      shorten <=2pt,
+      shorten >=2pt
+    },
+    branchline/.style={
+      draw=ReportBlue,
+      line width=0.8pt,
+      shorten <=0pt,
+      shorten >=0pt
+    },
+    brancharrow/.style={
+      -{Latex[length=2.1mm,width=1.5mm]},
+      draw=ReportBlue,
+      line width=0.8pt,
+      shorten <=0pt,
+      shorten >=2pt
+    }
   ]
-    \node[flowstep] (input) at (0,0) {文本或\\CSV 输入};
-    \node[flowstep] (clean) at (3.4,0) {语言识别\\基础清洗};
 
-    \node[rawstep] (raw) at (7.1,1.35)
-      {原始文本通道\\保留学生原话};
-    \node[rawstep] (extract) at (11.1,1.35)
-      {课程维度、关键词\\证据与相似评价};
+    % 六列等间距节点：列距由 5.10cm 缩短为 4.60cm
+    \node[flowstep] (input) at (0.00,0.00)
+      {评价输入\\文本 / CSV};
 
-    \node[sentimentstep] (normalize) at (7.1,-1.35)
-      {标准化情感通道\\缩写展开与保守纠错};
-    \node[sentimentstep] (classify) at (11.1,-1.35)
-      {BERT 分类\\与规则校正};
+    \node[flowstep] (parse) at (4.60,0.00)
+      {文本解析\\原文留存};
 
-    \node[flowstep] (merge) at (14.9,0)
-      {结构化结果\\合并与解释};
-    \node[flowstep] (output) at (18.4,0)
-      {教学建议\\LLM + 模板};
+    % 上路：原文证据通道
+    \node[evidencebox] (raw) at (9.20,1.25)
+      {原文表示\\证据保真};
 
-    \draw[arrow] (input) -- (clean);
-    \draw[arrow] (clean.east) -- ++(0.55,0) |- (raw.west);
-    \draw[arrow] (clean.east) -- ++(0.55,0) |- (normalize.west);
-    \draw[arrow] (raw) -- (extract);
-    \draw[arrow] (normalize) -- (classify);
-    \draw[arrow] (extract.east) -- ++(0.55,0) |- (merge.west);
-    \draw[arrow] (classify.east) -- ++(0.55,0) |- (merge.west);
-    \draw[arrow] (merge) -- (output);
+    \node[evidencebox] (extract) at (13.80,1.25)
+      {维度定位\\关键词与证据};
+
+    % 下路：标准化情感通道
+    \node[sentimentbox] (normalize) at (9.20,-1.25)
+      {情感标准化\\缩写与拼写处理};
+
+    \node[sentimentbox] (classify) at (13.80,-1.25)
+      {BERT 分类\\规则校正};
+
+    % 汇总与输出
+    \node[flowstep] (merge) at (18.40,0.00)
+      {结果整合\\情感、维度、证据};
+
+    \node[flowstep] (output) at (23.00,0.00)
+      {建议生成\\LLM / 本地模板};
+
+    % 分流与汇流坐标：不显示圆点
+    \coordinate (split) at (6.90,0.00);
+    \coordinate (join)  at (16.10,0.00);
+
+    % 主流程
+    \draw[arrow] (input.east) -- (parse.west);
+
+    % 分流前：直线，无箭头
+    \draw[branchline] (parse.east) -- (split);
+
+    % 双通道分流
+    \draw[brancharrow] (split) |- (raw.west);
+    \draw[brancharrow] (split) |- (normalize.west);
+
+    % 通道内部
+    \draw[arrow] (raw.east) -- (extract.west);
+    \draw[arrow] (normalize.east) -- (classify.west);
+
+    % 双通道汇流
+    \draw[branchline] (extract.east) -| (join);
+    \draw[branchline] (classify.east) -| (join);
+
+    % 输出流程
+    \draw[brancharrow] (join) -- (merge.west);
+    \draw[arrow] (merge.east) -- (output.west);
+
   \end{tikzpicture}}
-  \caption{CourseInsight 双文本通道与核心数据流}
+  \caption{CourseInsight 双通道数据流}
   \label{fig:data-flow}
 \end{figure}
 
-系统对同一条评价保留两种文本表示：原始文本用于页面展示、课程维度、关键词和证据提取；标准化
-文本只用于情感分类。这既能提高噪声文本的分类稳定性，又不会因为自动纠错而改变学生原话。
+系统对同一条评价保留两种文本表示。
+原始文本用于页面展示、课程维度、关键词和证据提取；
+标准化文本只用于情感分类。
+这样既能提高噪声文本的分类稳定性，也不会因为自动纠错而改变学生原话。
 
 \subsection{数据集与标签设计}
 
-训练数据共 9120 条，由 9000 条英文 Coursera 课程评论\citep{huggingface_coursera_reviews}
-和 120 条人工中文课程评价组成。三个
-情感类别各 3040 条，保持完全均衡。数据以 Coursera 课程评论为主体，并补充高校课程场景的
-人工构造与标注样本，用于验证中文和中英混合输入的处理流程。
+训练数据共 9120 条。
+其中 9000 条来自英文 Coursera 课程评论\citep{huggingface_coursera_reviews}；
+120 条为人工中文课程评价。
+三个情感类别各 3040 条，保持完全均衡。
+数据以 Coursera 课程评论为主体；
+人工样本用于覆盖中文、中英混合、作业、考试和实验等课堂演示场景。
 
 \begin{table}[H]
   \centering
-  \caption{数据来源、用途与量化结论边界}
+  \caption{数据来源、用途与结论边界}
   \label{tab:dataset}
   \small
   \begin{tabularx}{\textwidth}{L{3.35cm} C{1.45cm} C{1.85cm} Y C{2.1cm}}
@@ -166,22 +365,34 @@ Web 应用和传统模型部分主要参考 Streamlit 与 scikit-learn 文档\ci
   \end{tabularx}
 \end{table}
 
-Coursera 课程评论主要用于英文情感模型训练和量化评估；人工课程评价样本根据高校课程评价场景
-构造，用于覆盖中文、中英混合、作业、考试和实验等课堂演示场景。人工样本不包含真实学生姓名、
-学号或其他隐私信息，仅用于双语功能验证和测试用例构建。两类数据承担的任务不同，报告中的模型
-性能结论主要依据固定划分的独立测试集，不以少量人工样本推断真实校园场景的整体效果。
+Coursera 课程评论主要用于英文情感模型训练和量化评估。
+人工课程评价样本根据高校课程评价场景构造；
+不包含真实学生姓名、学号或其他隐私信息。
+报告中的模型性能结论主要依据固定划分的独立测试集；
+少量人工样本只用于双语功能验证和测试用例构建。
 
-本项目所说的“中英混合输入支持”主要指系统输入、预处理、规则识别、课程维度识别和演示流程
-能够处理中文、英文及中英混合文本；模型量化评估主要基于英文课程评论数据。中文部分目前仍是
-小规模流程验证，后续需要补充真实中文课程评价数据，才能支撑完整的中文泛化结论。
+本项目所说的“中英混合输入支持”，主要指系统输入、预处理、规则识别、课程维度识别和演示流程
+能够处理中文、英文及中英混合文本。
+模型量化评估主要基于英文课程评论数据。
+中文部分目前仍是小规模流程验证，后续需要补充真实中文课程评价数据，才能支撑完整的中文泛化结论。
 
-标签定义为：正面表示主要认可或满意；负面表示主要抱怨或明确问题；中性不仅包含态度不明显的
-评价，也包含建议型评价和正负信息相对平衡的混合评价。这一定义更符合教学反馈场景，因为“内容
-很好，但考试范围不清楚”不应被简单压缩为单一的正面或负面结论。
+标签定义为：积极表示主要认可或满意；
+消极表示主要抱怨或明确问题；
+中性不仅包含态度不明显的评价，也包含建议型评价和正负信息相对平衡的混合评价。
+这一定义更符合教学反馈场景。
+例如“内容很好，但考试范围不清楚”不应被简单压缩为单一的积极或消极结论。
 
 \subsection{自动降级与运行稳定性}
 
-情感后端默认设置为 \code{AUTO}。系统优先加载本地 BERT 权重；若权重缺失、依赖不可用或推理
-失败，则回退到 TF-IDF Logistic Regression；如果传统模型文件也不可用，则使用规则模型。
-建议生成同样具有降级路径：ChatECNU 调用失败时，本地模板根据情感和课程维度生成总结、问题
-与建议。该设计保证了即使网络或 GPU 出现异常，系统仍能提供完整的基本结果。
+情感后端默认设置为 \code{AUTO}。
+系统优先加载本地 BERT 权重；
+若权重缺失、依赖不可用或推理失败，则回退到 TF-IDF Logistic Regression；
+如果传统模型文件也不可用，则使用规则模型。
+BERT 推理不强制要求 GPU。
+当 \code{BERT\_DEVICE=auto} 时，系统会在 CUDA 可用时使用 GPU，否则使用 CPU。
+只有强制设置 \code{BERT\_DEVICE=cuda} 且机器没有 CUDA 时，才会触发设备错误。
+
+建议生成同样具有降级路径。
+ChatECNU 调用失败或未配置时，本地模板会根据情感、课程维度和证据生成总结、问题与建议。
+因此，网络异常只影响外部大模型建议；
+不会影响本地情感分类、课程维度识别和关键词提取。

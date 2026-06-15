@@ -9,9 +9,10 @@ ROOT = Path(__file__).resolve().parents[1]
 FIGURE_DIR = ROOT / "report" / "figures"
 
 CROPS = {
-    "ui-single.png": ("ui-single-focus.png", (260, 80, 1420, 1000)),
-    "ui-batch.png": ("ui-batch-focus.png", (260, 80, 1420, 1000)),
-    "ui-test.png": ("ui-test-focus.png", (260, 80, 1420, 930)),
+    "pages/single-zh.png": ("ui-single-focus.png", (0, 0, 1873, 1660)),
+    "pages/batch.png": ("ui-batch-focus.png", (0, 1580, 1873, 3920)),
+    "pages/test.png": ("ui-test-focus.png", (0, 1180, 1873, 2760)),
+    "pages/evaluate.png": ("ui-evaluate-focus.png", (0, 0, 1873, 2260)),
 }
 
 

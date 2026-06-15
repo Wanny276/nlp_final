@@ -36,3 +36,4 @@ Thumbs.db
 
 report/*.bbl
 report/*.blg
+report/main.listing

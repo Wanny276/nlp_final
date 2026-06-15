@@ -29,13 +29,15 @@
 \RequirePackage{enumitem}
 \RequirePackage{indentfirst}
 \RequirePackage{tikz}
+\RequirePackage{fancyvrb}
+\RequirePackage[most]{tcolorbox}
 \RequirePackage{xurl}
 \RequirePackage[numbers,sort&compress]{natbib}
 \RequirePackage[hidelinks,hypertexnames=false]{hyperref}
 \setcitestyle{numbers,square,comma}
 \Urlmuskip=0mu plus 2mu
 
-\usetikzlibrary{arrows.meta,positioning,fit,calc,shapes.geometric}
+\usetikzlibrary{arrows.meta,positioning,fit,calc,shapes.geometric,backgrounds}
 
 \definecolor{ReportBlue}{HTML}{315B7D}
 \definecolor{ReportLightBlue}{HTML}{EAF2F8}
@@ -150,6 +152,32 @@
 \newcommand{\placeholder}[1]{\textcolor{red}{【#1】}}
 \newcommand{\code}[1]{\nolinkurl{#1}}
 \newcommand{\metric}[1]{\textbf{#1}}
+
+\newtcblisting{commandblock}{
+  listing only,
+  listing engine=listings,
+  breakable,
+  enhanced,
+  colback=ReportGray,
+  colframe=ReportLine,
+  boxrule=0.3pt,
+  arc=0pt,
+  outer arc=0pt,
+  boxsep=0pt,
+  left=6pt,
+  right=6pt,
+  top=5pt,
+  bottom=5pt,
+  before skip=6pt,
+  after skip=6pt,
+  listing options={
+    basicstyle=\ttfamily\small,
+    columns=fullflexible,
+    keepspaces=true,
+    breaklines=true,
+    showstringspaces=false
+  }
+}
 
 \newcommand{\interfaceplaceholder}[2]{%
   \begin{figure}[H]

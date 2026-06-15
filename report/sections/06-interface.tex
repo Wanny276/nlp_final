@@ -1,59 +1,90 @@
-\clearpage
-% 建议负责人：负责前端与交互设计的成员
 \section{界面展示}
 
-\subsection{界面设计理念}
+\subsection{界面组织方式}
 
-CourseInsight 使用 Streamlit 构建宽屏数据应用，界面按“结论、证据、操作”的阅读顺序组织。
-侧边栏固定显示功能导航、当前情感模型后端和 LLM 服务状态，避免用户在不同页面间切换时失去
-运行环境信息。页面主体采用卡片、指标和分区布局，把长文本分析拆解为可快速浏览的结构。
+CourseInsight 使用 Streamlit 构建宽屏数据应用。
+页面按照“输入、分析、结果复核”的顺序组织。
+侧边栏提供首页概览、单条分析、批量分析、固定案例验证和模型评估五个入口；
+同时显示当前情感模型后端和 LLM 服务状态。
+页面主体采用指标卡、图表、表格和证据卡片组合；
+重点展示情感倾向、关键词、命中维度和教学建议。
 
 界面设计遵循以下原则：
 
 \begin{itemize}
-  \item \textbf{任务导向：}导航包含首页概览、单条分析、批量分析、固定案例验证和模型评估五个入口；
-  \item \textbf{状态可见：}显示 BERT、TF-IDF 或规则模式，以及 LLM 是否使用本地兜底；
-  \item \textbf{结论分层：}先展示情感、置信度和风险，再展示课程维度、证据、相似评价和建议；
-  \item \textbf{降低输入成本：}内置中文、英文和中英混合示例，批量页面支持常见 CSV 字段；
-  \item \textbf{支持演示：}固定案例验证页面可以一键运行固定案例，模型评估页集中展示实验指标和当前运行状态。
+  \item \textbf{任务导向：}五个页面分别对应概览、单条输入、批量处理、演示验证和模型评估；
+  \item \textbf{状态可见：}页面显示 BERT、TF-IDF 或规则模式，以及 LLM 是否使用本地兜底；
+  \item \textbf{证据优先：}单条分析先展示情感倾向和置信度，再展示关键词、维度证据和教学建议；
+  \item \textbf{便于复核：}批量页保留典型认可评论、典型问题评论和逐条分析明细；
+  \item \textbf{支持演示：}固定案例页用于课堂演示流程验证，模型评估页展示离线指标和运行状态。
 \end{itemize}
 
-\subsection{评价分析页面}
+\subsection{首页概览}
 
-评价分析页面左侧为文本输入区，右侧为示例选择和建议生成开关。完成分析后，页面展示语言、情感
-标签、置信度和模型来源，并继续给出课程维度、关键词、原文证据、相似评价和教学改进建议。
+首页概览展示系统定位、当前模型状态、数据规模、支持输入方式和输出结果类型。
+当前页面将输出概括为四类：
+情感倾向、关键词、命中维度和教学建议。
+从评论文本到教学建议的流程见图~\ref{fig:ui-overview}。
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=0.64\textwidth]{ui-single-focus.png}
-  \caption{单条评价分析页面的输入区域、情感结论、置信度和模型来源}
+  \includegraphics[width=0.95\textwidth]{pages/overview.png}
+  \caption{首页概览中的系统状态、数据规模和处理流程}
+  \label{fig:ui-overview}
+\end{figure}
+
+\subsection{单条评价分析页面}
+
+单条分析页面提供中文、英文和中英混合三类示例。
+用户输入评价后，页面展示情感倾向、置信度、关键词数量和建议状态；
+随后给出命中维度、关键词标签、原文证据和教学改进建议。
+图~\ref{fig:ui-single} 展示了一条中文积极评价的分析结果。
+
+\begin{figure}[H]
+  \centering
+  \includegraphics[width=0.95\textwidth]{ui-single-focus.png}
+  \caption{单条评价分析页面的输入、情感倾向、维度证据和建议摘要}
   \label{fig:ui-single}
 \end{figure}
 
-\clearpage
-\subsection{批量分析页面}
+\subsection{批量评价分析页面}
 
-批量分析页面支持上传 CSV 或使用内置样本。分析后首先展示有效评价数量、正面占比、负面占比和
-首要课程维度，再展示情感分布、课程维度分布、高频关键词和逐条结果。分析明细可直接下载为 CSV，
-便于后续人工复核和归档。
+批量分析页面支持上传 CSV 或加载内置样本。
+页面先展示评论总数、积极反馈占比、待关注评论数量和主要关注维度；
+再展示情感分布、维度关注排行、高频问题关键词、高频问题维度和典型评论证据。
+分析明细可下载为 CSV，便于后续人工复核和归档。
+批量页的核心统计区域见图~\ref{fig:ui-batch}。
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=\textwidth]{ui-batch-focus.png}
-  \caption{批量评价分析页面的核心指标与分布统计}
+  \includegraphics[width=0.92\textwidth]{ui-batch-focus.png}
+  \caption{批量评价分析页面的概览指标、分布图和问题定位}
   \label{fig:ui-batch}
 \end{figure}
 
-\clearpage
 \subsection{固定案例验证与模型评估页面}
 
-固定案例验证页面用于一键运行 12 条固定案例，并显示通过数量、失败数量和逐条对比。模型评估页面
-展示传统模型、BERT、分语言指标、混淆矩阵、消融实验和当前运行状态，使演示中的模型结论能够
-与保存的实验文件一致。
+固定案例验证页面用于一键运行 12 条固定案例。
+页面显示测试用例预览、验证说明、通过案例、失败案例、通过率和逐条验证明细。
+模型评估页面展示最终实验主模型、测试集 Accuracy、Macro-F1、评估样本数、当前运行后端、
+BERT 权重状态、TF-IDF 模型状态、LLM 配置状态、模型对比表、混淆矩阵和分类报告。
+两个页面的主要结果区域见图~\ref{fig:ui-test-and-eval}。
 
 \begin{figure}[H]
   \centering
-  \includegraphics[width=\textwidth]{ui-test-focus.png}
-  \caption{固定案例验证页面的 12/12 通过结果与逐条对比}
-  \label{fig:ui-test}
+  \begin{subfigure}[t]{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{ui-test-focus.png}
+    \caption{固定案例验证结果}
+    \label{fig:ui-test}
+  \end{subfigure}
+  \hfill
+  \begin{subfigure}[t]{0.48\textwidth}
+    \centering
+    \includegraphics[width=\textwidth]{ui-evaluate-focus.png}
+    \caption{模型评估与运行状态}
+    \label{fig:ui-evaluate}
+  \end{subfigure}
+  \caption{固定案例验证与模型评估页面}
+  \label{fig:ui-test-and-eval}
 \end{figure}

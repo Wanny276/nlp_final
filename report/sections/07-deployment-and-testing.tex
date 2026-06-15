@@ -1,4 +1,3 @@
-% 建议负责人：负责工程部署、测试与实验复现的成员
 \section{系统部署与测试}
 
 \subsection{环境要求}
@@ -12,11 +11,11 @@
     \toprule
     项目 & 要求或说明 \\
     \midrule
-    操作系统 & Windows 10/11；Linux 与 macOS 也可运行 \\
+    操作系统 & Windows 10/11，本报告命令以 Windows PowerShell 为例 \\
     Python & 3.10 或以上版本 \\
     基础依赖 & Streamlit、Pandas、NumPy、jieba、scikit-learn、Matplotlib 等 \\
     BERT 依赖 & PyTorch、Transformers、Accelerate \\
-    硬件 & 基础功能可使用 CPU；BERT 推荐使用支持 CUDA 的 NVIDIA GPU \\
+    硬件 & 基础功能可使用 CPU；BERT 可在 CPU 上运行，CUDA GPU 主要用于加速 \\
     模型文件 & 传统模型约 1.3 MB；BERT 权重约 711 MB，需要单独携带或下载 \\
     可选服务 & ChatECNU API；未配置时自动使用本地建议模板 \\
     \bottomrule
@@ -32,17 +31,17 @@ Git 仓库保留 BERT 配置、Tokenizer、训练参数和评估指标，但不�
 \begin{enumerate}
   \item 在项目根目录创建并激活虚拟环境：
 
-\begin{verbatim}
+\begin{commandblock}
 python -m venv .venv
 .venv\Scripts\activate
-\end{verbatim}
+\end{commandblock}
 
   \item 安装基础依赖和 BERT 依赖：
 
-\begin{verbatim}
+\begin{commandblock}
 pip install -r requirements.txt
 pip install -r requirements-bert.txt
-\end{verbatim}
+\end{commandblock}
 
   \item 如需使用大语言模型建议，将 \code{.env.example} 复制为 \code{.env}，填写
         \code{LLM_API_KEY}、\code{LLM_BASE_URL} 和 \code{LLM_MODEL}。不配置 API 也不会影响
@@ -53,9 +52,9 @@ pip install -r requirements-bert.txt
 
   \item 启动应用：
 
-\begin{verbatim}
+\begin{commandblock}
 streamlit run app.py
-\end{verbatim}
+\end{commandblock}
 
   \item 浏览器访问 Streamlit 输出的本地地址，依次检查首页概览、单条分析、批量分析、固定案例
         验证和模型评估页面。
@@ -67,7 +66,7 @@ streamlit run app.py
 
 \begin{itemize}
   \item \code{app.py}：Streamlit 应用入口及五个功能页面；
-  \item \code{src/}：预处理、BERT 与传统模型推理、课程维度、关键词、相似评价和建议生成模块；
+  \item \code{src/}：预处理、BERT 与传统模型推理、课程维度、关键词和建议生成模块；
   \item \code{scripts/}：数据构建、消融实验、压力测试和报告图表生成脚本；
   \item \code{tests/} 与 \code{data/test_cases.csv}：自动测试和固定演示案例；
   \item \code{requirements.txt}、\code{requirements-bert.txt} 和
@@ -80,25 +79,25 @@ streamlit run app.py
 
 传统模型训练命令如下：
 
-\begin{verbatim}
+\begin{commandblock}
 python -m src.train_model ^
   --data data/processed/bilingual_reviews_train.csv ^
   --model-dir models
-\end{verbatim}
+\end{commandblock}
 
 BERT 训练命令如下：
 
-\begin{verbatim}
+\begin{commandblock}
 python -m src.train_bert ^
   --data data/processed/bilingual_reviews_train.csv ^
   --model-name bert-base-multilingual-cased ^
   --output-dir outputs/bert_model_final ^
   --metrics-path outputs/bert_metrics_final.json
-\end{verbatim}
+\end{commandblock}
 
 固定案例消融实验和独立压力测试分别使用：
 
-\begin{verbatim}
+\begin{commandblock}
 python scripts/run_ablation_experiment.py ^
   --cases data/test_cases.csv ^
   --output-dir outputs/reports/final_model ^
@@ -108,7 +107,7 @@ python scripts/run_stress_test.py ^
   --cases data/stress_test_cases.csv ^
   --output-dir outputs/reports/stress_test_final ^
   --model-dir models
-\end{verbatim}
+\end{commandblock}
 
 \subsection{测试策略}
 
@@ -116,7 +115,7 @@ python scripts/run_stress_test.py ^
 
 \begin{enumerate}
   \item \textbf{单元与集成测试：}覆盖文本清洗、语言识别、分词、情感标准化、长文本窗口、课程
-        维度证据、相似度、模型优先级、降级路径、LLM 本地兜底、数据脚本和页面数据格式。
+        维度证据、模型优先级、降级路径、LLM 本地兜底、数据脚本和页面数据格式。
   \item \textbf{固定案例：}12 条中英文课程评价，用于验证课堂演示中的情感和课程维度结果。
   \item \textbf{独立压力测试：}48 条复杂表达，用于观察缩写、拼写、否定、讽刺、中英混合和长
         文本下的泛化表现。
@@ -124,9 +123,9 @@ python scripts/run_stress_test.py ^
 
 单元测试运行命令为：
 
-\begin{verbatim}
+\begin{commandblock}
 python -m unittest discover -s tests
-\end{verbatim}
+\end{commandblock}
 
 \subsection{代表性测试用例与结果}
 
@@ -146,11 +145,11 @@ python -m unittest discover -s tests
   \midrule
   \endhead
   1 & 老师讲课很清楚，内容也很有用 &
-  正面 & 授课方式、教学内容 & 通过 \\
+  积极 & 授课方式、教学内容 & 通过 \\
   2 & 作业太多了，每周都做不完 &
-  负面 & 作业任务 & 通过 \\
+  消极 & 作业任务 & 通过 \\
   3 & 实验环境配置太复杂，经常报错 &
-  负面 & 实验实践 & 通过 \\
+  消极 & 实验实践 & 通过 \\
   4 & 课程内容不错，但是考试范围不太明确 &
   中性 & 教学内容、考试安排 & 通过 \\
   5 & 这门课难度比较大，但学完之后收获很多 &
@@ -158,20 +157,27 @@ python -m unittest discover -s tests
   6 & 希望老师能多给一些代码示例 &
   中性 & 实验实践、教学内容 & 通过 \\
   7 & The instructor explains concepts clearly and the examples are helpful &
-  正面 & 授课方式、学习收获 & 通过 \\
+  积极 & 授课方式、学习收获 & 通过 \\
   8 & The assignments are too many and the deadlines are stressful &
-  负面 & 作业任务 & 通过 \\
+  消极 & 作业任务 & 通过 \\
   \bottomrule
 \end{longtable}
 }
 
 \subsection{结果分析}
 
-固定案例中，TF-IDF 单独通过 7/12，BERT 单独通过 11/12，完整流程通过 12/12。该结果说明
-课堂演示流程能够稳定跑通，但由于固定案例包含较多典型规则表达，不能把 12/12 解释为整体泛化
-准确率。BERT 改善了英文上下文和中文短句的判断，规则校正进一步处理了“内容不错，但是考试范围
-不明确”等混合评价。
+固定案例中，TF-IDF 单独通过 7/12；
+BERT 单独通过 11/12；
+完整流程通过 12/12。
+该结果说明课堂演示流程能够稳定跑通。
+但由于固定案例包含较多典型规则表达，不能把 12/12 解释为整体泛化准确率。
+BERT 改善了英文上下文和中文短句的判断；
+规则校正进一步处理了“内容不错，但是考试范围不明确”等混合评价。
 
-48 条独立压力测试中，完整流程通过 34 条，Accuracy 为 0.7083，Macro-F1 为 0.7217。中英混合
-类别通过 6/6，缩写、拼写、否定和长文本类别均通过 5/6，说明针对噪声文本和长文本的设计有效。
-讽刺类别仅通过 1/6，是当前最主要的失败来源；因此报告不以固定案例满分替代独立测试结论。
+48 条独立压力测试中，完整流程通过 34 条。
+Accuracy 为 0.7083，Macro-F1 为 0.7217。
+中英混合类别通过 6/6；
+缩写、拼写、否定和长文本类别均通过 5/6。
+这说明针对噪声文本和长文本的设计有效。
+讽刺类别仅通过 1/6，是当前最主要的失败来源；
+因此报告不以固定案例满分替代独立测试结论。
