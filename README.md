@@ -81,18 +81,18 @@ python -m unittest discover -s tests
 情感后端相关配置：
 
 ```text
-SENTIMENT_BACKEND=auto
+SENTIMENT_BACKEND=AUTO
 BERT_MODEL_PATH=outputs/bert_model_final
-BERT_DEVICE=auto
+BERT_DEVICE=AUTO
 BERT_BATCH_SIZE=32
 BERT_MAX_LENGTH=160
 BERT_STRIDE=32
 BERT_MAX_CHUNKS=16
 ```
 
-`SENTIMENT_BACKEND` 可设为 `auto`、`bert`、`tfidf` 或 `rule`。`auto` 会按照
-BERT、TF-IDF、规则的顺序自动降级。`bert` 表示优先尝试 BERT；如果 BERT 权重、依赖或设备不可用，
-系统仍会安全降级，并在模型评估页展示实际运行后端。`BERT_DEVICE=auto` 会优先使用 CUDA，没有 GPU 时使用 CPU。
+`SENTIMENT_BACKEND` 可设为 `AUTO`、`BERT`、`TFIDF` 或 `RULE`。`AUTO` 会按照
+BERT、TF-IDF、规则的顺序自动降级。`BERT` 表示优先尝试 BERT；如果 BERT 权重、依赖或设备不可用，
+系统仍会安全降级，并在模型评估页展示实际运行后端。`BERT_DEVICE=AUTO` 会优先使用 CUDA，没有 GPU 时使用 CPU。
 
 仓库保留 BERT 配置、Tokenizer 和指标文件，但约 711 MB 的 `model.safetensors` 不提交到 Git。
 队友运行最终模型时，需要将权重单独放入 `outputs/bert_model_final/`，并设置上述

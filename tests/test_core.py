@@ -25,6 +25,9 @@ from app import (
     SAMPLE_REVIEWS,
     TEST_CASES,
     advice_card_html,
+    backend_display_name,
+    blue_header_table,
+    project_relative_path,
     classification_report_frame,
     collect_dimension_scores,
     confusion_matrix_chart,
@@ -797,6 +800,22 @@ class CorePipelineTest(unittest.TestCase):
         self.assertIn("box-shadow: 0 10px 24px rgba(5, 8, 35, 0.18)", APP_CSS)
         self.assertIn("white-space: nowrap;", APP_CSS)
         self.assertIn("letter-spacing: -0.01em;", APP_CSS)
+
+    def test_runtime_cards_use_normalized_backend_and_relative_paths(self):
+        self.assertEqual(backend_display_name("auto"), "AUTO")
+        self.assertEqual(backend_display_name("AUTO"), "AUTO")
+        self.assertEqual(project_relative_path(Path("outputs/bert_model_final")), "outputs/bert_model_final")
+        self.assertEqual(
+            project_relative_path(Path.cwd() / "outputs" / "bert_model_final"),
+            "outputs/bert_model_final",
+        )
+
+    def test_model_eval_table_style_uses_blue_header(self):
+        html = blue_header_table(pd.DataFrame({"Accuracy": [0.8]}), {"Accuracy": "{:.4f}"}).to_html()
+
+        self.assertIn("background-color: #174F8A", html)
+        self.assertIn("color: #FFFFFF", html)
+        self.assertIn("0.8000", html)
 
     def test_single_analysis_examples_cover_chinese_english_and_mixed_reviews(self):
         self.assertEqual(list(SAMPLE_REVIEWS), ["中文评价", "英文评价", "中英混合"])

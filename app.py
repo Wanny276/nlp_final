@@ -27,6 +27,7 @@ from src.nlp_analyzer import (
 from src.topic_analyzer import TOPIC_KEYWORDS
 
 
+PROJECT_ROOT = Path(__file__).resolve().parent
 SAMPLE_DATA = Path("data/sample_reviews.csv")
 TEST_CASES = Path("data/test_cases.csv")
 MODEL_METRICS = Path("models/model_metrics.json")
@@ -621,6 +622,31 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] div[role="radiogroup"] 
     font-size: 34px;
 }
 
+.runtime-status-grid {
+    display: grid;
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+    gap: 16px;
+    align-items: stretch;
+}
+
+.runtime-status-grid .metric-card {
+    min-height: 150px;
+    height: 100%;
+    display: flex;
+    flex-direction: column;
+    justify-content: space-between;
+}
+
+.runtime-status-grid .metric-value {
+    font-size: 32px;
+    white-space: normal;
+    overflow-wrap: anywhere;
+}
+
+.runtime-status-grid .metric-detail {
+    overflow-wrap: anywhere;
+}
+
 .home-info-grid {
     display: grid;
     grid-template-columns: repeat(3, minmax(0, 1fr));
@@ -1205,8 +1231,15 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] div[role="radiogroup"] 
     border-radius: var(--radius-control);
 }
 
+[data-testid="stTable"] {
+    overflow: hidden;
+    border: 1px solid #D9E8F8;
+    border-radius: var(--radius-control);
+}
+
 @media (max-width: 1000px) {
     .home-metric-grid,
+    .runtime-status-grid,
     .home-info-grid,
     .single-overview-grid,
     .analysis-summary-grid {
@@ -1234,6 +1267,7 @@ section[data-testid="stSidebar"] [data-testid="stRadio"] div[role="radiogroup"] 
     }
 
     .home-metric-grid,
+    .runtime-status-grid,
     .home-info-grid,
     .single-overview-grid,
     .analysis-summary-grid,
@@ -1438,7 +1472,7 @@ def display_model_name(name: object) -> str:
 def backend_display_name(name: object) -> str:
     normalized = str(name or "").strip().lower()
     labels = {
-        "auto": "auto（自动选择）",
+        "auto": "AUTO",
         "bert": "BERT",
         "tfidf": "TF-IDF",
         "rule": "规则",
@@ -1456,6 +1490,26 @@ def bert_runtime_status_label(bert: dict[str, Any]) -> str:
     if not bert.get("model_available"):
         return "权重未就绪"
     return "待加载"
+
+
+def project_relative_path(value: object) -> str:
+    text = str(value or "").strip()
+    if not text:
+        return "未配置路径"
+    path = Path(text)
+    if not path.is_absolute():
+        return path.as_posix()
+    try:
+        return path.resolve(strict=False).relative_to(PROJECT_ROOT).as_posix()
+    except ValueError:
+        return text
+
+
+def bert_runtime_status_detail(bert: dict[str, Any]) -> str:
+    error = str(bert.get("error") or "").strip()
+    if error:
+        return error
+    return project_relative_path(bert.get("model_path"))
 
 
 def tfidf_runtime_status_label(available: object) -> str:
@@ -1553,6 +1607,11 @@ def render_metric_card(
     detail: str,
 ) -> None:
     st.html(metric_card_html(icon, label, value, detail))
+
+
+def render_metric_grid(cards: list[tuple[str, str, object, str]], class_name: str = "runtime-status-grid") -> None:
+    cards_html = "".join(metric_card_html(*card) for card in cards)
+    st.html(f'<div class="{class_name}">{cards_html}</div>')
 
 
 def metric_card_html(icon: str, label: str, value: object, detail: str) -> str:
@@ -2349,16 +2408,13 @@ def render_batch_results(rows: list[dict[str, str]], results: list[dict[str, Any
     top_topic = next(iter(topics), "未识别到结果")
 
     render_section_title("批量概览")
-    metric_cols = st.columns(4)
     batch_metrics = [
         ("", "评论总数", count_with_unit(total, "条"), f"数据来源：{source_name}"),
         ("", "积极反馈占比", format_percent(positive_rate), "反映学生整体认可程度。"),
         ("", "待关注评论", count_with_unit(len(attention_results), "条"), "当前识别为消极的评价数量。"),
         ("", "主要关注维度", top_topic, "本批评价中被提及最多的教学维度。"),
     ]
-    for col, metric in zip(metric_cols, batch_metrics):
-        with col:
-            render_metric_card(*metric)
+    render_metric_grid(batch_metrics, "single-overview-grid")
 
     render_batch_summary(sentiments, topics, problem_topics)
 
@@ -2503,8 +2559,19 @@ def page_batch_analysis() -> None:
 
     preview = pd.DataFrame(rows)
     with st.container(border=True):
-        render_card_title("数据预览", "开始分析前可检查文本字段和课程信息。")
-        st.dataframe(preview.head(10), hide_index=True, width="stretch")
+        render_card_title("数据预览", f"共 {len(preview)} 条记录，开始分析前可检查文本字段和课程信息。")
+        preview_height = min(430, max(220, 64 + min(len(preview), 10) * 36))
+        st.dataframe(
+            preview,
+            hide_index=True,
+            width="stretch",
+            height=preview_height,
+            column_config={
+                column: st.column_config.TextColumn(column, width="large")
+                for column in ("review_text", "text")
+                if column in preview.columns
+            },
+        )
 
     key = dataset_key(rows)
     has_current_result = (
@@ -2606,16 +2673,13 @@ def page_test_cases() -> None:
     pass_rate = passed / total if total else 0
 
     render_section_title("验证结果")
-    metric_cols = st.columns(4)
     cards = [
         ("", "固定案例总数", count_with_unit(total, "条"), "本次参与验证的固定案例数量。"),
         ("", "通过案例", count_with_unit(passed, "条"), "情感与课程维度均符合预期。"),
         ("", "失败案例", count_with_unit(failed, "条"), "需要复核的案例数量。"),
         ("", "通过率", format_percent(pass_rate), "固定案例验证通过比例。"),
     ]
-    for col, card in zip(metric_cols, cards):
-        with col:
-            render_metric_card(*card)
+    render_metric_grid(cards, "single-overview-grid")
 
     with st.container(border=True):
         render_card_title("验证明细", "逐条展示预期结果、实际结果和判定说明。")
@@ -2749,6 +2813,44 @@ def confusion_matrix_frame(metrics: dict[str, Any]) -> pd.DataFrame:
     return pd.DataFrame(matrix, index=readable_labels, columns=readable_labels)
 
 
+def blue_header_table(frame: pd.DataFrame, formats: dict[str, str] | None = None) -> Any:
+    styler = frame.style.hide(axis="index").set_properties(
+        **{
+            "background-color": "#FFFFFF",
+            "color": "#12284A",
+            "border-color": "#D9E8F8",
+            "font-weight": "500",
+        }
+    )
+    styler = styler.set_table_styles(
+        [
+            {
+                "selector": "th",
+                "props": [
+                    ("background-color", "#174F8A"),
+                    ("color", "#FFFFFF"),
+                    ("font-weight", "700"),
+                    ("border-color", "#174F8A"),
+                    ("text-align", "center"),
+                ],
+            },
+            {
+                "selector": "td",
+                "props": [
+                    ("border-color", "#D9E8F8"),
+                    ("text-align", "center"),
+                ],
+            },
+            {
+                "selector": "tbody tr:nth-child(even) td",
+                "props": [("background-color", "#F8FBFF")],
+            },
+        ],
+        overwrite=False,
+    )
+    return styler.format(formats or {}, na_rep="待补充")
+
+
 def confusion_matrix_chart(matrix_frame: pd.DataFrame) -> alt.Chart:
     if matrix_frame.empty:
         return alt.Chart(pd.DataFrame(columns=["真实类别", "预测类别", "数量"])).mark_rect()
@@ -2790,7 +2892,7 @@ def confusion_matrix_chart(matrix_frame: pd.DataFrame) -> alt.Chart:
             ),
         ),
     )
-    heatmap = base.mark_rect(cornerRadius=6, stroke="#F7F4FF", strokeWidth=2).encode(
+    heatmap = base.mark_rect(cornerRadius=6, stroke="#EAF3FC", strokeWidth=2).encode(
         color=alt.Color(
             "数量:Q",
             scale=alt.Scale(
@@ -2865,7 +2967,7 @@ def model_metric_chart(frame: pd.DataFrame) -> alt.Chart:
                 format=".0%",
                 tickCount=5,
                 grid=True,
-                gridColor="#E8E4F2",
+                gridColor="#D9E8F8",
                 labelColor=CHART_COLORS["muted"],
                 domain=False,
                 ticks=False,
@@ -2915,7 +3017,6 @@ def page_model_eval() -> None:
     )
 
     model_name, metrics = current_eval_metrics()
-    metric_cols = st.columns(4)
     support_total = classification_support_total(metrics)
     cards = [
         ("", "最终实验主模型", model_name, "离线测试集上的主模型结果。"),
@@ -2923,9 +3024,7 @@ def page_model_eval() -> None:
         ("", "Macro-F1", format_decimal(macro_f1_value(metrics)), "三类情感分类的宏平均 F1。"),
         ("", "评估样本", count_with_unit(support_total, "条") if support_total else "缺少数据", "分类报告中的测试样本数。"),
     ]
-    for col, card in zip(metric_cols, cards):
-        with col:
-            render_metric_card(*card)
+    render_metric_grid(cards, "single-overview-grid")
 
     runtime = load_backend()["runtime_status"]()
     bert = runtime.get("bert", {}) if isinstance(runtime.get("bert"), dict) else {}
@@ -2933,16 +3032,11 @@ def page_model_eval() -> None:
     runtime_cards = [
         ("", "配置后端", backend_display_name(runtime.get("configured_backend")), "来自 SENTIMENT_BACKEND。"),
         ("", "实际运行后端", backend_display_name(runtime.get("active_backend")), "本机当前推理会调用的后端。"),
-        ("", "BERT 权重状态", bert_runtime_status_label(bert), str(bert.get("error") or bert.get("model_path") or "未配置路径")),
+        ("", "BERT 权重状态", bert_runtime_status_label(bert), bert_runtime_status_detail(bert)),
         ("", "TF-IDF 模型状态", tfidf_runtime_status_label(runtime.get("tfidf_available")), "检查模型与向量器文件。"),
         ("", "LLM 配置状态", "已配置" if llm_is_configured(current_env_version()) else "未配置", "只影响教学建议生成。"),
     ]
-    for col, card in zip(st.columns(3), runtime_cards[:3]):
-        with col:
-            render_metric_card(*card)
-    for col, card in zip(st.columns(2), runtime_cards[3:]):
-        with col:
-            render_metric_card(*card)
+    render_metric_grid(runtime_cards)
 
     render_section_title("模型对比表")
     comparison = model_comparison_frame()
@@ -2952,14 +3046,14 @@ def page_model_eval() -> None:
             st.info("缺少评估文件：当前未找到模型对比指标。")
         else:
             st.altair_chart(model_metric_chart(comparison), width="stretch")
-            st.dataframe(
-                comparison,
-                hide_index=True,
-                width="stretch",
-                column_config={
-                    "Accuracy": st.column_config.NumberColumn("Accuracy", format="%.4f"),
-                    "Macro-F1": st.column_config.NumberColumn("Macro-F1", format="%.4f"),
-                },
+            st.table(
+                blue_header_table(
+                    comparison,
+                    {
+                        "Accuracy": "{:.4f}",
+                        "Macro-F1": "{:.4f}",
+                    },
+                )
             )
 
     render_section_title("混淆矩阵与分类报告")
@@ -2980,16 +3074,16 @@ def page_model_eval() -> None:
             if report_frame.empty:
                 st.info("缺少评估文件：当前未找到可展示的分类报告。")
             else:
-                st.dataframe(
-                    report_frame,
-                    hide_index=True,
-                    width="stretch",
-                    column_config={
-                        "Precision": st.column_config.NumberColumn("Precision", format="%.4f"),
-                        "Recall": st.column_config.NumberColumn("Recall", format="%.4f"),
-                        "F1-score": st.column_config.NumberColumn("F1-score", format="%.4f"),
-                        "Support": st.column_config.NumberColumn("Support", format="%.0f"),
-                    },
+                st.table(
+                    blue_header_table(
+                        report_frame,
+                        {
+                            "Precision": "{:.4f}",
+                            "Recall": "{:.4f}",
+                            "F1-score": "{:.4f}",
+                            "Support": "{:.0f}",
+                        },
+                    )
                 )
 
     render_section_title("模型选择说明")
@@ -3018,7 +3112,18 @@ def page_model_eval() -> None:
                 }
                 for name, values in ablation_metrics.get("experiments", {}).items()
             ]
-            st.dataframe(pd.DataFrame(rows), hide_index=True, width="stretch")
+            ablation_frame = pd.DataFrame(rows)
+            st.table(
+                blue_header_table(
+                    ablation_frame,
+                    {
+                        "Accuracy": "{:.4f}",
+                        "Macro-F1": "{:.4f}",
+                        "通过数": "{:.0f}",
+                        "失败数": "{:.0f}",
+                    },
+                )
+            )
 
 
 def main() -> None:
