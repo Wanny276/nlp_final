@@ -1916,6 +1916,61 @@ def dataset_key(rows: list[dict[str, str]]) -> str:
     return hashlib.md5(payload.encode("utf-8")).hexdigest()
 
 
+def uploaded_file_identity(uploaded_file: Any) -> str | None:
+    if uploaded_file is None:
+        return None
+    data = uploaded_file.getvalue()
+    name = str(getattr(uploaded_file, "name", "") or "uploaded.csv")
+    return f"{name}:{len(data)}:{hashlib.md5(data).hexdigest()}"
+
+
+def batch_upload_widget_key(reset_count: int) -> str:
+    return f"batch_upload_{max(0, int(reset_count))}"
+
+
+def next_batch_upload_reset_count(current_count: int, confirmed_sample_load: bool) -> int:
+    if confirmed_sample_load:
+        return max(0, int(current_count)) + 1
+    return max(0, int(current_count))
+
+
+def resolve_batch_input_mode(
+    uploaded_key: str | None,
+    previous_upload_key: str | None,
+    current_mode: str | None,
+    sample_requested: bool,
+    has_sample_rows: bool,
+) -> tuple[str, str | None]:
+    if sample_requested:
+        return "sample", uploaded_key
+
+    if uploaded_key:
+        if uploaded_key != previous_upload_key:
+            return "upload", uploaded_key
+        if current_mode == "sample" and has_sample_rows:
+            return "sample", uploaded_key
+        return "upload", uploaded_key
+
+    if has_sample_rows:
+        return "sample", None
+    return "", None
+
+
+def resolve_sample_load_confirmation(
+    request_clicked: bool,
+    confirm_clicked: bool,
+    cancel_clicked: bool,
+    pending: bool,
+) -> tuple[bool, bool, bool]:
+    if confirm_clicked and pending:
+        return False, True, True
+    if cancel_clicked and pending:
+        return False, False, True
+    if request_clicked:
+        return True, False, False
+    return pending, False, False
+
+
 def collect_dimension_scores(result: dict[str, Any]) -> dict[str, float]:
     for key in ("dimension_scores", "aspect_scores", "topic_scores"):
         values = result.get(key)
@@ -2536,16 +2591,73 @@ def page_batch_analysis() -> None:
     uploaded_file = None
     rows: list[dict[str, str]] = []
     source_name = ""
+    upload_reset_count = int(st.session_state.get("batch_upload_reset_count", 0) or 0)
     with st.container(border=True):
         render_card_title("上传区", "CSV 需包含评价文本字段，支持 review_text、text、review、comment、content 等常见列名。")
-        uploaded_file = st.file_uploader("上传 CSV", type=["csv"])
-        load_sample = st.button("加载示例数据", width="stretch")
-        if load_sample:
+        uploaded_file = st.file_uploader(
+            "上传 CSV",
+            type=["csv"],
+            key=batch_upload_widget_key(upload_reset_count),
+        )
+        sample_request_clicked = st.button("加载示例数据", width="stretch")
+        sample_pending, confirm_load_sample, close_sample_confirm = resolve_sample_load_confirmation(
+            request_clicked=sample_request_clicked,
+            confirm_clicked=False,
+            cancel_clicked=False,
+            pending=bool(st.session_state.get("batch_sample_confirm_pending")),
+        )
+        st.session_state["batch_sample_confirm_pending"] = sample_pending
+
+        if sample_pending:
+            render_notice(
+                "确认加载示例数据",
+                "加载后会清空当前上传区的 CSV，并切换为项目示例数据；如需分析原文件，请重新上传。",
+                "warning",
+            )
+            confirm_col, cancel_col = st.columns(2, gap="small")
+            with confirm_col:
+                confirm_clicked = st.button(
+                    "确认加载示例数据",
+                    type="primary",
+                    width="stretch",
+                    key="batch_sample_confirm",
+                )
+            with cancel_col:
+                cancel_clicked = st.button("取消", width="stretch", key="batch_sample_cancel")
+            sample_pending, confirm_load_sample, close_sample_confirm = resolve_sample_load_confirmation(
+                request_clicked=False,
+                confirm_clicked=confirm_clicked,
+                cancel_clicked=cancel_clicked,
+                pending=sample_pending,
+            )
+            st.session_state["batch_sample_confirm_pending"] = sample_pending
+
+        if confirm_load_sample:
             st.session_state["batch_sample_rows"] = normalize_project_rows(load_sample_rows())
             st.session_state["batch_sample_source"] = "项目示例数据"
-            st.rerun()
+            st.session_state["batch_upload_reset_count"] = next_batch_upload_reset_count(
+                upload_reset_count,
+                confirmed_sample_load=True,
+            )
 
-    if uploaded_file is not None:
+    sample_rows = st.session_state.get("batch_sample_rows", [])
+    upload_key = uploaded_file_identity(uploaded_file)
+    input_mode, tracked_upload_key = resolve_batch_input_mode(
+        uploaded_key=upload_key,
+        previous_upload_key=st.session_state.get("batch_upload_key"),
+        current_mode=st.session_state.get("batch_input_mode"),
+        sample_requested=confirm_load_sample,
+        has_sample_rows=bool(sample_rows),
+    )
+    st.session_state["batch_input_mode"] = input_mode
+    if tracked_upload_key:
+        st.session_state["batch_upload_key"] = tracked_upload_key
+    else:
+        st.session_state.pop("batch_upload_key", None)
+    if close_sample_confirm:
+        st.rerun()
+
+    if input_mode == "upload" and uploaded_file is not None:
         try:
             rows = load_uploaded_rows(uploaded_file)
             source_name = uploaded_file.name
@@ -2555,8 +2667,8 @@ def page_batch_analysis() -> None:
         except Exception as exc:
             st.error("CSV 读取失败，请确认文件编码为 UTF-8 或 GB18030，并包含评价文本字段。")
             return
-    else:
-        rows = st.session_state.get("batch_sample_rows", [])
+    elif input_mode == "sample":
+        rows = sample_rows
         source_name = st.session_state.get("batch_sample_source", "")
 
     if not rows:

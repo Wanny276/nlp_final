@@ -17,6 +17,7 @@ logging.getLogger("streamlit.runtime.caching.cache_data_api").setLevel(logging.E
 logging.getLogger("streamlit").setLevel(logging.ERROR)
 cache_data_api._LOGGER.setLevel(logging.ERROR)
 
+import app as course_app
 from app import (
     ABLATION_METRICS,
     APP_CSS,
@@ -1035,6 +1036,73 @@ class CorePipelineTest(unittest.TestCase):
         frame = read_uploaded_csv(uploaded)
 
         self.assertEqual(frame.loc[0, "review_text"], "老师讲解清楚")
+
+    def test_batch_source_selection_lets_sample_override_existing_upload(self):
+        selector = getattr(course_app, "resolve_batch_input_mode", None)
+        self.assertTrue(callable(selector))
+
+        self.assertEqual(
+            selector(
+                uploaded_key="existing-upload",
+                previous_upload_key="existing-upload",
+                current_mode="upload",
+                sample_requested=True,
+                has_sample_rows=True,
+            ),
+            ("sample", "existing-upload"),
+        )
+        self.assertEqual(
+            selector(
+                uploaded_key="new-upload",
+                previous_upload_key="existing-upload",
+                current_mode="sample",
+                sample_requested=False,
+                has_sample_rows=True,
+            ),
+            ("upload", "new-upload"),
+        )
+
+    def test_sample_load_confirmation_requires_second_click(self):
+        resolver = getattr(course_app, "resolve_sample_load_confirmation", None)
+        self.assertTrue(callable(resolver))
+
+        self.assertEqual(
+            resolver(
+                request_clicked=True,
+                confirm_clicked=False,
+                cancel_clicked=False,
+                pending=False,
+            ),
+            (True, False, False),
+        )
+        self.assertEqual(
+            resolver(
+                request_clicked=False,
+                confirm_clicked=True,
+                cancel_clicked=False,
+                pending=True,
+            ),
+            (False, True, True),
+        )
+        self.assertEqual(
+            resolver(
+                request_clicked=False,
+                confirm_clicked=False,
+                cancel_clicked=True,
+                pending=True,
+            ),
+            (False, False, True),
+        )
+
+    def test_confirming_sample_load_resets_upload_widget_key(self):
+        next_count = getattr(course_app, "next_batch_upload_reset_count", None)
+        widget_key = getattr(course_app, "batch_upload_widget_key", None)
+        self.assertTrue(callable(next_count))
+        self.assertTrue(callable(widget_key))
+
+        self.assertEqual(next_count(3, confirmed_sample_load=False), 3)
+        self.assertEqual(next_count(3, confirmed_sample_load=True), 4)
+        self.assertEqual(widget_key(4), "batch_upload_4")
 
     def test_fixed_case_topics_use_subset_rule(self):
         self.assertEqual(parse_expected_topics("教学内容;考试安排；作业任务"), {"教学内容", "考试安排", "作业任务"})
